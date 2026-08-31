@@ -11,6 +11,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "NamelessTal.h"
+#include "TalBase.h"
 
 ANamelessTalCharacter::ANamelessTalCharacter()
 {
@@ -130,4 +131,24 @@ void ANamelessTalCharacter::DoJumpEnd()
 {
 	// signal the character to stop jumping
 	StopJumping();
+}
+
+void ANamelessTalCharacter::EquipTal(ATalBase* NewTal)
+{
+	if (!NewTal) return;
+
+	CurrentTal = NewTal;
+
+	CurrentTal->SetOwner(this);
+
+	CurrentTal->AttachToComponent(
+		GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		TEXT("TalSocket")
+	);
+}
+
+ATalBase* ANamelessTalCharacter::GetCurrentTal() const
+{
+	return CurrentTal;
 }

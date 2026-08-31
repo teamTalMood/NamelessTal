@@ -11,6 +11,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
+class ATalBase;//탈 전방선언
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
@@ -49,15 +50,26 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* MouseLookAction;
 
+	//탈 추가
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal")
+	TSubclassOf<ATalBase> DefaultTalClass;
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
+	TObjectPtr<ATalBase> CurrentTal;
+
 public:
 
 	/** Constructor */
 	ANamelessTalCharacter();	
 
+	//탈 관련 함수
+	void EquipTal(ATalBase* NewTal);
+	ATalBase* GetCurrentTal() const;
+
 protected:
 
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
 
 protected:
 

@@ -39,6 +39,6 @@ protected:
 	ETalStyle TalStyle = ETalStyle::Default;
 
 	//기본 공격 애니메이션
-	UPROPERTY(EditDefaultOnly, BlueprintReadOnly, Category = "Tal|Animation")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|Animation")
 	TObjectPtr<UAnimMontage> AttackMontage;
 };
