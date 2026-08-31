@@ -4,10 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "NPC/Interface/NTNPCCharacterBaseInterface.h"
 #include "NTNPCCharacterBase.generated.h"
 
 UCLASS()
-class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter
+class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface
 {
 	GENERATED_BODY()
 
@@ -25,5 +26,14 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+//INTNPCCharacterBaseInterface override
+public:
+	virtual float GetAIPatrolRadius() override;
+	virtual float GetAIDetectRange() override;
+	virtual float GetAIAttackRange() override;
+	virtual float GetAITurnSpeed() override;
+	virtual void AttackByAI() override;
+	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
 
 };
