@@ -135,12 +135,16 @@ void ANamelessTalCharacter::DoJumpEnd()
 
 void ANamelessTalCharacter::EquipTal(ATalBase* NewTal)
 {
-	if (!NewTal) return;
+	if (!NewTal) return; //널처리
 
+	if (CurrentTal && CurrentTal != NewTal)//기존 탈 제거
+	{
+		CurrentTal->Destroy();
+	}
+
+	//탈바꿈
 	CurrentTal = NewTal;
-
 	CurrentTal->SetOwner(this);
-
 	CurrentTal->AttachToComponent(
 		GetMesh(),
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
@@ -150,5 +154,38 @@ void ANamelessTalCharacter::EquipTal(ATalBase* NewTal)
 
 ATalBase* ANamelessTalCharacter::GetCurrentTal() const
 {
+	if (!CurrentTal) return NULL; //널처리
+
 	return CurrentTal;
+}
+
+void ANamelessTalCharacter::BeginPlay()//캐릭터 생성시 
+{
+	Super::BeginPlay();
+
+	if (DefaultTalClass)
+	{
+		ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(DefaultTalClass);
+
+		EquipTal(NewTal);
+	}
+	//3초후 테스트용 탈로 교체
+	FTimerHandle TestTimer;
+
+	GetWorldTimerManager().SetTimer(
+		TestTimer,
+		this,
+		&ANamelessTalCharacter::TestChangeTal,
+		3.0f,
+		false
+	);
+}
+
+void ANamelessTalCharacter::TestChangeTal()
+{
+	if (!TestTalClass) return;
+
+	ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(TestTalClass);
+
+	EquipTal(NewTal);
 }

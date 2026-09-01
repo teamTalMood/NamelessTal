@@ -55,6 +55,8 @@ protected:
 	TSubclassOf<ATalBase> DefaultTalClass;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
 	TObjectPtr<ATalBase> CurrentTal;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|Test")//탈바꿈 테스트용
+	TSubclassOf<ATalBase> TestTalClass;
 
 public:
 
@@ -64,12 +66,13 @@ public:
 	//탈 관련 함수
 	void EquipTal(ATalBase* NewTal);
 	ATalBase* GetCurrentTal() const;
+	void TestChangeTal();
 
 protected:
 
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+	virtual void BeginPlay() override;
 
 protected:
 
