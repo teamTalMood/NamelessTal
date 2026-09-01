@@ -2,6 +2,7 @@
 
 
 #include "NPC/BTDecorator/NTBTD_AttackInRange.h"
+#include "MCLOG.h"
 #include "NPC/NTAIParams.h"
 #include "AIController.h"
 #include "BehaviorTree/BlackboardComponent.h"
@@ -14,6 +15,8 @@ UNTBTD_AttackInRange::UNTBTD_AttackInRange()
 
 bool UNTBTD_AttackInRange::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	bool bResult = Super::CalculateRawConditionValue(OwnerComp, NodeMemory);
 
 	APawn* ControllingPawn = OwnerComp.GetAIOwner()->GetPawn();
@@ -37,5 +40,8 @@ bool UNTBTD_AttackInRange::CalculateRawConditionValue(UBehaviorTreeComponent& Ow
 	float DistanceToTarget = ControllingPawn->GetDistanceTo(Target);
 	float AttackRangeWithRadius = AIPawn->GetAIAttackRange();
 	bResult = (DistanceToTarget <= AttackRangeWithRadius);
+
+	MC_LOG(LogMC, Log, TEXT("End : %d - DistanceToTarget : %f | AttackRangeWithRadius : %f"), bResult, DistanceToTarget, AttackRangeWithRadius);
+
 	return bResult;
 }

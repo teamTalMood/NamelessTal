@@ -27,7 +27,7 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-//INTNPCCharacterBaseInterface override
+// INTNPCCharacterBaseInterface override
 public:
 	virtual float GetAIPatrolRadius() override;
 	virtual float GetAIDetectRange() override;
@@ -35,5 +35,12 @@ public:
 	virtual float GetAITurnSpeed() override;
 	virtual void AttackByAI() override;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
+
+// Attack
+private:
+	void AttackHitCheck();
+
+private:
+	FAICharacterAttackFinished OnAICharacterAttackFinished;
 
 };

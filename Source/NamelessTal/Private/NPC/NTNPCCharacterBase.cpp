@@ -48,12 +48,12 @@ float ANTNPCCharacterBase::GetAIPatrolRadius()
 
 float ANTNPCCharacterBase::GetAIDetectRange()
 {
-	return 0.0f;
+	return 400.0f;
 }
 
 float ANTNPCCharacterBase::GetAIAttackRange()
 {
-	return 10.0f;
+	return 100.0f;
 }
 
 float ANTNPCCharacterBase::GetAITurnSpeed()
@@ -63,9 +63,48 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	AttackHitCheck();
 }
 
 void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
 {
+	OnAICharacterAttackFinished = InOnAttackFinished;
+}
+
+void ANTNPCCharacterBase::AttackHitCheck()
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	FHitResult OutHitResult;
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(Attack), false, this);
+
+	const float AttackRange = 40.0f;
+	const float AttackRadius = 50.0f;
+	const float AttackDamage = 30.0f;
+	const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
+	const FVector End = Start + GetActorForwardVector() * AttackRange;
+
+	bool HitDetected = GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeSphere(AttackRadius), Params);
+	if (HitDetected)
+	{
+
+	}
+	MC_LOG(LogMC, Log, TEXT("HitDetected : %d"), HitDetected);
+
+#if ENABLE_DRAW_DEBUG
+
+	FVector CapsuleOrigin = Start + (End - Start) * 0.5f;
+	float CapsuleHalfHeight = AttackRange * 0.5f;
+	FColor DrawColor = HitDetected ? FColor::Green : FColor::Red;
+
+	DrawDebugCapsule(GetWorld(), CapsuleOrigin, CapsuleHalfHeight, AttackRadius, FRotationMatrix::MakeFromZ(GetActorForwardVector()).ToQuat(), DrawColor, false, 5.0f);
+
+#endif
+
+	OnAICharacterAttackFinished.ExecuteIfBound();
+
+	MC_LOG(LogMC, Log, TEXT("End"));
 }
 
