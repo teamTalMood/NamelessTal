@@ -1,0 +1,150 @@
+﻿// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "TalPlayerCharacter.generated.h"
+
+class UAnimMontage;
+class USpringArmComponent;
+class UCameraComponent;
+class UInputMappingContext;
+class UInputAction;
+struct FInputActionValue;
+class UStaticMeshComponent;
+class UCapsuleComponent;
+
+/**
+ * 
+ */
+UCLASS()
+class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+public:
+	ATalPlayerCharacter();
+
+protected: // CameraBoom , Follow Camera ( 카메라 암, 카메라 )
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
+
+
+protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레이어 이동 , 카메라 이동 마우스 사용)
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputMappingContext* DefaultMappingContext;
+	
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* MoveAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* LookAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input") // Sword Attack Input
+	UInputAction* SwordAttackAction;
+
+public: // Use Roll Dodge Input
+	virtual void Tick(float DeltaTime) override;
+
+	FORCEINLINE bool IsDodging() const { return bIsDodging; }
+
+protected: // Roll Dodge Input (회피 입력)
+	UPROPERTY(EditAnywhere, Category= "Input")
+	UInputAction* DodgeAction;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage;
+
+	bool bIsInvincible = false;
+	bool bIsMoving = false;
+	bool bIsDodging = false;
+
+
+	FVector LastMoveInputWorldDir = FVector::ForwardVector;
+	FVector DodgeDir = FVector::ZeroVector;
+
+	FTimerHandle DodgeTimerHandle;
+
+	
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	float DodgeRotationSpeed = 540.0f;
+	// Roll Dodge Input Function (Speed)
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	float NormalRotationInterpSpeed = 10.0f;
+
+	void StartDodge(const FInputActionValue& Value);
+	void EndDodge();
+
+protected: // Player Move and use CameraMovement use Mouse 
+	//(플레이어 이동, 카메라 이동 마우스 사용)
+	void Move(const FInputActionValue& Value);
+
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void NotifyControllerChanged() override;
+
+	void Look(const FInputActionValue& Value);
+
+
+public: // Property Camera (카메라 속성)
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
+	
+
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Input")
+	float WalkSpeed = 500.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	float SprintSpeed = 800.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	float SpeedInterpSpeed = 100.0f;
+
+	bool bIsSprinting = false;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* SprintAction;
+
+	void StartSprint(const FInputActionValue& Value);
+	void StopSprint(const FInputActionValue& Value);
+
+	
+
+protected: // Weapon 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon" , meta = (AllowPrivateAccess = "true"))
+	UStaticMeshComponent* WeaponMesh;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
+	UCapsuleComponent* WeaponCollision;
+
+protected: // Attack
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	UAnimMontage* AttackMontage;
+
+	void Attack(const FInputActionValue& Value);
+
+public : // 무기 콜리젼 조절하는곳
+	void EnableWeaponCollision();
+	void DisableWeaponCollision();
+	
+protected: 
+	UFUNCTION() // 무기 콜리전이 겹칠 때 호출
+	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	// 한번 공격시 줄 데미지 양, 에디터에서 조절
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float AttackDamage = 10.0f;
+
+	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
+	// 콜리전 켜지면 비워주고 맞으면 추가해준다
+	TArray<AActor*> HitActors;
+
+};
