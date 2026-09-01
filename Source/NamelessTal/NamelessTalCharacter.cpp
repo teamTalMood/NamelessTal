@@ -13,6 +13,9 @@
 #include "NamelessTal.h"
 #include "TalBase.h"
 
+#include "InputAction.h"
+#include "DrawDebugHelpers.h"
+
 ANamelessTalCharacter::ANamelessTalCharacter()
 {
 	// Set size for collision capsule
@@ -57,15 +60,17 @@ void ANamelessTalCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
 		
 		// Jumping
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction,		ETriggerEvent::Started  , this, &ACharacter::Jump				);
+		EnhancedInputComponent->BindAction(JumpAction,		ETriggerEvent::Completed, this, &ACharacter::StopJumping		);
 
 		// Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ANamelessTalCharacter::Move);
-		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &ANamelessTalCharacter::Look);
+		EnhancedInputComponent->BindAction(MoveAction,		ETriggerEvent::Triggered, this, &ANamelessTalCharacter::Move	);
+		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &ANamelessTalCharacter::Look	);
 
 		// Looking
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ANamelessTalCharacter::Look);
+		EnhancedInputComponent->BindAction(LookAction,		ETriggerEvent::Triggered, this, &ANamelessTalCharacter::Look    );
+
+		EnhancedInputComponent->BindAction(TalAction,		ETriggerEvent::Started  , this, &ANamelessTalCharacter::Interact);
 	}
 	else
 	{
@@ -137,11 +142,6 @@ void ANamelessTalCharacter::EquipTal(ATalBase* NewTal)
 {
 	if (!NewTal) return; //널처리
 
-	if (CurrentTal && CurrentTal != NewTal)//기존 탈 제거
-	{
-		CurrentTal->Destroy();
-	}
-
 	//탈바꿈
 	CurrentTal = NewTal;
 	CurrentTal->SetOwner(this);
@@ -169,23 +169,118 @@ void ANamelessTalCharacter::BeginPlay()//캐릭터 생성시
 
 		EquipTal(NewTal);
 	}
-	//3초후 테스트용 탈로 교체
-	FTimerHandle TestTimer;
-
-	GetWorldTimerManager().SetTimer(
-		TestTimer,
-		this,
-		&ANamelessTalCharacter::TestChangeTal,
-		3.0f,
-		false
-	);
 }
 
-void ANamelessTalCharacter::TestChangeTal()
+ATalBase* ANamelessTalCharacter::UnequipTal()
 {
-	if (!TestTalClass) return;
+	if (!CurrentTal) return nullptr;
 
-	ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(TestTalClass);
+	ATalBase* OldTal = CurrentTal;
+	CurrentTal = nullptr;
+	OldTal->DetachFromActor(
+		FDetachmentTransformRules::KeepWorldTransform
+	);
 
-	EquipTal(NewTal);
+	OldTal->SetOwner(nullptr);
+
+	return OldTal;
+}
+
+void ANamelessTalCharacter::TakeTalFrom(ANamelessTalCharacter* TargetCharacter)
+{
+	if (!TargetCharacter || TargetCharacter == this) return;
+	if (!TargetCharacter->GetCurrentTal())			 return;
+
+	ATalBase* TakenTal = TargetCharacter->UnequipTal();
+	if (!TakenTal) return;
+
+	ATalBase* MyOldTal = UnequipTal();
+	if (MyOldTal) MyOldTal->K2_DestroyActor();
+
+	EquipTal(TakenTal);
+}
+
+void ANamelessTalCharacter::Interact()
+{
+	if (!FollowCamera) return;
+
+	//카메라 위치
+	const FVector Start = FollowCamera->GetComponentLocation();
+
+	const FVector End = Start + FollowCamera->GetForwardVector() * 1000.0f;
+
+	FHitResult HitResult;
+
+	FCollisionQueryParams QueryParams;
+
+	//자기 자신은 검사하지 않음
+	QueryParams.AddIgnoredActor(this);
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		Start,
+		End,
+		ECC_Visibility,
+		QueryParams
+	);
+
+	if (!bHit)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("아무것도 못 맞춤..")); return;
+	}
+
+	AActor* HitActor = HitResult.GetActor();
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("Hit Actor = %s / Class = %s"),
+		*GetNameSafe(HitActor),
+		*GetNameSafe(HitActor ? HitActor->GetClass() : nullptr)
+	);
+
+	//확인용 선
+	DrawDebugLine(
+		GetWorld(),
+		Start,
+		End,
+		bHit ? FColor::Green : FColor::Red,
+		false,
+		2.0f,
+		0,
+		2.0f
+	);
+	ANamelessTalCharacter* TargetCharacter = Cast<ANamelessTalCharacter>(HitResult.GetActor());
+
+	if (!TargetCharacter)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("맞긴했는데 캐릭터 아님!"));
+		return;
+	}
+
+
+
+
+
+
+	//플레이어와 상대 캐릭터 사이 거리
+	const float Distance = FVector::Dist(GetActorLocation(), TargetCharacter->GetActorLocation());
+
+
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("Target Distance: %f"),
+		Distance
+	);
+
+	// 300cm보다 멀면 상호작용 불가능
+	if (Distance > InteractionDistance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("너무 멀다"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("탈 강탈 가능!"));
+	TakeTalFrom(TargetCharacter);
+
 }

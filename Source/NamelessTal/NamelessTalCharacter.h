@@ -50,13 +50,17 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* MouseLookAction;
 
+	//F 상호작용 - 탈바꿈
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* TalAction;
+
 	//탈 추가
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
 	TObjectPtr<ATalBase> CurrentTal;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|Test")//탈바꿈 테스트용
-	TSubclassOf<ATalBase> TestTalClass;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")//탈바꿈 테스트용
+	float InteractionDistance = 300.0f;
 
 public:
 
@@ -64,15 +68,17 @@ public:
 	ANamelessTalCharacter();	
 
 	//탈 관련 함수
-	void EquipTal(ATalBase* NewTal);
-	ATalBase* GetCurrentTal() const;
-	void TestChangeTal();
+	void EquipTal(ATalBase* NewTal);// 탈 착용
+	ATalBase* GetCurrentTal() const;// 현재 탈 반환
+	ATalBase* UnequipTal();//탈 벗고 반환
+	void TakeTalFrom(ANamelessTalCharacter* TargetCharacter);//탈바꿈
 
 protected:
 
 	/** Initialize input action bindings */
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void BeginPlay() override;
+	void Interact();//탈바꿈
 
 protected:
 
