@@ -6,6 +6,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "NPC/NTAIController.h"
+#include "Animation/AnimMontage.h"
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
@@ -65,6 +66,7 @@ void ANTNPCCharacterBase::AttackByAI()
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
+	ProcessComboCommand();
 	AttackHitCheck();
 }
 
@@ -106,5 +108,13 @@ void ANTNPCCharacterBase::AttackHitCheck()
 	OnAICharacterAttackFinished.ExecuteIfBound();
 
 	MC_LOG(LogMC, Log, TEXT("End"));
+}
+
+void ANTNPCCharacterBase::ProcessComboCommand()
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(ComboAttackMontage);
 }
 

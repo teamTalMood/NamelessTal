@@ -39,8 +39,17 @@ public:
 // Attack
 private:
 	void AttackHitCheck();
+	void ProcessComboCommand();
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
+	TObjectPtr<class UAnimMontage> ComboAttackMontage;
 
 private:
 	FAICharacterAttackFinished OnAICharacterAttackFinished;
+
+
+
+
 
 };
