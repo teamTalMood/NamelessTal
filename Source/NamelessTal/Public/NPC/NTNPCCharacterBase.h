@@ -5,10 +5,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "NPC/Interface/NTNPCCharacterBaseInterface.h"
+#include "Interface/NTWeaponCollisionInterface.h"
 #include "NTNPCCharacterBase.generated.h"
 
 UCLASS()
-class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface
+class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface, public INTWeaponCollisionInterface
 {
 	GENERATED_BODY()
 
@@ -35,6 +36,18 @@ public:
 	virtual float GetAITurnSpeed() override;
 	virtual void AttackByAI() override;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
+
+
+
+////////////////////////////////////////
+// 
+//   Attack
+// 
+
+// INTWeaponCollisionInterface override
+public:
+	virtual void EnableWeaponCollision() override;
+	virtual void DisableWeaponCollision() override;
 
 // Attack
 private:
