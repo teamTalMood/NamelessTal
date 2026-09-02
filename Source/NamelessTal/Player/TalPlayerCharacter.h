@@ -14,6 +14,7 @@ class UInputAction;
 struct FInputActionValue;
 class UStaticMeshComponent;
 class UCapsuleComponent;
+class ATalBase; //탈 전방선언
 
 /**
  * 
@@ -25,6 +26,8 @@ class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter
 
 public:
 	ATalPlayerCharacter();
+
+	virtual void Tick(float DeltaTime) override;
 
 protected: // CameraBoom , Follow Camera ( 카메라 암, 카메라 )
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
@@ -47,10 +50,27 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	UPROPERTY(EditAnywhere, Category = "Input") // Sword Attack Input
 	UInputAction* SwordAttackAction;
 
-public: // Use Roll Dodge Input
-	virtual void Tick(float DeltaTime) override;
+	//F 상호작용 - 탈바꿈
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* TalAction;
 
+
+	//탈 추가
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal");
+	TSubclassOf<ATalBase> DefaultTalClass;
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
+	TObjectPtr<ATalBase> CurrentTal;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")//탈바꿈 테스트용
+	float InteractionDistance = 300.0f;
+
+public: // Use Roll Dodge Input && 탈 관련 함수
 	FORCEINLINE bool IsDodging() const { return bIsDodging; }
+
+	//탈 관련 함수
+	void EquipTal(ATalBase* NewTal);// 탈 착용
+	ATalBase* GetCurrentTal() const;// 현재 탈 반환
+	ATalBase* UnequipTal();//탈 벗고 반환
+	void TakeTalFrom(ATalPlayerCharacter* TargetCharacter);//탈바꿈
 
 protected: // Roll Dodge Input (회피 입력)
 	UPROPERTY(EditAnywhere, Category= "Input")
@@ -89,6 +109,8 @@ protected: // Player Move and use CameraMovement use Mouse
 
 	void Look(const FInputActionValue& Value);
 
+	virtual void BeginPlay() override;
+	void Interact();//탈바꿈
 
 public: // Property Camera (카메라 속성)
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
@@ -107,6 +129,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	float SpeedInterpSpeed = 100.0f;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bIsSprinting = false;
 
 	UPROPERTY(EditAnywhere, Category = "Input")

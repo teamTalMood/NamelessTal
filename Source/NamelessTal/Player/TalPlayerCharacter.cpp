@@ -24,6 +24,10 @@
 
 #include "TimerManager.h"
 
+//tal 헤더들 추가
+#include "TalBase.h"
+#include "DrawDebugHelpers.h"//디버그용
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Camera Arm Set
@@ -50,6 +54,11 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ATalPlayerCharacter::OnWeaponOverlap);
+
+	//이동방향으로 캐릭터 회전
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 }
 
 
@@ -57,18 +66,18 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bIsDodging)
-	{
-		const FRotator TargetRotation = DodgeDir.Rotation();
-		SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(), TargetRotation, 
-			DeltaTime, DodgeRotationSpeed));
-	}
-	else if (Controller != nullptr)
-	{
-		const FRotator TargetRotation(0.0f, Controller->GetControlRotation().Yaw, 0.0f);
-		SetActorRotation(FMath::RInterpTo(GetActorRotation(), TargetRotation,
-			DeltaTime, NormalRotationInterpSpeed));
-	}
+	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
+	//{
+	//	const FRotator TargetRotation = DodgeDir.Rotation();
+	//	SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(), TargetRotation, 
+	//		DeltaTime, DodgeRotationSpeed));
+	//}
+	//else if (Controller != nullptr)
+	//{
+	//	const FRotator TargetRotation(0.0f, Controller->GetControlRotation().Yaw, 0.0f);
+	//	SetActorRotation(FMath::RInterpTo(GetActorRotation(), TargetRotation,
+	//		DeltaTime, NormalRotationInterpSpeed));
+	//}
 
 	// Sprint Speed Interpolation
 	const float TargetSpeed = bIsSprinting ? SprintSpeed : WalkSpeed;
@@ -92,7 +101,8 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	
 	PlayAnimMontage(RollMontage);
 
-	const float MontageDuration = RollMontage->GetPlayLength();
+	//구르기 후 멈추었던 이유가 몽타주의 길이를 받아서 지연시켰을때 길었기 때문. 적절히 조절하였음.
+	const float MontageDuration = RollMontage->GetPlayLength() - 0.3f;
 	GetWorldTimerManager().SetTimer(DodgeTimerHandle, this,
 		&ATalPlayerCharacter::EndDodge, MontageDuration, false);
 }
@@ -169,6 +179,9 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		//Sword Attack Input
 		EnhancedInputComponent->BindAction(SwordAttackAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::Attack);
+
+		EnhancedInputComponent->BindAction(TalAction, ETriggerEvent::Started,
+			this, &ATalPlayerCharacter::Interact);//탈 상호작용
 	}
 }
 
@@ -258,4 +271,151 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	const FVector ImpactPoint = SweepResult.bBlockingHit ?
 		FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
+}
+
+void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
+{
+	if (!NewTal) return; //널처리
+
+	//탈바꿈
+	CurrentTal = NewTal;
+	CurrentTal->SetOwner(this);
+	CurrentTal->AttachToComponent(
+		GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		TEXT("TalSocket")
+	);
+}
+
+ATalBase* ATalPlayerCharacter::GetCurrentTal() const
+{
+	if (!CurrentTal) return NULL; //널처리
+
+	return CurrentTal;
+}
+
+void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시 
+{
+	Super::BeginPlay();
+
+	if (DefaultTalClass)
+	{
+		ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(DefaultTalClass);
+
+		EquipTal(NewTal);
+	}
+}
+
+ATalBase* ATalPlayerCharacter::UnequipTal()
+{
+	if (!CurrentTal) return nullptr;
+
+	ATalBase* OldTal = CurrentTal;
+	CurrentTal = nullptr;
+	OldTal->DetachFromActor(
+		FDetachmentTransformRules::KeepWorldTransform
+	);
+
+	OldTal->SetOwner(nullptr);
+
+	return OldTal;
+}
+
+void ATalPlayerCharacter::TakeTalFrom(ATalPlayerCharacter* TargetCharacter)
+{
+	if (!TargetCharacter || TargetCharacter == this) return;
+	if (!TargetCharacter->GetCurrentTal())			 return;
+
+	ATalBase* TakenTal = TargetCharacter->UnequipTal();
+	if (!TakenTal) return;
+
+	ATalBase* MyOldTal = UnequipTal();
+	if (MyOldTal) MyOldTal->K2_DestroyActor();
+
+	EquipTal(TakenTal);
+}
+
+void ATalPlayerCharacter::Interact()
+{
+	if (!FollowCamera) return;
+
+	//카메라 위치
+	const FVector Start = FollowCamera->GetComponentLocation();
+
+	const FVector End = Start + FollowCamera->GetForwardVector() * 1000.0f;
+
+	FHitResult HitResult;
+
+	FCollisionQueryParams QueryParams;
+
+	//자기 자신은 검사하지 않음
+	QueryParams.AddIgnoredActor(this);
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		Start,
+		End,
+		ECC_Visibility,
+		QueryParams
+	);
+
+	if (!bHit)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("아무것도 못 맞춤..")); return;
+	}
+
+	AActor* HitActor = HitResult.GetActor();
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("Hit Actor = %s / Class = %s"),
+		*GetNameSafe(HitActor),
+		*GetNameSafe(HitActor ? HitActor->GetClass() : nullptr)
+	);
+
+	//확인용 선
+	DrawDebugLine(
+		GetWorld(),
+		Start,
+		End,
+		bHit ? FColor::Green : FColor::Red,
+		false,
+		2.0f,
+		0,
+		2.0f
+	);
+	ATalPlayerCharacter* TargetCharacter = Cast<ATalPlayerCharacter>(HitResult.GetActor());
+
+	if (!TargetCharacter)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("맞긴했는데 캐릭터 아님!"));
+		return;
+	}
+
+
+
+
+
+
+	//플레이어와 상대 캐릭터 사이 거리
+	const float Distance = FVector::Dist(GetActorLocation(), TargetCharacter->GetActorLocation());
+
+
+	UE_LOG(
+		LogTemp,
+		Warning,
+		TEXT("Target Distance: %f"),
+		Distance
+	);
+
+	// 300cm보다 멀면 상호작용 불가능
+	if (Distance > InteractionDistance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("너무 멀다"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("탈 강탈 가능!"));
+	TakeTalFrom(TargetCharacter);
+
 }
