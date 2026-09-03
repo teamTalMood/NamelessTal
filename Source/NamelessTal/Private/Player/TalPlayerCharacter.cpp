@@ -24,6 +24,8 @@
 
 #include "TimerManager.h"
 
+#include "Kismet/GameplayStatics.h"
+
 //tal 헤더들 추가
 #include "TalBase.h"
 #include "DrawDebugHelpers.h"//디버그용
@@ -212,6 +214,13 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	}
 }
 
+float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+
+	return 0.0f;
+}
+
 void ATalPlayerCharacter::NotifyControllerChanged()
 {
 	Super::NotifyControllerChanged();
@@ -288,15 +297,16 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 		return;
 	}
 
-	ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
-	if (Damageable == nullptr)
-	{
-		return;
-	}
+	//ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
+	//if (Damageable == nullptr)
+	//{
+	//	return;
+	//}
 	HitActors.Add(OtherActor);
 
-	const FVector ImpactPoint = SweepResult.bBlockingHit ? 	FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
-	Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
+	//const FVector ImpactPoint = SweepResult.bBlockingHit ? 	FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
+	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
+	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 }
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
