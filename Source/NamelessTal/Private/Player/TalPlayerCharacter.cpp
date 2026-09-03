@@ -333,24 +333,24 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 		EquipTal(NewTal);
 	}
 
-	//기본 무기 장착
-	if (DefaultWeaponClass)
-	{
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.Owner = this;
-		SpawnParams.Instigator = this;
-		SpawnParams.SpawnCollisionHandlingOverride =
-			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	////기본 무기 장착
+	//if (DefaultWeaponClass)
+	//{
+	//	FActorSpawnParameters SpawnParams;
+	//	SpawnParams.Owner = this;
+	//	SpawnParams.Instigator = this;
+	//	SpawnParams.SpawnCollisionHandlingOverride =
+	//		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		ATalWeapon* NewWeapon =
-			GetWorld()->SpawnActor<ATalWeapon>(
-				DefaultWeaponClass,
-				FTransform::Identity,
-				SpawnParams
-			);
+	//	ATalWeapon* NewWeapon =
+	//		GetWorld()->SpawnActor<ATalWeapon>(
+	//			DefaultWeaponClass,
+	//			FTransform::Identity,
+	//			SpawnParams
+	//		);
 
-		EquipWeapon(NewWeapon);
-	}
+	//	EquipWeapon(NewWeapon);
+	//}
 }
 
 ATalBase* ATalPlayerCharacter::UnequipTal()
@@ -435,20 +435,20 @@ void ATalPlayerCharacter::Interact()
 	TakeTalFrom(TargetCharacter);
 }
 
-//void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
-//{
-//	if (NewWeapon == nullptr) return;
-//
-//	EquippedWeapon = NewWeapon;
-//	EquippedWeapon->SetOwner(this);
-//	EquippedWeapon->AttachToComponent(
-//		GetMesh(),
-//		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-//		TEXT("WeaponSocket_R")
-//	);
-//}
-//
-//ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
-//{
-//	return EquippedWeapon;
-//}
+void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
+{
+	if (NewWeapon == nullptr) return;
+
+	EquippedWeapon = NewWeapon;
+	EquippedWeapon->SetOwner(this);
+	EquippedWeapon->AttachToComponent(
+		GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		TEXT("WeaponSocket_R")
+	);
+}
+
+ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
+{
+	return EquippedWeapon;
+}
