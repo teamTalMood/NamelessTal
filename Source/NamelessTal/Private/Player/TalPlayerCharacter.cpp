@@ -12,7 +12,7 @@
 #include "InputActionValue.h"
 
 #include "Components/StaticMeshComponent.h"
-#include "Components/CapsuleComponent.h"	
+#include "Components/CapsuleComponent.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -27,6 +27,9 @@
 //tal 헤더들 추가
 #include "TalBase.h"
 #include "DrawDebugHelpers.h"//디버그용
+
+//무기헤더
+#include "Player/TalWeapon.h"
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -69,7 +72,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
 	//	const FRotator TargetRotation = DodgeDir.Rotation();
-	//	SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(), TargetRotation, 
+	//	SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(), TargetRotation,
 	//		DeltaTime, DodgeRotationSpeed));
 	//}
 	//else if (Controller != nullptr)
@@ -85,26 +88,50 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
 }
 
+UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
+{
+	if (Angle >= -22.5f && Angle < 22.5f)   return RollMontage_F;
+	if (Angle >= 22.5f && Angle < 67.5f)    return RollMontage_FR;
+	if (Angle >= 67.5f && Angle < 112.5f)   return RollMontage_R;
+	if (Angle >= 112.5f && Angle < 157.5f)  return RollMontage_BR;
+	if (Angle >= 157.5f || Angle < -157.5f) return RollMontage_B;
+	if (Angle >= -157.5f && Angle < -112.5f) return RollMontage_BL;
+	if (Angle >= -112.5f && Angle < -67.5f)  return RollMontage_L;
+	return RollMontage_FL; // -67.5 ~ -22.5
+}
+
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
-	if (bIsDodging || RollMontage == nullptr) // Already Dodging or No RollMontage
+	if (bIsDodging) // Already Dodging or No RollMontage
+	{
+		return;
+	}
+
+	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
+
+	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DodgeDir);
+	const float RightDot = FVector::DotProduct(GetActorRightVector(), DodgeDir);
+	const float Angle = FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot));
+
+	UAnimMontage* SelectedMontage = SelectRollMontage(Angle);
+
+	if (SelectedMontage == nullptr)
 	{
 		return;
 	}
 
 	bIsDodging = true;
-	bIsInvincible = true; // ApplyDamage will check this flag to ignore damage during dodge
-	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
-	// not move, use forward direction
-	
-	PlayAnimMontage(RollMontage);
+	bIsInvincible = true;
 
-	//구르기 후 멈추었던 이유가 몽타주의 길이를 받아서 지연시켰을때 길었기 때문. 적절히 조절하였음.
-	const float MontageDuration = RollMontage->GetPlayLength() - 0.3f;
+	PlayAnimMontage(SelectedMontage);
+
+	const float MontageDuration = SelectedMontage->GetPlayLength() - 0.3f;
 	GetWorldTimerManager().SetTimer(DodgeTimerHandle, this,
 		&ATalPlayerCharacter::EndDodge, MontageDuration, false);
+
+
 }
 
 void ATalPlayerCharacter::EndDodge()
@@ -114,7 +141,7 @@ void ATalPlayerCharacter::EndDodge()
 }
 
 // Player Move
-void ATalPlayerCharacter::Move(const FInputActionValue& Value) 
+void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
@@ -136,7 +163,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 
 		if (bIsDodging)
 		{ // AddmovementInput is ignored during dodge
-			return; 
+			return;
 		}
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
@@ -155,12 +182,12 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered,
 			this, &ATalPlayerCharacter::Move);
-		// Move 
+		// Move
 
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed,
 			this, &ATalPlayerCharacter::Move);
 		// Move (Zero Vec / Input = Null)
-		
+
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered,
 			this, &ATalPlayerCharacter::Look);
 		// Look
@@ -170,12 +197,12 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		// Roll Dodge
 
 		// Sprint Input
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, 
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::StartSprint);
 		// Sprint Input End
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, 
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed,
 			this, &ATalPlayerCharacter::StopSprint);
-	
+
 		//Sword Attack Input
 		EnhancedInputComponent->BindAction(SwordAttackAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::Attack);
@@ -268,8 +295,7 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	}
 	HitActors.Add(OtherActor);
 
-	const FVector ImpactPoint = SweepResult.bBlockingHit ?
-		FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
+	const FVector ImpactPoint = SweepResult.bBlockingHit ? 	FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
 }
 
@@ -294,16 +320,36 @@ ATalBase* ATalPlayerCharacter::GetCurrentTal() const
 	return CurrentTal;
 }
 
-void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시 
+void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 {
 	Super::BeginPlay();
 
+	//기본 탈 장착
 	if (DefaultTalClass)
 	{
 		ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(DefaultTalClass);
 
 		EquipTal(NewTal);
 	}
+
+	////기본 무기 장착
+	//if (DefaultWeaponClass)
+	//{
+	//	FActorSpawnParameters SpawnParams;
+	//	SpawnParams.Owner = this;
+	//	SpawnParams.Instigator = this;
+	//	SpawnParams.SpawnCollisionHandlingOverride =
+	//		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	//	ATalWeapon* NewWeapon =
+	//		GetWorld()->SpawnActor<ATalWeapon>(
+	//			DefaultWeaponClass,
+	//			FTransform::Identity,
+	//			SpawnParams
+	//		);
+
+	//	EquipWeapon(NewWeapon);
+	//}
 }
 
 ATalBase* ATalPlayerCharacter::UnequipTal()
@@ -385,37 +431,23 @@ void ATalPlayerCharacter::Interact()
 		2.0f
 	);
 	ATalPlayerCharacter* TargetCharacter = Cast<ATalPlayerCharacter>(HitResult.GetActor());
-
-	if (!TargetCharacter)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("맞긴했는데 캐릭터 아님!"));
-		return;
-	}
-
-
-
-
-
-
-	//플레이어와 상대 캐릭터 사이 거리
-	const float Distance = FVector::Dist(GetActorLocation(), TargetCharacter->GetActorLocation());
-
-
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("Target Distance: %f"),
-		Distance
-	);
-
-	// 300cm보다 멀면 상호작용 불가능
-	if (Distance > InteractionDistance)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("너무 멀다"));
-		return;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("탈 강탈 가능!"));
 	TakeTalFrom(TargetCharacter);
-
 }
+
+//void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
+//{
+//	if (NewWeapon == nullptr) return;
+//
+//	EquippedWeapon = NewWeapon;
+//	EquippedWeapon->SetOwner(this);
+//	EquippedWeapon->AttachToComponent(
+//		GetMesh(),
+//		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+//		TEXT("WeaponSocket_R")
+//	);
+//}
+
+//ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
+//{
+//	return EquippedWeapon;
+//}

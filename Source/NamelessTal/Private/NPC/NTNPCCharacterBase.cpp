@@ -75,6 +75,14 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 	OnAICharacterAttackFinished = InOnAttackFinished;
 }
 
+void ANTNPCCharacterBase::EnableWeaponCollision()
+{
+}
+
+void ANTNPCCharacterBase::DisableWeaponCollision()
+{
+}
+
 void ANTNPCCharacterBase::AttackHitCheck()
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
