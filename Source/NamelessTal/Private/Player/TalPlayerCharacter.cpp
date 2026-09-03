@@ -2,7 +2,9 @@
 
 #include "Player/TalPlayerCharacter.h"
 #include "Variant_Combat/Interfaces/CombatDamageable.h"
+
 #include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
@@ -265,7 +267,59 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 		return;
 	}
 
-	PlayAnimMontage(AttackMontage);
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	if (AnimInstance == nullptr) return;
+
+	//몽타주 재생이 아니면 1타 시작
+	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		ComboIndex = 1;
+		bCanCombo = false;
+
+		PlayAnimMontage(AttackMontage, 1.0f, TEXT("Attack1"));
+
+		return;
+	}
+
+	//공격무시
+	if (!bCanCombo) return;
+
+	//2타 연결
+	if (ComboIndex == 1)
+	{
+		//AnimInstance->Montage_SetNextSection(
+		//	TEXT("Attack1"),
+		//	TEXT("Attack2"),
+		//	AttackMontage
+		//);
+
+		ComboIndex = 2;
+		bCanCombo = false;
+
+		//바로 애니메이션 연결하려면 JumpToSection
+		AnimInstance->Montage_JumpToSection(
+			TEXT("Attack2"),
+			AttackMontage
+		);
+	}
+	//3타 연결
+	else if (ComboIndex == 2)
+	{
+		//AnimInstance->Montage_SetNextSection(
+		//	TEXT("Attack2"),
+		//	TEXT("Attack3"),
+		//	AttackMontage
+		//);
+
+		ComboIndex = 3;
+		bCanCombo = false;
+
+		AnimInstance->Montage_JumpToSection(
+			TEXT("Attack3"),
+			AttackMontage
+		);
+	}
 }
 
 void ATalPlayerCharacter::EnableWeaponCollision()
@@ -461,3 +515,12 @@ void ATalPlayerCharacter::Interact()
 //{
 //	return EquippedWeapon;
 //}
+
+void ATalPlayerCharacter::OpenComboWindow()
+{
+	bCanCombo = true;
+}
+void ATalPlayerCharacter::CloseComboWindow()
+{
+	bCanCombo = false;
+}
