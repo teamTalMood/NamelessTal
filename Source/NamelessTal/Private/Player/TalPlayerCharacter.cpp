@@ -88,26 +88,50 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
 }
 
+UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
+{
+	if (Angle >= -22.5f && Angle < 22.5f)   return RollMontage_F;
+	if (Angle >= 22.5f && Angle < 67.5f)    return RollMontage_FR;
+	if (Angle >= 67.5f && Angle < 112.5f)   return RollMontage_R;
+	if (Angle >= 112.5f && Angle < 157.5f)  return RollMontage_BR;
+	if (Angle >= 157.5f || Angle < -157.5f) return RollMontage_B;
+	if (Angle >= -157.5f && Angle < -112.5f) return RollMontage_BL;
+	if (Angle >= -112.5f && Angle < -67.5f)  return RollMontage_L;
+	return RollMontage_FL; // -67.5 ~ -22.5
+}
+
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
-	if (bIsDodging || RollMontage == nullptr) // Already Dodging or No RollMontage
+	if (bIsDodging) // Already Dodging or No RollMontage
+	{
+		return;
+	}
+
+	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
+
+	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DodgeDir);
+	const float RightDot = FVector::DotProduct(GetActorRightVector(), DodgeDir);
+	const float Angle = FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot));
+
+	UAnimMontage* SelectedMontage = SelectRollMontage(Angle);
+	
+	if (SelectedMontage == nullptr)
 	{
 		return;
 	}
 
 	bIsDodging = true;
-	bIsInvincible = true; // ApplyDamage will check this flag to ignore damage during dodge
-	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
-	// not move, use forward direction
-	
-	PlayAnimMontage(RollMontage);
+	bIsInvincible = true;
 
-	//구르기 후 멈추었던 이유가 몽타주의 길이를 받아서 지연시켰을때 길었기 때문. 적절히 조절하였음.
-	const float MontageDuration = RollMontage->GetPlayLength() - 0.3f;
+	PlayAnimMontage(SelectedMontage);
+
+	const float MontageDuration = SelectedMontage->GetPlayLength() - 0.3f;
 	GetWorldTimerManager().SetTimer(DodgeTimerHandle, this,
 		&ATalPlayerCharacter::EndDodge, MontageDuration, false);
+
+
 }
 
 void ATalPlayerCharacter::EndDodge()
