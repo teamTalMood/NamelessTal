@@ -13,6 +13,9 @@
 //Engine
 #include "Kismet/GameplayStatics.h"
 
+//AI
+#include "BehaviorTree/BehaviorTreeComponent.h"
+
 //NT
 #include "NPC/NTAIController.h"
 #include "Animation/AnimMontage.h"
@@ -48,6 +51,9 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 void ANTNPCCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	AAIController* AICon = GetController<AAIController>();
+	BTComponent = Cast<UBehaviorTreeComponent>(AICon->GetBrainComponent());
 }
 
 float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -55,6 +61,22 @@ float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 
 	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	if (BTComponent)
+	{
+		MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
+		BTComponent->PauseLogic(TEXT("Reason"));
+		GetMesh()->bPauseAnims = true;
+
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
+			{
+				MC_LOG(LogMC, Log, TEXT("BTComponent ResumeLogic"));
+				BTComponent->ResumeLogic(TEXT("Reason"));
+				GetMesh()->bPauseAnims = false;
+			}
+		), 3, false);
+	}
 
 	return 0.0f;
 }
@@ -97,7 +119,7 @@ void ANTNPCCharacterBase::AttackByAI()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	//ProcessComboCommand();
+	ProcessComboCommand();
 	//AttackHitCheck();
 }
 

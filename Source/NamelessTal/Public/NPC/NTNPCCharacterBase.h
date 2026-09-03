@@ -31,6 +31,15 @@ protected:
 	UFUNCTION()
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+
+/////////////////////////////////////////
+//
+// INTNPCCharacterBaseInterface override
+//
+protected:
+	TObjectPtr<class UBehaviorTreeComponent> BTComponent;
+
+
 /////////////////////////////////////////
 //
 // INTNPCCharacterBaseInterface override
