@@ -14,7 +14,7 @@ class UNTWeaponCollisionInterface : public UInterface
 };
 
 /**
- * 
+ *
  */
 class NAMELESSTAL_API INTWeaponCollisionInterface
 {
@@ -22,6 +22,6 @@ class NAMELESSTAL_API INTWeaponCollisionInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
-	virtual void EnableWeaponCollision();
-	virtual void DisableWeaponCollision();
+	virtual void EnableWeaponCollision()=0;
+	virtual void DisableWeaponCollision()=0;
 };
