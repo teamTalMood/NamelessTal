@@ -12,7 +12,7 @@ UNTBTT_Attack::UNTBTT_Attack()
 
 EBTNodeResult::Type UNTBTT_Attack::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	MC_LOG(LogMC,Log, TEXT("Begin"));
+	//MC_LOG(LogMC,Log, TEXT("Begin"));
 
 	EBTNodeResult::Type Result = Super::ExecuteTask(OwnerComp, NodeMemory);
 
@@ -39,7 +39,7 @@ EBTNodeResult::Type UNTBTT_Attack::ExecuteTask(UBehaviorTreeComponent& OwnerComp
 	AIPawn->SetAIAttackDelegate(OnAttackFinished);
 	AIPawn->AttackByAI();
 
-	MC_LOG(LogMC, Log, TEXT("End"));
+	//MC_LOG(LogMC, Log, TEXT("End"));
 
 	return EBTNodeResult::InProgress;
 }

@@ -15,7 +15,7 @@ UNTBTD_AttackInRange::UNTBTD_AttackInRange()
 
 bool UNTBTD_AttackInRange::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	bool bResult = Super::CalculateRawConditionValue(OwnerComp, NodeMemory);
 
@@ -41,7 +41,7 @@ bool UNTBTD_AttackInRange::CalculateRawConditionValue(UBehaviorTreeComponent& Ow
 	float AttackRangeWithRadius = AIPawn->GetAIAttackRange();
 	bResult = (DistanceToTarget <= AttackRangeWithRadius);
 
-	MC_LOG(LogMC, Log, TEXT("End : %d - DistanceToTarget : %f | AttackRangeWithRadius : %f"), bResult, DistanceToTarget, AttackRangeWithRadius);
+	//MC_LOG(LogMC, Log, TEXT("End : %d - DistanceToTarget : %f | AttackRangeWithRadius : %f"), bResult, DistanceToTarget, AttackRangeWithRadius);
 
 	return bResult;
 }
