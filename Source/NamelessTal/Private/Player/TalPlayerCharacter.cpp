@@ -28,6 +28,9 @@
 #include "TalBase.h"
 #include "DrawDebugHelpers.h"//디버그용
 
+//무기헤더
+#include "Player/TalWeapon.h"
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Camera Arm Set
@@ -322,11 +325,31 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 {
 	Super::BeginPlay();
 
+	//기본 탈 장착
 	if (DefaultTalClass)
 	{
 		ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(DefaultTalClass);
 
 		EquipTal(NewTal);
+	}
+
+	//기본 무기 장착
+	if (DefaultWeaponClass)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.Instigator = this;
+		SpawnParams.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		ATalWeapon* NewWeapon =
+			GetWorld()->SpawnActor<ATalWeapon>(
+				DefaultWeaponClass,
+				FTransform::Identity,
+				SpawnParams
+			);
+
+		EquipWeapon(NewWeapon);
 	}
 }
 
@@ -409,37 +432,23 @@ void ATalPlayerCharacter::Interact()
 		2.0f
 	);
 	ATalPlayerCharacter* TargetCharacter = Cast<ATalPlayerCharacter>(HitResult.GetActor());
-
-	if (!TargetCharacter)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("맞긴했는데 캐릭터 아님!"));
-		return;
-	}
-
-
-
-
-
-
-	//플레이어와 상대 캐릭터 사이 거리
-	const float Distance = FVector::Dist(GetActorLocation(), TargetCharacter->GetActorLocation());
-
-
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("Target Distance: %f"),
-		Distance
-	);
-
-	// 300cm보다 멀면 상호작용 불가능
-	if (Distance > InteractionDistance)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("너무 멀다"));
-		return;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("탈 강탈 가능!"));
 	TakeTalFrom(TargetCharacter);
+}
 
+void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
+{
+	if (NewWeapon == nullptr) return;
+
+	EquippedWeapon = NewWeapon;
+	EquippedWeapon->SetOwner(this);
+	EquippedWeapon->AttachToComponent(
+		GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		TEXT("WeaponSocket_R")
+	);
+}
+
+ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
+{
+	return EquippedWeapon;
 }

@@ -15,6 +15,7 @@ struct FInputActionValue;
 class UStaticMeshComponent;
 class UCapsuleComponent;
 class ATalBase; //탈 전방선언
+class ATalWeapon; //무기 전방선언
 
 /**
  * 
@@ -162,7 +163,7 @@ protected:
 	void StopSprint(const FInputActionValue& Value);
 
 	
-
+////////////////////////////////////////////////////////////////////////////////weapon 구버전
 protected: // Weapon 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon" , meta = (AllowPrivateAccess = "true"))
 	UStaticMeshComponent* WeaponMesh;
@@ -192,5 +193,20 @@ protected:
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
+
+	////////////////////////////////////////////////////////////////////////////////weapon 신버전
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	TSubclassOf<ATalWeapon> DefaultWeaponClass;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Weapon")
+	ATalWeapon* EquippedWeapon = nullptr;
+
+public:
+	void EquipWeapon(ATalWeapon* NewWeapon);
+
+	//AnimNorifyState에서 찾을 때 사용
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	ATalWeapon* GetEquippedWeapon() const;
 
 };
