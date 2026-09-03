@@ -435,20 +435,20 @@ void ATalPlayerCharacter::Interact()
 	TakeTalFrom(TargetCharacter);
 }
 
-void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
-{
-	if (NewWeapon == nullptr) return;
-
-	EquippedWeapon = NewWeapon;
-	EquippedWeapon->SetOwner(this);
-	EquippedWeapon->AttachToComponent(
-		GetMesh(),
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		TEXT("WeaponSocket_R")
-	);
-}
-
-ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
-{
-	return EquippedWeapon;
-}
+//void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
+//{
+//	if (NewWeapon == nullptr) return;
+//
+//	EquippedWeapon = NewWeapon;
+//	EquippedWeapon->SetOwner(this);
+//	EquippedWeapon->AttachToComponent(
+//		GetMesh(),
+//		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+//		TEXT("WeaponSocket_R")
+//	);
+//}
+//
+//ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
+//{
+//	return EquippedWeapon;
+//}
