@@ -56,7 +56,7 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 
 
 	//탈 추가
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal");
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
 	TObjectPtr<ATalBase> CurrentTal;
@@ -71,13 +71,36 @@ public: // Use Roll Dodge Input && 탈 관련 함수
 	ATalBase* GetCurrentTal() const;// 현재 탈 반환
 	ATalBase* UnequipTal();//탈 벗고 반환
 	void TakeTalFrom(ATalPlayerCharacter* TargetCharacter);//탈바꿈
-
+	
 protected: // Roll Dodge Input (회피 입력)
 	UPROPERTY(EditAnywhere, Category= "Input")
 	UInputAction* DodgeAction;
 
 	UPROPERTY(EditAnywhere, Category = "Dodge")
-	UAnimMontage* RollMontage;
+	UAnimMontage* RollMontage_F;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_B;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_L;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_R;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_FL;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_FR;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_BL;
+
+	UPROPERTY(EditAnywhere, Category = "Dodge")
+	UAnimMontage* RollMontage_BR;
+
+	UAnimMontage* SelectRollMontage(float Angle) const;
 
 	bool bIsInvincible = false;
 	bool bIsMoving = false;
