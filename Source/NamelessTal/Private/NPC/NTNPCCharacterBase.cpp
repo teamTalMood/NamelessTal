@@ -3,10 +3,22 @@
 
 #include "NPC/NTNPCCharacterBase.h"
 #include "MCLOG.h"
+
+//Components
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
+
+//Engine
+#include "Kismet/GameplayStatics.h"
+
+//NT
 #include "NPC/NTAIController.h"
 #include "Animation/AnimMontage.h"
+
+//Interface
+#include "Variant_Combat/Interfaces/CombatDamageable.h"
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
@@ -19,13 +31,32 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	// AIController
 	AIControllerClass = ANTAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
+	// 무기 Mesh Set
+	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
+	WeaponMesh->SetupAttachment(GetMesh(), TEXT("WeaponSocket_R"));
+	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	WeaponCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("WeaponCollision"));
+	WeaponCollision->SetupAttachment(WeaponMesh);
+	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ANTNPCCharacterBase::OnWeaponOverlap);
 }
 
 // Called when the game starts or when spawned
 void ANTNPCCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
+}
+
+float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	return 0.0f;
 }
 
 // Called every frame
@@ -64,10 +95,10 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	ProcessComboCommand();
-	AttackHitCheck();
+	//ProcessComboCommand();
+	//AttackHitCheck();
 }
 
 void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
@@ -77,10 +108,25 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 
 void ANTNPCCharacterBase::EnableWeaponCollision()
 {
+	if (WeaponCollision == nullptr)
+	{
+		MC_LOG(LogMC, Error, TEXT("No WeaponCollision!"));
+		return;
+	}
+	HitActors.Empty(); // 새 공격이라 이전 기록 비우기
+	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 }
 
 void ANTNPCCharacterBase::DisableWeaponCollision()
 {
+	if (WeaponCollision == nullptr)
+	{
+		MC_LOG(LogMC, Error, TEXT("No WeaponCollision!"));
+		return;
+	}
+	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	OnAICharacterAttackFinished.ExecuteIfBound();
 }
 
 void ANTNPCCharacterBase::AttackHitCheck()
@@ -92,14 +138,17 @@ void ANTNPCCharacterBase::AttackHitCheck()
 
 	const float AttackRange = 40.0f;
 	const float AttackRadius = 50.0f;
-	const float AttackDamage = 30.0f;
 	const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
 	const FVector End = Start + GetActorForwardVector() * AttackRange;
 
 	bool HitDetected = GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeSphere(AttackRadius), Params);
 	if (HitDetected)
 	{
-
+		AActor* HitActor = OutHitResult.GetActor();
+		if (HitActor)
+		{
+			UGameplayStatics::ApplyDamage(HitActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+		}
 	}
 	MC_LOG(LogMC, Log, TEXT("HitDetected : %d"), HitDetected);
 
@@ -120,9 +169,29 @@ void ANTNPCCharacterBase::AttackHitCheck()
 
 void ANTNPCCharacterBase::ProcessComboCommand()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	AnimInstance->Montage_Play(ComboAttackMontage);
 }
 
+void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	// 떄려지는 객체 확인 로그
+	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	{
+		return;
+	}
+	MC_LOG(LogMC, Log, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
+
+	//ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
+	//if (Damageable == nullptr)
+	//{
+	//	return;
+	//}
+	HitActors.Add(OtherActor);
+
+	//const FVector ImpactPoint = SweepResult.bBlockingHit ? FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
+	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
+	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+}
