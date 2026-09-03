@@ -12,7 +12,7 @@
 #include "InputActionValue.h"
 
 #include "Components/StaticMeshComponent.h"
-#include "Components/CapsuleComponent.h"	
+#include "Components/CapsuleComponent.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -72,7 +72,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
 	//	const FRotator TargetRotation = DodgeDir.Rotation();
-	//	SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(), TargetRotation, 
+	//	SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(), TargetRotation,
 	//		DeltaTime, DodgeRotationSpeed));
 	//}
 	//else if (Controller != nullptr)
@@ -116,7 +116,7 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	const float Angle = FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot));
 
 	UAnimMontage* SelectedMontage = SelectRollMontage(Angle);
-	
+
 	if (SelectedMontage == nullptr)
 	{
 		return;
@@ -141,7 +141,7 @@ void ATalPlayerCharacter::EndDodge()
 }
 
 // Player Move
-void ATalPlayerCharacter::Move(const FInputActionValue& Value) 
+void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
@@ -163,7 +163,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 
 		if (bIsDodging)
 		{ // AddmovementInput is ignored during dodge
-			return; 
+			return;
 		}
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
@@ -182,12 +182,12 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered,
 			this, &ATalPlayerCharacter::Move);
-		// Move 
+		// Move
 
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed,
 			this, &ATalPlayerCharacter::Move);
 		// Move (Zero Vec / Input = Null)
-		
+
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered,
 			this, &ATalPlayerCharacter::Look);
 		// Look
@@ -197,12 +197,12 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		// Roll Dodge
 
 		// Sprint Input
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, 
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::StartSprint);
 		// Sprint Input End
-		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, 
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed,
 			this, &ATalPlayerCharacter::StopSprint);
-	
+
 		//Sword Attack Input
 		EnhancedInputComponent->BindAction(SwordAttackAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::Attack);
@@ -295,8 +295,7 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	}
 	HitActors.Add(OtherActor);
 
-	const FVector ImpactPoint = SweepResult.bBlockingHit ?
-		FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
+	const FVector ImpactPoint = SweepResult.bBlockingHit ? 	FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
 }
 
@@ -321,7 +320,7 @@ ATalBase* ATalPlayerCharacter::GetCurrentTal() const
 	return CurrentTal;
 }
 
-void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시 
+void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 {
 	Super::BeginPlay();
 
@@ -435,20 +434,20 @@ void ATalPlayerCharacter::Interact()
 	TakeTalFrom(TargetCharacter);
 }
 
-void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
-{
-	if (NewWeapon == nullptr) return;
+//void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
+//{
+//	if (NewWeapon == nullptr) return;
+//
+//	EquippedWeapon = NewWeapon;
+//	EquippedWeapon->SetOwner(this);
+//	EquippedWeapon->AttachToComponent(
+//		GetMesh(),
+//		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+//		TEXT("WeaponSocket_R")
+//	);
+//}
 
-	EquippedWeapon = NewWeapon;
-	EquippedWeapon->SetOwner(this);
-	EquippedWeapon->AttachToComponent(
-		GetMesh(),
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		TEXT("WeaponSocket_R")
-	);
-}
-
-ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
-{
-	return EquippedWeapon;
-}
+//ATalWeapon* ATalPlayerCharacter::GetEquippedWeapon() const
+//{
+//	return EquippedWeapon;
+//}
