@@ -15,6 +15,7 @@ struct FInputActionValue;
 class UStaticMeshComponent;
 class UCapsuleComponent;
 class ATalBase; //탈 전방선언
+class ATalWeapon; //무기 전방선언
 
 /**
  * 
@@ -56,7 +57,7 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 
 
 	//탈 추가
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal");
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
 	TObjectPtr<ATalBase> CurrentTal;
@@ -139,7 +140,7 @@ protected:
 	void StopSprint(const FInputActionValue& Value);
 
 	
-
+////////////////////////////////////////////////////////////////////////////////weapon 구버전
 protected: // Weapon 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon" , meta = (AllowPrivateAccess = "true"))
 	UStaticMeshComponent* WeaponMesh;
@@ -170,5 +171,19 @@ protected:
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
 
+	////////////////////////////////////////////////////////////////////////////////weapon 신버전
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	TSubclassOf<ATalWeapon> DefaultWeaponClass;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Weapon")
+	ATalWeapon* EquippedWeapon = nullptr;
+
+public:
+	void EquipWeapon(ATalWeapon* NewWeapon);
+
+	//AnimNorifyState에서 찾을 때 사용
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	ATalWeapon* GetEquippedWeapon() const;
 
 };

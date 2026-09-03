@@ -10,9 +10,11 @@ ATalWeapon::ATalWeapon()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	//메시를 Root로 사용
+	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
+	SetRootComponent(SceneRoot);
+
 	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
-	SetRootComponent(WeaponMesh);
+	WeaponMesh->SetupAttachment(SceneRoot);
 
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -27,16 +29,26 @@ ATalWeapon::ATalWeapon()
 	WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ATalWeapon::OnWeaponOverlap);
 }
 
-void ATalWeapon::EnableWeaponCollision()
+void ATalWeapon::EnableWeaponCollision()//Collision 활성화
 {
+	if (WeaponCollision == nullptr) return;
 
+	//새로운 공격이므로 이전에 맞춘 대상 초기화
+	HitActors.Empty();
+
+	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 }
 
 void ATalWeapon::DisableWeaponCollision()
 {
+	if (WeaponCollision == nullptr) return;
 
+	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
+
+//오버랩
 void ATalWeapon::OnWeaponOverlap(
 	UPrimitiveComponent* OverlappedComponent,
 	AActor* OtherActor,
@@ -45,5 +57,35 @@ void ATalWeapon::OnWeaponOverlap(
 	bool bRfromSweep,
 	const FHitResult& SweepResult)
 {
+	if (OtherActor == nullptr ||
+		OtherActor == this ||
+		OtherActor == GetOwner() ||
+		HitActors.Contains(OtherActor))
+	{
+		return;
+	}
 
+	ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
+	if (Damageable == nullptr) return;
+
+	HitActors.Add(OtherActor);
+
+	const FVector ImpactPoint = 
+		SweepResult.bBlockingHit
+		? FVector(SweepResult.ImpactPoint)
+		: OtherActor->GetActorLocation();
+
+	AActor* DamageCauser = GetOwner();//캐릭터 가져오기
+
+	if (DamageCauser == nullptr)
+	{
+		DamageCauser = this;
+	}
+
+	Damageable->ApplyDamage(
+		AttackDamage,
+		DamageCauser,
+		ImpactPoint,
+		GetActorForwardVector() * 200.0f
+	);
 }

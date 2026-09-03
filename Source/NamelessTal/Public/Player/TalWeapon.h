@@ -9,6 +9,7 @@
 class UStaticMshCOmponent;
 class UCapsuleComponent;
 class UPrimitiveComponent;
+class USceneComponent;
 
 UCLASS()
 class NAMELESSTAL_API ATalWeapon : public AActor
@@ -29,6 +30,9 @@ public:
 	void DisableWeaponCollision();
 
 protected:
+	//루트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	USceneComponent* SceneRoot;
 	//무기 메시
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	UStaticMeshComponent* WeaponMesh;
