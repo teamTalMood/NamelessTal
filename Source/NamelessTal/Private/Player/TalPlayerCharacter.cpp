@@ -46,6 +46,10 @@
 // 패링/가드 컴포넌트
 #include "Guard/GuardComponent.h"
 
+//락온 추가
+#include "NPC/Components/NTLockOnTargetComponent.h"
+#include "Engine/World.h"
+#include "UObject/UObjectIterator.h"
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -268,6 +272,10 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 			this, &ATalPlayerCharacter::StartGuard);
 		EnhancedInputComponent->BindAction(GuardAction, ETriggerEvent::Completed,
 			this, &ATalPlayerCharacter::StopGuard);
+
+		//락온 바인딩 추가
+		EnhancedInputComponent->BindAction(LockOnAction, ETriggerEvent::Started,
+			this, &ATalPlayerCharacter::ToggleLockOn);
 	}
 }
 
@@ -632,4 +640,47 @@ void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 {
 	GuardComponent->StopGuard();
 	StatComponent->SetSoulRegenBlocked(false);
+}
+
+
+//락온 시스템
+void ATalPlayerCharacter::ToggleLockOn(const FInputActionValue& Value)
+{
+	if (IsValid(CurrentLockOnTarget))
+	{
+		ClearLockOnTarget();
+		return;
+	}
+
+	CurrentLockOnTarget = FindBestLockOnTarget();
+
+	if (IsValid(CurrentLockOnTarget))
+	{
+		CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+	}
+}
+
+void ATalPlayerCharacter::ClearLockOnTarget()
+{
+	if (IsValid(CurrentLockOnTarget))
+	{
+		CurrentLockOnTarget->SetLockOnWidgetVisible(false);
+	}
+
+	CurrentLockOnTarget = nullptr;
+}
+
+UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+
+	if (!IsValid(PlayerController) || !IsValid(FollowCamera)) return nullptr;
+
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	PlayerController->GetViewportSize(ViewportWidth, ViewportHeight);
+
+	if (ViewportWidth <= 0 || ViewportHeight <= 0) return nullptr;
+
+	const FVector2D ScreenCenter(ViewportWidth * 0.5f, ViewportHeight * 0.5f);
 }
