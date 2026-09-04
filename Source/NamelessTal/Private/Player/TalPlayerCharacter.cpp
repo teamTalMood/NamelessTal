@@ -49,11 +49,11 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	//Cmaera Component Set
 	CameraTarget = CreateDefaultSubobject<USceneComponent>(TEXT("CameraTarget"));
 	CameraTarget->SetupAttachment(RootComponent);
-	CameraTarget->SetRelativeLocation
+	CameraTarget->SetRelativeLocation(FVector(0.0f, 0.0f, 80.0f));
 
 	//Camera Arm Set
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->SetupAttachment(CameraTarget);
 	CameraBoom->TargetArmLength = 350.0f;
 	CameraBoom->bUsePawnControlRotation = true;
 

@@ -22,6 +22,9 @@ public:
 	bool TryParry() const;
 	bool IsGuarding() const { return bIsGuarding; }
 
+	// 가드 / 패링간 이동속도 받아오기
+	float GetGuardWalkSpeed() const { return GuardWalkSpeed; }
+
 
 protected:
 	// Called when the game starts
@@ -38,6 +41,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float GuardSoulCost = 30.0f; 
 	// 가드 성공 시 넋 소모량
+
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float GuardWalkSpeed = 200.0f; // 가드 중 이동 속도
+
 
 private:
 	// 패링 중인지 
