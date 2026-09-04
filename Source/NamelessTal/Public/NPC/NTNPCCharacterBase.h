@@ -6,10 +6,11 @@
 #include "GameFramework/Character.h"
 #include "NPC/Interface/NTNPCCharacterBaseInterface.h"
 #include "Interface/NTWeaponCollisionInterface.h"
+#include "Interface/NTComboCheckInterface.h"
 #include "NTNPCCharacterBase.generated.h"
 
 UCLASS()
-class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface, public INTWeaponCollisionInterface
+class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface, public INTWeaponCollisionInterface, public INTComboCheckInterface
 {
 	GENERATED_BODY()
 
@@ -66,7 +67,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackDamage = 10.0f;
 
-private:
+protected:
 	FAICharacterAttackFinished OnAICharacterAttackFinished;
 
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
@@ -80,31 +81,36 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attack", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <class UCapsuleComponent> WeaponCollision;
 
+	int32 CurrentAttack = 0;
+	bool bIsComboAttack = false;
+
 
 // INTWeaponCollisionInterface override
 public:
 	virtual void EnableWeaponCollision() override;
 	virtual void DisableWeaponCollision() override;
 
+// INTComboCheckInterface override
+public:
+	virtual void BlockComboCheck() override;
+	virtual void OpenComboCheck() override;
+
+
 // Attack
-private:
-	void AttackHitCheck();
+protected:
 	void ProcessComboCommand();
+	void BeginAttack(const int32 InAttackType);
+	void AttackHitCheck();
 
 	// 무기 콜리전이 겹칠 때 호출
 	UFUNCTION()
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 
-
-////////////////////////////////////////
-//
-//   Damage
-//
-
-
-
-
-
+// Combo Check
+protected:
+	void SetComboCheckTimer();
+	void CheckCombo();
+	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 };

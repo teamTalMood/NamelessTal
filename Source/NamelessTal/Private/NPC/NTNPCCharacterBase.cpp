@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "NPC/NTNPCCharacterBase.h"
@@ -35,7 +35,7 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	AIControllerClass = ANTAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
-	// ���� Mesh Set
+	// 무기 Mesh Set
 	WeaponMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponMesh"));
 	WeaponMesh->SetupAttachment(GetMesh(), TEXT("WeaponSocket_R"));
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -65,14 +65,14 @@ float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	if (BTComponent)
 	{
 		MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
-		BTComponent->PauseLogic(TEXT("Reason"));
+		BTComponent->PauseLogic(TEXT("Damaged"));
 		GetMesh()->bPauseAnims = true;
 
 		FTimerHandle Handle;
 		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
 			{
 				MC_LOG(LogMC, Log, TEXT("BTComponent ResumeLogic"));
-				BTComponent->ResumeLogic(TEXT("Reason"));
+				BTComponent->ResumeLogic(TEXT("Damage End"));
 				GetMesh()->bPauseAnims = false;
 			}
 		), 3, false);
@@ -102,12 +102,12 @@ float ANTNPCCharacterBase::GetAIPatrolRadius()
 
 float ANTNPCCharacterBase::GetAIDetectRange()
 {
-	return 400.0f;
+	return 1000.0f;
 }
 
 float ANTNPCCharacterBase::GetAIAttackRange()
 {
-	return 100.0f;
+	return 700.0f;
 }
 
 float ANTNPCCharacterBase::GetAITurnSpeed()
@@ -135,7 +135,7 @@ void ANTNPCCharacterBase::EnableWeaponCollision()
 		MC_LOG(LogMC, Error, TEXT("No WeaponCollision!"));
 		return;
 	}
-	HitActors.Empty(); // �� �����̶� ���� ��� ����
+	HitActors.Empty(); // 새 공격이라 이전 기록 비우기
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 }
@@ -148,7 +148,92 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 		return;
 	}
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	OnAICharacterAttackFinished.ExecuteIfBound();
+}
+
+void ANTNPCCharacterBase::BlockComboCheck()
+{
+
+}
+
+void ANTNPCCharacterBase::OpenComboCheck()
+{
+
+}
+
+void ANTNPCCharacterBase::ProcessComboCommand()
+{
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
+
+	// 근거리
+	if (Dist <= 200.f) // 2.0m
+	{
+		MC_LOG(LogMC, Log, TEXT("근거리 공격 수행"));
+
+		float Rand = FMath::FRandRange(0.f, 100.f);
+		FName SectionName;
+
+		if (Rand < 50.f)       CurrentAttack = 1;
+		else if (Rand < 90.f)  CurrentAttack = 2;
+		else                   CurrentAttack = 3;
+	}
+
+	// 중거리
+	if (Dist > 200.f && Dist <= 450.f) // 2.0m ~ 4.5m
+	{
+		MC_LOG(LogMC, Log, TEXT("중거리 공격 수행"));
+
+		float Rand = FMath::FRandRange(0.f, 100.f);
+		FName SectionName;
+
+		if (Rand < 20.f)       CurrentAttack = 1;
+		else if (Rand < 30.f)  CurrentAttack = 2;
+		else                   CurrentAttack = 3;
+	}
+
+	if (Dist > 450) // 4.5m ~ 7m
+	{
+		MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
+		CurrentAttack = 3;
+	}
+	
+	MC_LOG(LogMC, Log, TEXT("CurrentAttack : %d"), CurrentAttack);
+
+	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
+	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
+	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
+	SetActorRotation(NewRotation);
+
+	bIsComboAttack = false;
+	BeginAttack(CurrentAttack);
+}
+
+void ANTNPCCharacterBase::BeginAttack(const int32 InAttackType)
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	BTComponent->PauseLogic(TEXT("Start Attack"));
+
+	if (CurrentAttack == 0)
+	{
+		MC_LOG(LogMC, Error, TEXT("No CurrentAttack~"));
+		return;
+	}
+
+	FString SectionString = FString::Printf(TEXT("Attack%d"), CurrentAttack);
+	FName SectionName = FName(*SectionString);
+
+	// Animation Setting
+	const float AttackSpeedRate = 1.0f;
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(ComboAttackMontage, AttackSpeedRate);
+	AnimInstance->Montage_JumpToSection(SectionName, ComboAttackMontage);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnAttackMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, ComboAttackMontage);
 }
 
 void ANTNPCCharacterBase::AttackHitCheck()
@@ -189,17 +274,9 @@ void ANTNPCCharacterBase::AttackHitCheck()
 	MC_LOG(LogMC, Log, TEXT("End"));
 }
 
-void ANTNPCCharacterBase::ProcessComboCommand()
-{
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AnimInstance->Montage_Play(ComboAttackMontage);
-}
-
 void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	// �������� ��ü Ȯ�� �α�
+	// 떄려지는 객체 확인 로그
 	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
 	{
 		return;
@@ -216,4 +293,33 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	//const FVector ImpactPoint = SweepResult.bBlockingHit ? FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
 	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+}
+
+void ANTNPCCharacterBase::SetComboCheckTimer()
+{
+}
+
+void ANTNPCCharacterBase::CheckCombo()
+{
+}
+
+void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	if (bIsComboAttack)
+	{
+		// 현재가 연계 공격이면
+		BTComponent->ResumeLogic(TEXT("End Attack"));
+		OnAICharacterAttackFinished.ExecuteIfBound();
+		return;
+	}
+
+	{
+		// 연계 공격 판단하기
+
+		// 이건 임시코드
+		BTComponent->ResumeLogic(TEXT("End Attack"));
+		OnAICharacterAttackFinished.ExecuteIfBound();
+	}
 }
