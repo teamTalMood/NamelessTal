@@ -228,7 +228,16 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 {
 	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 
-	return 0.0f;
+	//회피중이면 무적(데미지 무시)
+	if (bIsInvincible)
+	{
+		return 0.0f;
+	}
+
+	StatComponent->ApplyDamage(Damage);
+
+	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
+	return Damage;
 }
 
 void ATalPlayerCharacter::NotifyControllerChanged()
