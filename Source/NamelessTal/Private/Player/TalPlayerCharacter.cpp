@@ -683,4 +683,99 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 	if (ViewportWidth <= 0 || ViewportHeight <= 0) return nullptr;
 
 	const FVector2D ScreenCenter(ViewportWidth * 0.5f, ViewportHeight * 0.5f);
+	const FVector CameraLocation = FollowCamera->GetComponentLocation();
+	const FVector CameraForward = FollowCamera->GetForwardVector();
+
+	UNTLockOnTargetComponent* BestTarget = nullptr;
+	float BestScreenDistanceSquared = TNumericLimits<float>::Max();
+
+	for (TObjectIterator<UNTLockOnTargetComponent> It; It; ++It)
+	{
+		UNTLockOnTargetComponent* Candidate = *It;
+
+		if (!IsValid(Candidate)
+			|| Candidate->IsTemplate()
+			|| Candidate->GetWorld() != GetWorld()
+			|| !Candidate->IsLockOnAvailable())
+		{
+			continue;
+		}
+
+		AActor* TargetActor = Candidate->GetOwner();
+
+		if (!IsValid(TargetActor) || TargetActor == this)
+		{
+			continue;
+		}
+
+		const FVector TargetLocation = Candidate->GetLockOnLocation();
+
+		//최대 거리 검사
+		const float DistanceSquared = FVector::DistSquared(GetActorLocation(), TargetLocation);
+
+		if (DistanceSquared > FMath::Square(MaxLockOnDistance))
+		{
+			continue;
+		}
+
+		//카메라 뒤 제외
+		const FVector CameraToTarget = TargetLocation - CameraLocation;
+
+		if (FVector::DotProduct(CameraForward, CameraToTarget) <= 0.0f)
+		{
+			continue;
+		}
+
+		//화면 좌표 변환
+		FVector2D TargetScreenPosition;
+
+		if (!PlayerController->ProjectWorldLocationToScreen(
+			TargetLocation,
+			TargetScreenPosition,
+			true))
+		{
+			continue;
+		}
+
+		//화면 밖 대상 제외
+		const bool bInsideScreen = TargetScreenPosition.X >= 0.0f
+			&& TargetScreenPosition.X <= ViewportWidth
+			&& TargetScreenPosition.Y >= 0.0f
+			&& TargetScreenPosition.Y <= ViewportHeight;
+
+		if (!bInsideScreen) continue;
+
+		//벽 뒤 대상 제외
+		FCollisionQueryParams QueryParams(
+			SCENE_QUERY_STAT(LockOnVisibility),
+			false,
+			this
+		);
+
+		FHitResult VisibilityHit;
+
+		const bool bHit = GetWorld()->LineTraceSingleByChannel(
+			VisibilityHit,
+			CameraLocation,
+			TargetLocation,
+			ECC_Visibility,
+			QueryParams
+		);
+
+		if (bHit && VisibilityHit.GetActor() != TargetActor)
+		{
+			continue;
+		}
+		
+		//화면 중앙에 가장 가까운 후보 선택
+		const float ScreenDistanceSquared = FVector2D::DistSquared(TargetScreenPosition, ScreenCenter);
+
+		if (ScreenDistanceSquared < BestScreenDistanceSquared)
+		{
+			BestScreenDistanceSquared = ScreenDistanceSquared;
+			BestTarget = Candidate;
+		}
+	}
+
+	return BestTarget;
 }
