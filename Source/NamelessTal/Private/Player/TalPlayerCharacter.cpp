@@ -9,7 +9,10 @@
 #include "Animation/AnimInstance.h"
 
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
+
 
 #include "InputMappingContext.h"
 #include "InputAction.h"
@@ -54,8 +57,13 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	//Camera Arm Set
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(CameraTarget);
-	CameraBoom->TargetArmLength = 350.0f;
+	CameraBoom->TargetArmLength = CameraDistance;
 	CameraBoom->bUsePawnControlRotation = true;
+
+	CameraBoom->bEnableCameraLag = true;
+	CameraBoom->CameraLagSpeed = 12.0f;
+	CameraBoom->CameraLagMaxDistance = 100.0f;
+	CameraBoom->bUseCameraLagSubstepping = true;
 
 	// Follow Camera Set
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
@@ -89,6 +97,29 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	//카메라 거리보간
+	const float SafeCameraDistance = FMath::Max(0.0f, CameraDistance);
+	const float SafeInterpSpeed = FMath::Max(0.0f, CameraDistanceInterpSpeed);
+
+	CameraBoom->TargetArmLength = FMath::FInterpTo(
+		CameraBoom->TargetArmLength,
+		SafeCameraDistance,
+		DeltaTime,
+		SafeInterpSpeed
+	);
+	//카메라 Pitch제한
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (APlayerCameraManager* CameraManager = PlayerController->PlayerCameraManager)
+		{
+			const float SafePitchMin = FMath::Clamp(FMath::Min(MinCameraPitch, MaxCameraPitch), -89.0f, 89.0f);
+			const float SafePitchMax = FMath::Clamp(FMath::Max(MinCameraPitch, MaxCameraPitch), -89.0f, 89.0f);
+
+			CameraManager->ViewPitchMin = SafePitchMin;
+			CameraManager ->ViewPitchMax = SafePitchMax;
+		}
+	}
 
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
@@ -292,11 +323,18 @@ void ATalPlayerCharacter::NotifyControllerChanged()
 void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 {
 	const FVector2D LookAxisVector = Value.Get<FVector2D>();
-	if (Controller != nullptr)
-	{
-		AddControllerYawInput(LookAxisVector.X);
-		AddControllerPitchInput(-LookAxisVector.Y);
-	}
+
+	if (Controller == nullptr) return;
+
+	const float HorizontalScale = FMath::Clamp(HorizontalCameraSensitivity, 0.0f, 100.0f) / 50.0f;
+	const float VerticalScale = FMath::Clamp(VerticalCameraSensitivity, 0.0f, 100.0f) / 50.0f;
+
+	AddControllerYawInput(
+		LookAxisVector.X * HorizontalScale
+	);
+	AddControllerPitchInput(
+		-LookAxisVector.Y * VerticalScale
+	);
 }
 
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)

@@ -55,6 +55,26 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <class UCameraComponent> FollowCamera;
 
+
+	//카메라 변수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "0.0"))
+	float CameraDistance = 350.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "0.0"))
+	float CameraDistanceInterpSpeed = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "-89.0", UIMin = "89.0"))
+	float MinCameraPitch = -60.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "-89.0", UIMin = "89.0"))
+	float MaxCameraPitch = 60.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
+	float HorizontalCameraSensitivity = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
+	float VerticalCameraSensitivity = 50.0f;
+
 	// 무기
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <UStaticMeshComponent> WeaponMesh;
