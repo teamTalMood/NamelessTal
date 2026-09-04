@@ -2,7 +2,11 @@
 
 #include "Player/TalPlayerCharacter.h"
 #include "Variant_Combat/Interfaces/CombatDamageable.h"
+
+#include "MCLOG.h"
+
 #include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
@@ -32,6 +36,9 @@
 
 //무기헤더
 #include "Player/TalWeapon.h"
+
+//스탯 컴포넌트
+#include "Stat/StatComponent.h"
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -63,7 +70,9 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	//이동방향으로 캐릭터 회전
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
+
+	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 }
 
 
@@ -111,6 +120,8 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 		return;
 	}
 
+	StatComponent->DrainSoul(15.0f);//회피시 넋 15 소모
+
 	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
 
 	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DodgeDir);
@@ -147,7 +158,6 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
-
 
 	if (Controller != nullptr)
 	{
@@ -250,12 +260,18 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
+	if (!StatComponent->HasSoul()) return;
+
 	bIsSprinting = true;
+
+	StatComponent->SetSoulRegenBlocked(true);
 }
 
 void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 {
 	bIsSprinting = false;
+
+	StatComponent->SetSoulRegenBlocked(false);
 }
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
@@ -264,8 +280,61 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	{
 		return;
 	}
+	StatComponent->DrainSoul(10.0f);//공격시 넋 10 소모
 
-	PlayAnimMontage(AttackMontage);
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	if (AnimInstance == nullptr) return;
+
+	//몽타주 재생이 아니면 1타 시작
+	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		ComboIndex = 1;
+		bCanCombo = false;
+
+		PlayAnimMontage(AttackMontage, 1.0f, TEXT("Attack1"));
+
+		return;
+	}
+
+	//공격무시
+	if (!bCanCombo) return;
+
+	//2타 연결
+	if (ComboIndex == 1)
+	{
+		//AnimInstance->Montage_SetNextSection(
+		//	TEXT("Attack1"),
+		//	TEXT("Attack2"),
+		//	AttackMontage
+		//);
+
+		ComboIndex = 2;
+		bCanCombo = false;
+
+		//바로 애니메이션 연결하려면 JumpToSection
+		AnimInstance->Montage_JumpToSection(
+			TEXT("Attack2"),
+			AttackMontage
+		);
+	}
+	//3타 연결
+	else if (ComboIndex == 2)
+	{
+		//AnimInstance->Montage_SetNextSection(
+		//	TEXT("Attack2"),
+		//	TEXT("Attack3"),
+		//	AttackMontage
+		//);
+
+		ComboIndex = 3;
+		bCanCombo = false;
+
+		AnimInstance->Montage_JumpToSection(
+			TEXT("Attack3"),
+			AttackMontage
+		);
+	}
 }
 
 void ATalPlayerCharacter::EnableWeaponCollision()
@@ -461,3 +530,12 @@ void ATalPlayerCharacter::Interact()
 //{
 //	return EquippedWeapon;
 //}
+
+void ATalPlayerCharacter::OpenComboWindow()
+{
+	bCanCombo = true;
+}
+void ATalPlayerCharacter::CloseComboWindow()
+{
+	bCanCombo = false;
+}

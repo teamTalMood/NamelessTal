@@ -9,8 +9,8 @@
 // Sets default values for this component's properties
 UStatComponent::UStatComponent()
 {
-	// Tick disabled by default
-	PrimaryComponentTick.bCanEverTick = false;
+	// 넋을 채우는데 쓰이는 Tick
+	PrimaryComponentTick.bCanEverTick = true;
 }
 
 void UStatComponent::BeginPlay()
@@ -18,6 +18,7 @@ void UStatComponent::BeginPlay()
 	Super::BeginPlay();
 
 	CurrentHP = MaxHP;
+	CurrentSoul = MaxSoul;
 }
 
 void UStatComponent::ApplyDamage(float HitDamage)
@@ -36,5 +37,49 @@ void UStatComponent::RestoreFull()
 // 모닥불 처리
 {
 	CurrentHP = MaxHP;
+	CurrentSoul = MaxSoul;
 }
+
+
+
+void UStatComponent::DrainSoul(float Amount)
+{
+	CurrentSoul = FMath::Clamp(CurrentSoul - Amount, 0.0f, MaxSoul);
+
+	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
+
+	//언제 마지막으로 사용했는지 체크하기
+	LastSoulDrainTime = GetWorld()->GetTimeSeconds();
+}
+
+void UStatComponent::SetSoulRegenBlocked(bool bBlocked)
+{
+	//막혀있다가 풀리는 순간
+	if (bSoulRegenBlocked && !bBlocked)
+	{
+		LastSoulDrainTime = GetWorld()->GetTimeSeconds();
+	}
+	bSoulRegenBlocked = bBlocked;
+}
+
+// 시간이 지나면 (1초) 넋이 시간초에 따라 자동으로 찬다
+void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
+	FActorComponentTickFunction* PCSoulTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, PCSoulTickFunction);
+	
+	if (bSoulRegenBlocked)
+	{
+		return;
+	}
+
+	const float TimeSinceLastDrain = GetWorld()->GetTimeSeconds() - LastSoulDrainTime;
+	if (TimeSinceLastDrain < SoulRegenDelay)
+	{
+		return;
+	}
+
+	CurrentSoul = FMath::Clamp(CurrentSoul + SoulRegenRate * DeltaTime, 0.0f, MaxSoul);
+}
+
 
