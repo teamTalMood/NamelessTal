@@ -16,6 +16,7 @@ class UCapsuleComponent;
 class ATalBase; //탈 전방선언
 class ATalWeapon; //무기 전방선언
 class UStatComponent; //스탯 전방선언
+class UGuardComponent; // 가드/패링 클래스 전방선언
 
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
@@ -276,6 +277,18 @@ protected:
 		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat",
 			meta = (AllowPrivateAccess = "true"))
 		TObjectPtr<UStatComponent> StatComponent;
+
+		////////////////////////////////////////////////////////////////////////////
+///////		가드 / 패링 시스템
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard", 
+			meta = (AllowPrivateAccess = "true"))
+		TObjectPtr<UGuardComponent> GuardComponent;
+
+		UPROPERTY(EditAnywhere, Category = "Input")
+		TObjectPtr<UInputAction> GuardAction;
+
+		void StartGuard(const FInputActionValue& Value);
+		void StopGuard(const FInputActionValue& Value);
 
 
 };
