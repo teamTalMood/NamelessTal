@@ -42,6 +42,11 @@
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
+	//Cmaera Component Set
+	CameraTarget = CreateDefaultSubobject<USceneComponent>(TEXT("CameraTarget"));
+	CameraTarget->SetupAttachment(RootComponent);
+	CameraTarget->SetRelativeLocation
+
 	//Camera Arm Set
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);

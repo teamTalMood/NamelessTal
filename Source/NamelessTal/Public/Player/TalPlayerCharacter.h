@@ -44,7 +44,10 @@ protected:
 //   Basic Components : 컴포넌트들
 //
 protected:
-	// CameraBoom , Follow Camera ( 카메라 암, 카메라 )
+	// CameraBoom , Follow Camera, Camera Root ( 카메라 암, 카메라 )
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAcess = "true"))
+	TObjectPtr<class USceneComponent> CameraTarget;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <class USpringArmComponent> CameraBoom;
 
