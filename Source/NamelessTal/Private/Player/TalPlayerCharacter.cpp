@@ -40,6 +40,10 @@
 //스탯 컴포넌트
 #include "Stat/StatComponent.h"
 
+// 패링/가드 컴포넌트
+#include "Guard/GuardComponent.h"
+
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Camera Arm Set
@@ -73,6 +77,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
 
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
+	GuardComponent = CreateDefaultSubobject<UGuardComponent>(TEXT("GuardComponent"));
 }
 
 
@@ -221,6 +226,12 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 		EnhancedInputComponent->BindAction(TalAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::Interact);//탈 상호작용
+
+		// 패링 가드 시스템 InputComponent 바인딩 추가
+		EnhancedInputComponent->BindAction(GuardAction, ETriggerEvent::Started,
+			this, &ATalPlayerCharacter::StartGuard);
+		EnhancedInputComponent->BindAction(GuardAction, ETriggerEvent::Completed,
+			this, &ATalPlayerCharacter::StopGuard);
 	}
 }
 
@@ -232,6 +243,22 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	if (bIsInvincible)
 	{
 		return 0.0f;
+	}
+
+	if (GuardComponent->IsGuarding())
+	{
+		if (GuardComponent->TryParry())
+		{
+			return 0.0f;
+		}
+
+		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
+		StatComponent->DrainSoul(30.0f);
+
+		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		const float ReducedDamage = Damage * 0.3f; // 임시 값
+		StatComponent->ApplyDamage(ReducedDamage);
+		return ReducedDamage;
 	}
 
 	StatComponent->ApplyDamage(Damage);
@@ -547,4 +574,19 @@ void ATalPlayerCharacter::OpenComboWindow()
 void ATalPlayerCharacter::CloseComboWindow()
 {
 	bCanCombo = false;
+}
+
+
+
+// 패링 / 가드 시스템 연동 
+void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
+{
+	GuardComponent->StartGuard();
+	StatComponent->SetSoulRegenBlocked(true);
+}
+
+void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
+{
+	GuardComponent->StopGuard();
+	StatComponent->SetSoulRegenBlocked(false);
 }
