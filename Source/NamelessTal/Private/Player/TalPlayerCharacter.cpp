@@ -3,6 +3,8 @@
 #include "Player/TalPlayerCharacter.h"
 #include "Variant_Combat/Interfaces/CombatDamageable.h"
 
+#include "MCLOG.h"
+
 #include "Animation/AnimMontage.h"
 #include "Animation/AnimInstance.h"
 
@@ -68,7 +70,9 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	//이동방향으로 캐릭터 회전
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
+
+	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 }
 
 
@@ -154,7 +158,6 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
-
 
 	if (Controller != nullptr)
 	{

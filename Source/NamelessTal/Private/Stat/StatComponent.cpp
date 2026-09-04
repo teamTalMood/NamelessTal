@@ -46,6 +46,8 @@ void UStatComponent::DrainSoul(float Amount)
 {
 	CurrentSoul = FMath::Clamp(CurrentSoul - Amount, 0.0f, MaxSoul);
 
+	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
+
 	//언제 마지막으로 사용했는지 체크하기
 	LastSoulDrainTime = GetWorld()->GetTimeSeconds();
 }
