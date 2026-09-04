@@ -15,7 +15,7 @@ class UStaticMeshComponent;
 class UCapsuleComponent;
 class ATalBase; //탈 전방선언
 class ATalWeapon; //무기 전방선언
-
+class UStatComponent; //스탯 전방선언
 
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
@@ -265,5 +265,14 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	int32 ComboIndex = 0;
+
+
+	////////////////////////////////////////////////////////////////////////////
+///////		스탯
+	protected:
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat",
+			meta = (AllowPrivateAccess = "true"))
+		TObjectPtr<UStatComponent> StatComponent;
+
 
 };

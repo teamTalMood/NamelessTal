@@ -35,6 +35,9 @@
 //무기헤더
 #include "Player/TalWeapon.h"
 
+//스탯 컴포넌트
+#include "Stat/StatComponent.h"
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Camera Arm Set
@@ -112,6 +115,8 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	{
 		return;
 	}
+
+	StatComponent->DrainSoul(15.0f);//회피시 넋 15 소모
 
 	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
 
@@ -252,12 +257,18 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
+	if (!StatComponent->HasSoul()) return;
+
 	bIsSprinting = true;
+
+	StatComponent->SetSoulRegenBlocked(true);
 }
 
 void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 {
 	bIsSprinting = false;
+
+	StatComponent->SetSoulRegenBlocked(false);
 }
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
@@ -266,6 +277,7 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	{
 		return;
 	}
+	StatComponent->DrainSoul(10.0f);//공격시 넋 10 소모
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 
