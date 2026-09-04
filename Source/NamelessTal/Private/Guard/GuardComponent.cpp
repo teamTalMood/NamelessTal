@@ -35,11 +35,16 @@ bool UGuardComponent::TryParry() const
 		// 가드 실패
 		return false;
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("패링성공"));
+	
 	// 지금 시간 - 가드 시작 시간 <= 0.1초 보다 작거나 같을 경우에만 True 반환
 	const float TimeSinceGuard = GetWorld()->GetTimeSeconds() - GuardStartTime;
-	return TimeSinceGuard <= ParryWindow;
+	const bool bParried = TimeSinceGuard <= ParryWindow;
 
+	if (bParried)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("패링성공"));
+	}
+
+	return bParried;
 }
 

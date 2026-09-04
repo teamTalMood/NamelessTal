@@ -135,7 +135,9 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	//}
 
 	// Sprint Speed Interpolation
-	const float TargetSpeed = bIsSprinting ? SprintSpeed : WalkSpeed;
+	const float TargetSpeed = GuardComponent->IsGuarding() ? GuardComponent->GetGuardWalkSpeed()
+		: (bIsSprinting ? SprintSpeed : WalkSpeed);
+
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
 }
@@ -218,7 +220,19 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 		{ // AddmovementInput is ignored during dodge
 			return;
 		}
-
+		
+		if (GuardComponent->IsGuarding())
+		{
+			if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+			{
+				FName CurrentSection = AnimInstance->Montage_GetCurrentSection(GuardMontage);
+				if (AnimInstance->Montage_GetCurrentSection(GuardMontage) == TEXT("Guard_hit"))
+				{
+					return; // 패링,가드 (맞는 경우 이동 무시)
+				}
+			}
+		}
+		
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -283,13 +297,18 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 	if (GuardComponent->IsGuarding())
 	{
+		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+		{
+			AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+		}
+
 		if (GuardComponent->TryParry())
 		{
 			return 0.0f;
 		}
 
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
-		StatComponent->DrainSoul(30.0f);
+		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
 		const float ReducedDamage = Damage * 0.3f; // 임시 값
@@ -626,10 +645,16 @@ void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
 	GuardComponent->StartGuard();
 	StatComponent->SetSoulRegenBlocked(true);
+	PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Start"));
 }
 
 void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 {
 	GuardComponent->StopGuard();
 	StatComponent->SetSoulRegenBlocked(false);
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		//GuardMontage에서 Guard_End를 찾아 점프하십시오 
+		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"),GuardMontage);
+	}
 }

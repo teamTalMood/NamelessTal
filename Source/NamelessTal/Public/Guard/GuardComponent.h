@@ -25,6 +25,11 @@ public:
 	// 가드 / 패링간 이동속도 받아오기
 	float GetGuardWalkSpeed() const { return GuardWalkSpeed; }
 
+	// 가드 소울 코스트 
+	float GetGuardSoulCost() const { return GuardSoulCost; }
+
+	// 가드 데미지 곱하는 함수 
+	float GetGuardDamageMultiplier() const { return GuardDamageMultiplier;  }
 
 protected:
 	// Called when the game starts

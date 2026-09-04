@@ -310,5 +310,9 @@ protected:
 		void StartGuard(const FInputActionValue& Value);
 		void StopGuard(const FInputActionValue& Value);
 
+		////////////////////////////////////////////////////////////////////////////
+	///////		가드 / 패링
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		UAnimMontage* GuardMontage;
 
 };
