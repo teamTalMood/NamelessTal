@@ -348,4 +348,9 @@ protected:
 		const class APlayerController* PlayerController,
 		FVector2D& OutScreenPosition
 	) const;
+
+	////////////////////////////////////////////////////////////////////////////
+///////		가드 / 패링
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	UAnimMontage* GuardMontage;
 };
