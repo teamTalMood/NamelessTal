@@ -314,6 +314,18 @@ protected:
 		void StartGuard(const FInputActionValue& Value);
 		void StopGuard(const FInputActionValue& Value);
 
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		float ParrySlowMoTimeDilation = 0.15f;
+
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		float ParrySlowMoRealDuration = 0.3f;
+
+		bool bParrySlowMoActive = false;
+		float ParrySlowMoEndRealTime = 0.0f;
+
+		public :
+			void TriggerParrySlowMo();
+
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:

@@ -51,6 +51,9 @@
 #include "Engine/World.h"
 #include "UObject/UObjectIterator.h"
 
+// 적 애니메이션 ( 맞춤 패링 )
+#include "NPC/Interface//NTNPCCharacterBaseInterface.h"
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -102,6 +105,12 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >= ParrySlowMoEndRealTime)
+	{
+		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
+		bParrySlowMoActive = false;
+	}
+
 	//카메라 거리보간
 	const float SafeCameraDistance = FMath::Max(0.0f, CameraDistance);
 	const float SafeInterpSpeed = FMath::Max(0.0f, CameraDistanceInterpSpeed);
@@ -112,6 +121,9 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		DeltaTime,
 		SafeInterpSpeed
 	);
+
+
+
 	//카메라 Pitch제한
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
@@ -311,6 +323,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 	if (GuardComponent->IsGuarding())
 	{
+		const bool bParried = GuardComponent->TryParry();
+
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
 			AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
@@ -673,6 +687,13 @@ void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 		//GuardMontage에서 Guard_End를 찾아 점프하십시오 
 		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"),GuardMontage);
 	}
+}
+
+void ATalPlayerCharacter::TriggerParrySlowMo()
+{
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), ParrySlowMoTimeDilation);
+	bParrySlowMoActive = true; // 슬로우 시작
+	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() + ParrySlowMoRealDuration;
 }
 
 

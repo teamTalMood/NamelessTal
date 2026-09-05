@@ -15,6 +15,9 @@ class NAMELESSTAL_API UAnimNotifyState_WeaponCollision : public UAnimNotifyState
 	GENERATED_BODY()
 	
 public :
+
+	// 무기 콜리전을 키고 끄는 용도로 사용
+
 	// 구간 시작 시 한번 호출
 	virtual void NotifyBegin(USkeletalMeshComponent* MeshComp,
 		UAnimSequenceBase* Animation, float TotalDuration, 
