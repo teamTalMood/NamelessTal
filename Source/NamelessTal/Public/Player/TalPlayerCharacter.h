@@ -113,8 +113,12 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputAction> SprintAction;
 
+	//락온
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputAction> LockOnAction;
+	//락온변경
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> SwitchLockOnTargetAction;
 
 
 ////////////////////////////////////////
@@ -337,4 +341,11 @@ protected:
 
 	void BeginLockOn();
 	void UpdateLockOn(float DeltaTime);
+
+	void SwitchLockOnTarget(const FInputActionValue& Value);
+	bool TryGetValidLockOnCandidateScreenPosition(
+		UNTLockOnTargetComponent* Candidate,
+		const class APlayerController* PlayerController,
+		FVector2D& OutScreenPosition
+	) const;
 };
