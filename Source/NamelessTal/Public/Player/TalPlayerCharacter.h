@@ -327,9 +327,13 @@ protected:
 		bool bParrySlowMoActive = false;
 		float ParrySlowMoEndRealTime = 0.0f;
 
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		UAnimMontage* ParryMontage;
+
 		public :
 			void TriggerParrySlowMo();
 
+			void OnParryMontage(UAnimMontage* Montage, bool bInterrupted);
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:

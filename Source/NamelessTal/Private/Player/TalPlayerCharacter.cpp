@@ -248,7 +248,9 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 			if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 			{
 				FName CurrentSection = AnimInstance->Montage_GetCurrentSection(GuardMontage);
-				if (AnimInstance->Montage_GetCurrentSection(GuardMontage) == TEXT("Guard_hit"))
+
+				if (CurrentSection == TEXT("Guard_hit") || CurrentSection == TEXT("Parry_LDRU")
+					|| CurrentSection == TEXT("Parry_RULD"))
 				{
 					return; // 패링,가드 (맞는 경우 이동 무시)
 				}
@@ -329,10 +331,38 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
-			AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+			if (bParried)
+			{
+				FName ParrySection = TEXT("Parry_LDRU"); // 패링성공시 LDRU뿜뿜
+				
+				if (INTNPCCharacterBaseInterface* NPCCharacter =
+					Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+				{
+					const uint8 AttackDirection = NPCCharacter->GetAttackDirection();
+					if (AttackDirection == 3) //정면방향만 RULD
+					{
+						ParrySection = TEXT("Parry_RULD");
+					}
+				}
+
+				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
+
+				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
+
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate, ParryMontage);
+				
+				return 0.0f;
+			}
+			else
+			{
+				AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+			}
+
 		}
 
-		if (GuardComponent->TryParry())
+		if (bParried)
 		{
 			return 0.0f;
 		}
@@ -696,6 +726,15 @@ void ATalPlayerCharacter::TriggerParrySlowMo()
 	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), ParrySlowMoTimeDilation);
 	bParrySlowMoActive = true; // 슬로우 시작
 	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() + ParrySlowMoRealDuration;
+}
+
+void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
+{
+	// 아직 가드 버튼 누르고 있음
+	if (GuardComponent->IsGuarding())
+	{
+		PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_loop"));
+	}
 }
 
 
