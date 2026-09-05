@@ -124,6 +124,10 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 			CameraManager ->ViewPitchMax = SafePitchMax;
 		}
 	}
+	if (bIsLockOnActive)
+	{
+		UpdateLockOn(DeltaTime);
+	}
 
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
@@ -196,6 +200,8 @@ void ATalPlayerCharacter::EndDodge()
 {
 	bIsDodging = false;
 	bIsInvincible = false;
+
+	bUseControllerRotationYaw = bIsLockOnActive; //락온중이면 회전 활성화, 아니면 비활성화
 }
 
 // Player Move
@@ -330,6 +336,8 @@ void ATalPlayerCharacter::NotifyControllerChanged()
 
 void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 {
+	//락온여부
+	if (bIsLockOnActive || Controller == nullptr) return;
 	const FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 	if (Controller == nullptr) return;
@@ -644,6 +652,19 @@ void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 
 
 //락온 시스템
+void ATalPlayerCharacter::BeginLockOn()
+{
+	if (!IsValid(CurrentLockOnTarget)) return;
+
+	bIsLockOnActive = true;
+
+	//락온 중에는 상대를 바라봄
+	bUseControllerRotationYaw = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+
+	CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+}
+
 void ATalPlayerCharacter::ToggleLockOn(const FInputActionValue& Value)
 {
 	if (IsValid(CurrentLockOnTarget))
@@ -656,7 +677,7 @@ void ATalPlayerCharacter::ToggleLockOn(const FInputActionValue& Value)
 
 	if (IsValid(CurrentLockOnTarget))
 	{
-		CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+		BeginLockOn();
 	}
 }
 
@@ -668,10 +689,16 @@ void ATalPlayerCharacter::ClearLockOnTarget()
 	}
 
 	CurrentLockOnTarget = nullptr;
+	bIsLockOnActive = false;
+
+	//일반 이동, 카메라 상태 복구
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
 UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 {
+	MC_LOG(LogSY, Log, TEXT("최고의 락온 대상을 찾는 중"));
 	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
 
 	if (!IsValid(PlayerController) || !IsValid(FollowCamera)) return nullptr;
@@ -692,12 +719,13 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 	for (TObjectIterator<UNTLockOnTargetComponent> It; It; ++It)
 	{
 		UNTLockOnTargetComponent* Candidate = *It;
-
+		MC_LOG(LogSY, Log, TEXT("후보 확인: %s"), *Candidate->GetName());
 		if (!IsValid(Candidate)
 			|| Candidate->IsTemplate()
 			|| Candidate->GetWorld() != GetWorld()
 			|| !Candidate->IsLockOnAvailable())
 		{
+			MC_LOG(LogSY, Log, TEXT("후보 제외: %s"), *Candidate->GetName());
 			continue;
 		}
 
@@ -723,6 +751,7 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 
 		if (FVector::DotProduct(CameraForward, CameraToTarget) <= 0.0f)
 		{
+			MC_LOG(LogSY, Log, TEXT("카메라 뒤 대상 제외: %s"), *TargetActor->GetName());
 			continue;
 		}
 
@@ -734,6 +763,7 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 			TargetScreenPosition,
 			true))
 		{
+			MC_LOG(LogSY, Log, TEXT("화면 좌표 변환 실패: %s"), *TargetActor->GetName());
 			continue;
 		}
 
@@ -743,7 +773,11 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 			&& TargetScreenPosition.Y >= 0.0f
 			&& TargetScreenPosition.Y <= ViewportHeight;
 
-		if (!bInsideScreen) continue;
+		if (!bInsideScreen)
+		{
+			MC_LOG(LogSY, Log, TEXT("화면 밖 대상 제외: %s"), *TargetActor->GetName());
+			continue;
+		}
 
 		//벽 뒤 대상 제외
 		FCollisionQueryParams QueryParams(
@@ -751,6 +785,7 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 			false,
 			this
 		);
+		
 
 		FHitResult VisibilityHit;
 
@@ -764,6 +799,7 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 
 		if (bHit && VisibilityHit.GetActor() != TargetActor)
 		{
+			MC_LOG(LogSY, Log, TEXT("벽 뒤 대상 제외: %s"), *TargetActor->GetName());
 			continue;
 		}
 		
@@ -776,6 +812,66 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 			BestTarget = Candidate;
 		}
 	}
-
+	MC_LOG(LogSY, Log, TEXT("최고의 락온 대상 찾기 완료: %s"), BestTarget ? *BestTarget->GetName() : TEXT("없음"));
 	return BestTarget;
+}
+
+void ATalPlayerCharacter::UpdateLockOn(float DeltaTime)
+{
+	if (!IsValid(CurrentLockOnTarget)
+		|| !CurrentLockOnTarget->IsLockOnAvailable()
+		|| Controller == nullptr)
+	{
+		ClearLockOnTarget();
+		return;
+	}
+
+	const FVector TargetLocation = CurrentLockOnTarget->GetLockOnLocation();
+	const float DistanceSquared = FVector::DistSquared(GetActorLocation(), TargetLocation);
+
+	if (DistanceSquared > FMath::Square(MaxLockOnDistance))
+	{
+		ClearLockOnTarget();
+		return;
+	}
+
+	const FVector CameraPivotLocation =
+		IsValid(CameraTarget)
+		? CameraTarget->GetComponentLocation()
+		: GetActorLocation();
+
+	const FVector DirectionToTarget = TargetLocation - CameraPivotLocation;
+
+	if (DirectionToTarget.IsNearlyZero()) return;
+
+	FRotator TargetControlRotation = DirectionToTarget.Rotation();
+
+	const float SafePitchMin = FMath::Clamp(
+		FMath::Min(MinCameraPitch, MaxCameraPitch),
+		-89.0f,
+		89.0f
+	);
+
+	const float SafePitchMax = FMath::Clamp(
+		FMath::Max(MinCameraPitch, MaxCameraPitch),
+		-89.0f,
+		89.0f
+	);
+
+	TargetControlRotation.Pitch = FMath::Clamp(
+		FRotator::NormalizeAxis(TargetControlRotation.Pitch),
+		SafePitchMin,
+		SafePitchMax
+	);
+
+	TargetControlRotation.Roll = 0.0f;
+
+	const FRotator NewControlRotation = FMath::RInterpTo(
+		Controller->GetControlRotation(),
+		TargetControlRotation,
+		DeltaTime,
+		FMath::Max(0.0f, LockOnCameraInterpSpeed)
+	);
+
+	Controller->SetControlRotation(NewControlRotation);
 }

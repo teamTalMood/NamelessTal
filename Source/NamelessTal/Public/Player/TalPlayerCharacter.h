@@ -317,6 +317,12 @@ protected:
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
+	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
+	bool bIsLockOnActive = false;//락온 활성화 여부
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn", meta = (ClampMin = "0.0", UTMin = "0.0"))
 	float MaxLockOnDistance = 1500.0f;
 
@@ -328,4 +334,7 @@ protected:
 	UNTLockOnTargetComponent* FindBestLockOnTarget() const;
 
 	void ClearLockOnTarget();
+
+	void BeginLockOn();
+	void UpdateLockOn(float DeltaTime);
 };
