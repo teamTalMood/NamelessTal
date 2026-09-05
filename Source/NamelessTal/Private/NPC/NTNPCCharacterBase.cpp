@@ -19,6 +19,7 @@
 //NT
 #include "NPC/NTAIController.h"
 #include "Animation/AnimMontage.h"
+#include "Stat/StatComponent.h"
 
 //Interface
 #include "Variant_Combat/Interfaces/CombatDamageable.h"
@@ -45,6 +46,9 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ANTNPCCharacterBase::OnWeaponOverlap);
+
+	// Stat
+	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 }
 
 // Called when the game starts or when spawned

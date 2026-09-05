@@ -134,4 +134,15 @@ protected:
 	// 무기 콜리전이 겹칠 때 호출
 	UFUNCTION()
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+
+
+
+////////////////////////////////////////
+//
+//   Stat
+//
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	TObjectPtr <class UStatComponent> StatComponent;
 };
