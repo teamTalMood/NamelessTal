@@ -296,6 +296,8 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		//락온 바인딩 추가
 		EnhancedInputComponent->BindAction(LockOnAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::ToggleLockOn);
+		EnhancedInputComponent->BindAction(SwitchLockOnTargetAction, ETriggerEvent::Started,
+			this, &ATalPlayerCharacter::SwitchLockOnTarget);
 	}
 }
 
@@ -726,7 +728,7 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 	MC_LOG(LogSY, Log, TEXT("최고의 락온 대상을 찾는 중"));
 	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
 
-	if (!IsValid(PlayerController) || !IsValid(FollowCamera)) return nullptr;
+	if (!IsValid(PlayerController)) return nullptr;
 
 	int32 ViewportWidth = 0;
 	int32 ViewportHeight = 0;
@@ -735,8 +737,6 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 	if (ViewportWidth <= 0 || ViewportHeight <= 0) return nullptr;
 
 	const FVector2D ScreenCenter(ViewportWidth * 0.5f, ViewportHeight * 0.5f);
-	const FVector CameraLocation = FollowCamera->GetComponentLocation();
-	const FVector CameraForward = FollowCamera->GetForwardVector();
 
 	UNTLockOnTargetComponent* BestTarget = nullptr;
 	float BestScreenDistanceSquared = TNumericLimits<float>::Max();
@@ -744,100 +744,29 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 	for (TObjectIterator<UNTLockOnTargetComponent> It; It; ++It)
 	{
 		UNTLockOnTargetComponent* Candidate = *It;
-		MC_LOG(LogSY, Log, TEXT("후보 확인: %s"), *Candidate->GetName());
-		if (!IsValid(Candidate)
-			|| Candidate->IsTemplate()
-			|| Candidate->GetWorld() != GetWorld()
-			|| !Candidate->IsLockOnAvailable())
-		{
-			MC_LOG(LogSY, Log, TEXT("후보 제외: %s"), *Candidate->GetName());
-			continue;
-		}
+		FVector2D CandidateScreenPosition;
 
-		AActor* TargetActor = Candidate->GetOwner();
-
-		if (!IsValid(TargetActor) || TargetActor == this)
+		if (!TryGetValidLockOnCandidateScreenPosition(
+			Candidate,
+			PlayerController,
+			CandidateScreenPosition))
 		{
 			continue;
 		}
 
-		const FVector TargetLocation = Candidate->GetLockOnLocation();
-
-		//최대 거리 검사
-		const float DistanceSquared = FVector::DistSquared(GetActorLocation(), TargetLocation);
-
-		if (DistanceSquared > FMath::Square(MaxLockOnDistance))
-		{
-			continue;
-		}
-
-		//카메라 뒤 제외
-		const FVector CameraToTarget = TargetLocation - CameraLocation;
-
-		if (FVector::DotProduct(CameraForward, CameraToTarget) <= 0.0f)
-		{
-			MC_LOG(LogSY, Log, TEXT("카메라 뒤 대상 제외: %s"), *TargetActor->GetName());
-			continue;
-		}
-
-		//화면 좌표 변환
-		FVector2D TargetScreenPosition;
-
-		if (!PlayerController->ProjectWorldLocationToScreen(
-			TargetLocation,
-			TargetScreenPosition,
-			true))
-		{
-			MC_LOG(LogSY, Log, TEXT("화면 좌표 변환 실패: %s"), *TargetActor->GetName());
-			continue;
-		}
-
-		//화면 밖 대상 제외
-		const bool bInsideScreen = TargetScreenPosition.X >= 0.0f
-			&& TargetScreenPosition.X <= ViewportWidth
-			&& TargetScreenPosition.Y >= 0.0f
-			&& TargetScreenPosition.Y <= ViewportHeight;
-
-		if (!bInsideScreen)
-		{
-			MC_LOG(LogSY, Log, TEXT("화면 밖 대상 제외: %s"), *TargetActor->GetName());
-			continue;
-		}
-
-		//벽 뒤 대상 제외
-		FCollisionQueryParams QueryParams(
-			SCENE_QUERY_STAT(LockOnVisibility),
-			false,
-			this
-		);
-		
-
-		FHitResult VisibilityHit;
-
-		const bool bHit = GetWorld()->LineTraceSingleByChannel(
-			VisibilityHit,
-			CameraLocation,
-			TargetLocation,
-			ECC_Visibility,
-			QueryParams
-		);
-
-		if (bHit && VisibilityHit.GetActor() != TargetActor)
-		{
-			MC_LOG(LogSY, Log, TEXT("벽 뒤 대상 제외: %s"), *TargetActor->GetName());
-			continue;
-		}
-		
-		//화면 중앙에 가장 가까운 후보 선택
-		const float ScreenDistanceSquared = FVector2D::DistSquared(TargetScreenPosition, ScreenCenter);
+		const float ScreenDistanceSquared =
+			FVector2D::DistSquared(
+				CandidateScreenPosition,
+				ScreenCenter
+			);
 
 		if (ScreenDistanceSquared < BestScreenDistanceSquared)
 		{
 			BestScreenDistanceSquared = ScreenDistanceSquared;
 			BestTarget = Candidate;
 		}
+
 	}
-	MC_LOG(LogSY, Log, TEXT("최고의 락온 대상 찾기 완료: %s"), BestTarget ? *BestTarget->GetName() : TEXT("없음"));
 	return BestTarget;
 }
 
@@ -899,4 +828,155 @@ void ATalPlayerCharacter::UpdateLockOn(float DeltaTime)
 	);
 
 	Controller->SetControlRotation(NewControlRotation);
+}
+
+bool ATalPlayerCharacter::TryGetValidLockOnCandidateScreenPosition(
+	UNTLockOnTargetComponent* Candidate,
+	const APlayerController* PlayerController,
+	FVector2d& OutScreenPosition
+) const
+{
+	if (!IsValid(Candidate)
+		|| Candidate->IsTemplate()
+		|| Candidate->GetWorld() != GetWorld()
+		|| !Candidate->IsLockOnAvailable()
+		|| !IsValid(PlayerController)
+		|| !IsValid(FollowCamera))
+	{
+		return false;
+	}
+
+	AActor* TargetActor = Candidate->GetOwner();
+
+	if (!IsValid(TargetActor) || TargetActor == this)
+	{
+		return false;
+	}
+
+	const FVector TargetLocation = Candidate->GetLockOnLocation();
+	const float DistanceSquared = FVector::DistSquared(
+		GetActorLocation(), TargetLocation
+	);
+
+	if (DistanceSquared > FMath::Square(MaxLockOnDistance))
+	{
+		return false;
+	}
+
+	const FVector CameraLocation = FollowCamera->GetComponentLocation();
+	const FVector CameraToTarget = TargetLocation - CameraLocation;
+
+	if (FVector::DotProduct(FollowCamera->GetForwardVector(), CameraToTarget) <= 0.0f)
+	{
+		return false;
+	}
+
+	if (!PlayerController->ProjectWorldLocationToScreen(
+		TargetLocation,
+		OutScreenPosition,
+		true))
+	{
+		return false;
+	}
+
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+
+	PlayerController->GetViewportSize(
+		ViewportWidth,
+		ViewportHeight
+	);
+
+	const bool bInsideScreen =
+		OutScreenPosition.X >= 0.0f
+		&& OutScreenPosition.X <= ViewportWidth
+		&& OutScreenPosition.Y >= 0.0f
+		&& OutScreenPosition.Y <= ViewportHeight;
+
+	if (!bInsideScreen) return false;
+
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(LockOnVisibility),
+		false,
+		this
+	);
+
+	FHitResult VisibilityHit;
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		VisibilityHit,
+		CameraLocation,
+		TargetLocation,
+		ECC_Visibility,
+		QueryParams
+	);
+
+	return !bHit || VisibilityHit.GetActor() == TargetActor;
+}
+
+void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
+{
+	if (!bIsLockOnActive || !IsValid(CurrentLockOnTarget)) return;
+
+	const float Direction = Value.Get<float>();
+
+	if (FMath::IsNearlyZero(Direction)) return;
+
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+
+	if (!IsValid(PlayerController)) return;
+
+	FVector2D CurrentScreenPosition;
+
+	if (!PlayerController->ProjectWorldLocationToScreen(
+		CurrentLockOnTarget->GetLockOnLocation(),
+		CurrentScreenPosition,
+		true))
+	{
+		return;
+	}
+
+	UNTLockOnTargetComponent* BestTarget = nullptr;
+	float BestHorizontalDistance = TNumericLimits<float>::Max();
+
+	for (TObjectIterator<UNTLockOnTargetComponent> It; It; ++It)
+	{
+		UNTLockOnTargetComponent* Candidate = *It;
+
+		if (Candidate == CurrentLockOnTarget) continue;
+
+		FVector2D CandidateScreenPosition;
+
+		if (!TryGetValidLockOnCandidateScreenPosition(
+			Candidate,
+			PlayerController,
+			CandidateScreenPosition))
+		{
+			continue;
+		}
+
+		const float HorizontalDelta = CandidateScreenPosition.X - CurrentScreenPosition.X;
+
+		const bool bCorrectDirection =
+			Direction < 0.0f
+			? HorizontalDelta < 0.0f
+			: HorizontalDelta > 0.0f;
+
+		if (!bCorrectDirection) continue;
+
+		const float HorizontalDistance = FMath::Abs(HorizontalDelta);
+
+		if (HorizontalDistance < BestHorizontalDistance)
+		{
+			BestHorizontalDistance = HorizontalDistance;
+			BestTarget = Candidate;
+		}
+	}
+
+	if (!IsValid(BestTarget)) return;
+
+	//여기서 체인쥐
+	CurrentLockOnTarget->SetLockOnWidgetVisible(false);
+	CurrentLockOnTarget = BestTarget;
+	CurrentLockOnTarget->SetLockOnWidgetVisible(true);
 }
