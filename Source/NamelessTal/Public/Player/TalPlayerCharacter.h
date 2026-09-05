@@ -17,6 +17,8 @@ class ATalBase; //탈 전방선언
 class ATalWeapon; //무기 전방선언
 class UStatComponent; //스탯 전방선언
 class UGuardComponent; // 가드/패링 클래스 전방선언
+class UNTLockOnTargetComponent; //락온 전방선언
+
 
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
@@ -111,6 +113,8 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputAction> SprintAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr <UInputAction> LockOnAction;
 
 
 ////////////////////////////////////////
@@ -310,9 +314,32 @@ protected:
 		void StartGuard(const FInputActionValue& Value);
 		void StopGuard(const FInputActionValue& Value);
 
-		////////////////////////////////////////////////////////////////////////////
-	///////		가드 / 패링
-		UPROPERTY(EditAnywhere, Category = "Guard")
-		UAnimMontage* GuardMontage;
+////////////////////////////////////////////////////////////////////////////
+///////		락온 시스템
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
+	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
+	bool bIsLockOnActive = false;//락온 활성화 여부
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn", meta = (ClampMin = "0.0", UTMin = "0.0"))
+	float MaxLockOnDistance = 1500.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
+	TObjectPtr<UNTLockOnTargetComponent> CurrentLockOnTarget;
+
+	void ToggleLockOn(const FInputActionValue& Value);
+
+	UNTLockOnTargetComponent* FindBestLockOnTarget() const;
+
+	void ClearLockOnTarget();
+
+	void BeginLockOn();
+	void UpdateLockOn(float DeltaTime);
+
+	////////////////////////////////////////////////////////////////////////////
+///////		가드 / 패링
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	UAnimMontage* GuardMontage;
 };
