@@ -42,7 +42,7 @@ bool UNTBTD_AttackInRange::CalculateRawConditionValue(UBehaviorTreeComponent& Ow
 	float AttackRangeWithRadius = AIPawn->GetAIAttackRange();
 	bResult = (DistanceToTarget <= AttackRangeWithRadius);
 
-	MC_LOG(LogMC, Log, TEXT("End : %d - DistanceToTarget : %f | AttackRangeWithRadius : %f"), bResult, DistanceToTarget, AttackRangeWithRadius);
+	//MC_LOG(LogMC, Log, TEXT("End : %d - DistanceToTarget : %f | AttackRangeWithRadius : %f"), bResult, DistanceToTarget, AttackRangeWithRadius);
 
 
 	return bResult;
