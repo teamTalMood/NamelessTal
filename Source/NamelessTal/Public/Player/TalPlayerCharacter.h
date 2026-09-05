@@ -16,6 +16,9 @@ class UCapsuleComponent;
 class ATalBase; //탈 전방선언
 class ATalWeapon; //무기 전방선언
 class UStatComponent; //스탯 전방선언
+class UGuardComponent; // 가드/패링 클래스 전방선언
+class UNTLockOnTargetComponent; //락온 전방선언
+
 
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
@@ -44,12 +47,35 @@ protected:
 //   Basic Components : 컴포넌트들
 //
 protected:
-	// CameraBoom , Follow Camera ( 카메라 암, 카메라 )
+	// CameraBoom , Follow Camera, Camera Root ( 카메라 암, 카메라 )
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAcess = "true"))
+	TObjectPtr<class USceneComponent> CameraTarget;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <class USpringArmComponent> CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <class UCameraComponent> FollowCamera;
+
+
+	//카메라 변수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "0.0"))
+	float CameraDistance = 350.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "0.0"))
+	float CameraDistanceInterpSpeed = 10.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "-89.0", UIMin = "89.0"))
+	float MinCameraPitch = -60.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "-89.0", UIMin = "89.0"))
+	float MaxCameraPitch = 60.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
+	float HorizontalCameraSensitivity = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
+	float VerticalCameraSensitivity = 50.0f;
 
 	// 무기
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
@@ -87,6 +113,8 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputAction> SprintAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr <UInputAction> LockOnAction;
 
 
 ////////////////////////////////////////
@@ -274,5 +302,44 @@ protected:
 			meta = (AllowPrivateAccess = "true"))
 		TObjectPtr<UStatComponent> StatComponent;
 
+		////////////////////////////////////////////////////////////////////////////
+///////		가드 / 패링 시스템
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard", 
+			meta = (AllowPrivateAccess = "true"))
+		TObjectPtr<UGuardComponent> GuardComponent;
 
+		UPROPERTY(EditAnywhere, Category = "Input")
+		TObjectPtr<UInputAction> GuardAction;
+
+		void StartGuard(const FInputActionValue& Value);
+		void StopGuard(const FInputActionValue& Value);
+
+////////////////////////////////////////////////////////////////////////////
+///////		락온 시스템
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
+	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
+	bool bIsLockOnActive = false;//락온 활성화 여부
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn", meta = (ClampMin = "0.0", UTMin = "0.0"))
+	float MaxLockOnDistance = 1500.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
+	TObjectPtr<UNTLockOnTargetComponent> CurrentLockOnTarget;
+
+	void ToggleLockOn(const FInputActionValue& Value);
+
+	UNTLockOnTargetComponent* FindBestLockOnTarget() const;
+
+	void ClearLockOnTarget();
+
+	void BeginLockOn();
+	void UpdateLockOn(float DeltaTime);
+
+	////////////////////////////////////////////////////////////////////////////
+///////		가드 / 패링
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	UAnimMontage* GuardMontage;
 };
