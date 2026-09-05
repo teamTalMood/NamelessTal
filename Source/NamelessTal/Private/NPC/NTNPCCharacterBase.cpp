@@ -54,6 +54,11 @@ void ANTNPCCharacterBase::BeginPlay()
 
 	AAIController* AICon = GetController<AAIController>();
 	BTComponent = Cast<UBehaviorTreeComponent>(AICon->GetBrainComponent());
+
+	// Attack Montage Set
+	AttackMontages.Add(EAttackDistance::AttackShort, ShortAttackMontage);
+	AttackMontages.Add(EAttackDistance::AttackMiddle, MiddleAttackMontage);
+	AttackMontages.Add(EAttackDistance::AttackLong, LongAttackMontage);
 }
 
 float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -97,30 +102,83 @@ void ANTNPCCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 float ANTNPCCharacterBase::GetAIPatrolRadius()
 {
-	return 0.0f;
+	return AIPatrolRadius;
 }
 
 float ANTNPCCharacterBase::GetAIDetectRange()
 {
-	return 1000.0f;
+	return AIDetectRange;
 }
 
 float ANTNPCCharacterBase::GetAIAttackRange()
 {
-	return 700.0f;
+	return AIAttackRange;
 }
 
 float ANTNPCCharacterBase::GetAITurnSpeed()
 {
-	return 0.0f;
+	return AITurnSpeed;
 }
 
 void ANTNPCCharacterBase::AttackByAI()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	ProcessComboCommand();
-	//AttackHitCheck();
+	// 거리 계산
+	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
+
+	EAttackDistance ResultAttckType = EAttackDistance::AttackNone;
+
+	// 근거리
+	if (Dist <= AttackRangeShort) // 2.0m
+	{
+		MC_LOG(LogMC, Log, TEXT("근거리 공격 수행"));
+
+		float Rand = FMath::FRandRange(0.f, 100.f);
+
+		if (Rand < 50.f)       ResultAttckType = EAttackDistance::AttackShort;
+		else if (Rand < 90.f)  ResultAttckType = EAttackDistance::AttackMiddle;
+		else                   ResultAttckType = EAttackDistance::AttackLong;
+
+#if ENABLE_DRAW_DEBUG
+		FVector Center = GetActorLocation();
+		UWorld* World = GetWorld();
+		DrawDebugSphere(World, Center, AttackRangeShort, 16, FColor::Yellow, false, 2.0f);
+#endif
+	}
+
+	// 중거리
+	if (Dist > AttackRangeShort && Dist <= AttackRangeMiddle) // 2.0m ~ 4.5m
+	{
+		MC_LOG(LogMC, Log, TEXT("중거리 공격 수행"));
+
+		float Rand = FMath::FRandRange(0.f, 100.f);
+
+		if (Rand < 20.f)       ResultAttckType = EAttackDistance::AttackShort;
+		else if (Rand < 30.f)  ResultAttckType = EAttackDistance::AttackMiddle;
+		else                   ResultAttckType = EAttackDistance::AttackLong;
+
+#if ENABLE_DRAW_DEBUG
+		FVector Center = GetActorLocation();
+		UWorld* World = GetWorld();
+		DrawDebugSphere(World, Center, AttackRangeMiddle, 16, FColor::Purple, false, 2.0f);
+#endif
+	}
+
+	if (Dist > AttackRangeMiddle) // 4.5m ~ 7m
+	{
+		MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
+		ResultAttckType = EAttackDistance::AttackLong;
+
+#if ENABLE_DRAW_DEBUG
+		FVector Center = GetActorLocation();
+		UWorld* World = GetWorld();
+		DrawDebugSphere(World, Center, AIAttackRange, 16, FColor::Blue, false, 2.0f);
+#endif
+	}
+
+	BeginAttack(ResultAttckType);
 }
 
 void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
@@ -150,90 +208,44 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
-void ANTNPCCharacterBase::BlockComboCheck()
+void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-}
+	CurrentAttack = InAttackType;
+	FString EnumString = StaticEnum<EAttackDistance>()->GetNameByValue(static_cast<int64>(CurrentAttack)).ToString();
+	MC_LOG(LogMC, Log, TEXT("CurrentAttack : %s"), *EnumString);
 
-void ANTNPCCharacterBase::OpenComboCheck()
-{
+	if (CurrentAttack == EAttackDistance::AttackNone)
+	{
+		MC_LOG(LogMC, Error, TEXT("No CurrentAttack!"));
+		return;
+	}
 
-}
-
-void ANTNPCCharacterBase::ProcessComboCommand()
-{
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	BTComponent->PauseLogic(TEXT("Start Attack"));
 
 	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
-
-	// 근거리
-	if (Dist <= 200.f) // 2.0m
-	{
-		MC_LOG(LogMC, Log, TEXT("근거리 공격 수행"));
-
-		float Rand = FMath::FRandRange(0.f, 100.f);
-		FName SectionName;
-
-		if (Rand < 50.f)       CurrentAttack = 1;
-		else if (Rand < 90.f)  CurrentAttack = 2;
-		else                   CurrentAttack = 3;
-	}
-
-	// 중거리
-	if (Dist > 200.f && Dist <= 450.f) // 2.0m ~ 4.5m
-	{
-		MC_LOG(LogMC, Log, TEXT("중거리 공격 수행"));
-
-		float Rand = FMath::FRandRange(0.f, 100.f);
-		FName SectionName;
-
-		if (Rand < 20.f)       CurrentAttack = 1;
-		else if (Rand < 30.f)  CurrentAttack = 2;
-		else                   CurrentAttack = 3;
-	}
-
-	if (Dist > 450) // 4.5m ~ 7m
-	{
-		MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
-		CurrentAttack = 3;
-	}
-	
-	MC_LOG(LogMC, Log, TEXT("CurrentAttack : %d"), CurrentAttack);
-
 	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
 	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
 	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
 	SetActorRotation(NewRotation);
 
-	bIsComboAttack = false;
-	BeginAttack(CurrentAttack);
-}
-
-void ANTNPCCharacterBase::BeginAttack(const int32 InAttackType)
-{
-	MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	BTComponent->PauseLogic(TEXT("Start Attack"));
-
-	if (CurrentAttack == 0)
-	{
-		MC_LOG(LogMC, Error, TEXT("No CurrentAttack~"));
-		return;
-	}
-
-	FString SectionString = FString::Printf(TEXT("Attack%d"), CurrentAttack);
-	FName SectionName = FName(*SectionString);
-
 	// Animation Setting
 	const float AttackSpeedRate = 1.0f;
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AnimInstance->Montage_Play(ComboAttackMontage, AttackSpeedRate);
-	AnimInstance->Montage_JumpToSection(SectionName, ComboAttackMontage);
+	UAnimMontage* AttackMontage = AttackMontages[CurrentAttack];
+
+	if (AttackMontage == nullptr)
+	{
+		MC_LOG(LogMC, Error, TEXT("No AttackMontage!"));
+		return;
+	}
+
+	AnimInstance->Montage_Play(AttackMontage, AttackSpeedRate);
 
 	FOnMontageEnded EndDelegate;
 	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnAttackMontageEnd);
-	AnimInstance->Montage_SetEndDelegate(EndDelegate, ComboAttackMontage);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, AttackMontage);
 }
 
 void ANTNPCCharacterBase::AttackHitCheck()
@@ -295,31 +307,44 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 }
 
-void ANTNPCCharacterBase::SetComboCheckTimer()
-{
-}
-
-void ANTNPCCharacterBase::CheckCombo()
-{
-}
-
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	if (bIsComboAttack)
+	if (CurrentAttack == EAttackDistance::AttackMiddle)
 	{
-		// 현재가 연계 공격이면
-		BTComponent->ResumeLogic(TEXT("End Attack"));
-		OnAICharacterAttackFinished.ExecuteIfBound();
+		// 현재가 연계 공격이거나 횡공격이면
+		EndAttack();
 		return;
 	}
 
-	{
-		// 연계 공격 판단하기
+	// 연계 공격 판단하기
+	// 거리 계산
+	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
 
-		// 이건 임시코드
-		BTComponent->ResumeLogic(TEXT("End Attack"));
-		OnAICharacterAttackFinished.ExecuteIfBound();
+	EAttackDistance ResultAttckType = EAttackDistance::AttackNone;
+
+	// 근거리
+	if (Dist <= AttackRangeShort) // 2.0m
+	{
+		MC_LOG(LogMC, Log, TEXT("연계 공격 수행"));
+
+		ResultAttckType = EAttackDistance::AttackMiddle;
+
+		BeginAttack(ResultAttckType);
 	}
+	else
+	{
+		EndAttack();
+	}
+
+}
+
+void ANTNPCCharacterBase::EndAttack()
+{
+	CurrentAttack = EAttackDistance::AttackNone;
+	BTComponent->ResumeLogic(TEXT("End Attack"));
+	OnAICharacterAttackFinished.ExecuteIfBound();
+	return;
 }
