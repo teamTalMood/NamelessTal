@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -16,7 +16,7 @@ class UNTNPCCharacterBaseInterface : public UInterface
 };
 
 /**
- * 
+ *
  */
 class NAMELESSTAL_API INTNPCCharacterBaseInterface
 {
@@ -30,4 +30,7 @@ public:
 	virtual float GetAITurnSpeed() = 0;
 	virtual void AttackByAI() = 0;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) = 0;
+
+	// 0 : 애니메이션 없음 | 1 : 시계방향 스윙 | 2 : 반시계방향 스윙 | 3 : 정면방향 스윙
+	virtual uint8 GetAttackDirection() = 0;
 };

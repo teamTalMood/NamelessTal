@@ -49,6 +49,12 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 
 	// Stat
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
+
+	// Attack Direction Set
+	AttackDirections.Add(EAttackDistance::AttackNone, 0);
+	AttackDirections.Add(EAttackDistance::AttackShort, 0);
+	AttackDirections.Add(EAttackDistance::AttackMiddle, 0);
+	AttackDirections.Add(EAttackDistance::AttackLong, 0);
 }
 
 // Called when the game starts or when spawned
@@ -188,6 +194,11 @@ void ANTNPCCharacterBase::AttackByAI()
 void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
 {
 	OnAICharacterAttackFinished = InOnAttackFinished;
+}
+
+uint8 ANTNPCCharacterBase::GetAttackDirection()
+{
+	return AttackDirections[CurrentAttack];
 }
 
 void ANTNPCCharacterBase::EnableWeaponCollision()

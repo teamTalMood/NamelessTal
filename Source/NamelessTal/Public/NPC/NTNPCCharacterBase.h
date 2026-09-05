@@ -60,6 +60,7 @@ public:
 	virtual float GetAITurnSpeed() override;
 	virtual void AttackByAI() override;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
+	virtual uint8 GetAttackDirection() override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
@@ -99,6 +100,9 @@ protected:	// BlueprintEditable
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
 	float AttackRangeMiddle = 450.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	TMap<EAttackDistance, uint8> AttackDirections;
 
 	// Weapon
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
