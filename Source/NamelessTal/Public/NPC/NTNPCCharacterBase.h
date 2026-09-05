@@ -83,13 +83,13 @@ protected:
 //   Attack
 //
 protected:	// BlueprintEditable
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Animation)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> ShortAttackMontage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Animation)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> MiddleAttackMontage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Animation)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> LongAttackMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
@@ -122,6 +122,8 @@ protected:	// BlueprintReadOnly
 
 	TMap<EAttackDistance, TObjectPtr<class UAnimMontage>> AttackMontages;
 
+	uint8 bIsAttacking : 1 = false;
+
 
 // INTWeaponCollisionInterface override
 public:
@@ -140,6 +142,20 @@ protected:
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 
+////////////////////////////////////////
+//
+//   Damaged
+//
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> DamageMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	float DamageSpeedRate = 1.0f;
+
+
+protected:
+	void OnDamageMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 
 ////////////////////////////////////////

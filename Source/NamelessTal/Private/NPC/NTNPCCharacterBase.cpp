@@ -77,23 +77,37 @@ float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	if (BTComponent)
+	if (BTComponent == nullptr)
 	{
-		MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
-		BTComponent->PauseLogic(TEXT("Damaged"));
-		GetMesh()->bPauseAnims = true;
-
-		FTimerHandle Handle;
-		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
-			{
-				MC_LOG(LogMC, Log, TEXT("BTComponent ResumeLogic"));
-				BTComponent->ResumeLogic(TEXT("Damage End"));
-				GetMesh()->bPauseAnims = false;
-			}
-		), 3, false);
+		return 0.0f;
 	}
 
-	return 0.0f;
+	if (bIsAttacking)
+	{
+		// 공격 로직 초기화
+		EndAttack();
+	}
+
+	// 스탯 적용
+	StatComponent->ApplyDamage(Damage);
+
+	//MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
+	BTComponent->PauseLogic(TEXT("Damaged"));
+
+	if (DamageMontage == nullptr)
+	{
+		return 0.0f;
+	}
+
+	// 피격 애니메이션 실행
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(DamageMontage, DamageSpeedRate);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnDamageMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, DamageMontage);
+
+	return Damage;
 }
 
 // Called every frame
@@ -143,7 +157,7 @@ void ANTNPCCharacterBase::AttackByAI()
 	// 근거리
 	if (Dist <= AttackRangeShort) // 2.0m
 	{
-		MC_LOG(LogMC, Log, TEXT("근거리 공격 수행"));
+		//MC_LOG(LogMC, Log, TEXT("근거리 공격 수행"));
 
 		float Rand = FMath::FRandRange(0.f, 100.f);
 
@@ -161,7 +175,7 @@ void ANTNPCCharacterBase::AttackByAI()
 	// 중거리
 	if (Dist > AttackRangeShort && Dist <= AttackRangeMiddle) // 2.0m ~ 4.5m
 	{
-		MC_LOG(LogMC, Log, TEXT("중거리 공격 수행"));
+		//MC_LOG(LogMC, Log, TEXT("중거리 공격 수행"));
 
 		float Rand = FMath::FRandRange(0.f, 100.f);
 
@@ -178,7 +192,7 @@ void ANTNPCCharacterBase::AttackByAI()
 
 	if (Dist > AttackRangeMiddle) // 4.5m ~ 7m
 	{
-		MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
+		//MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
 		ResultAttckType = EAttackDistance::AttackLong;
 
 #if ENABLE_DRAW_DEBUG
@@ -225,11 +239,11 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 
 void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	CurrentAttack = InAttackType;
 	FString EnumString = StaticEnum<EAttackDistance>()->GetNameByValue(static_cast<int64>(CurrentAttack)).ToString();
-	MC_LOG(LogMC, Log, TEXT("CurrentAttack : %s"), *EnumString);
+	//MC_LOG(LogMC, Log, TEXT("CurrentAttack : %s"), *EnumString);
 
 	if (CurrentAttack == EAttackDistance::AttackNone)
 	{
@@ -255,6 +269,8 @@ void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 		MC_LOG(LogMC, Error, TEXT("No AttackMontage!"));
 		return;
 	}
+
+	bIsAttacking = true;
 
 	AnimInstance->Montage_Play(AttackMontage, AttackSpeedRate);
 
@@ -308,7 +324,12 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	{
 		return;
 	}
-	MC_LOG(LogMC, Log, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
+	//MC_LOG(LogMC, Log, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
+
+	if (OtherActor != UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
+	{
+		return;
+	}
 
 	//ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
 	//if (Damageable == nullptr)
@@ -324,7 +345,7 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CurrentAttack == EAttackDistance::AttackMiddle)
 	{
@@ -343,7 +364,7 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 	// 근거리
 	if (Dist <= AttackRangeShort) // 2.0m
 	{
-		MC_LOG(LogMC, Log, TEXT("연계 공격 수행"));
+		//MC_LOG(LogMC, Log, TEXT("연계 공격 수행"));
 
 		ResultAttckType = EAttackDistance::AttackMiddle;
 
@@ -358,8 +379,14 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::EndAttack()
 {
+	bIsAttacking = false;
 	CurrentAttack = EAttackDistance::AttackNone;
-	BTComponent->ResumeLogic(TEXT("End Attack"));
+	BTComponent->ResumeLogic(TEXT("Attack End"));
 	OnAICharacterAttackFinished.ExecuteIfBound();
 	return;
+}
+
+void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	BTComponent->ResumeLogic(TEXT("Damage End"));
 }
