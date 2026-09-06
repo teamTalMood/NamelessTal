@@ -8,15 +8,6 @@
 #include "Interface/NTWeaponCollisionInterface.h"
 #include "NTNPCCharacterBase.generated.h"
 
-UENUM()
-enum class EAttackDistance : uint8
-{
-	AttackNone = 0,
-	AttackShort = 10,
-	AttackMiddle = 20,
-	AttackLong = 30
-};
-
 UCLASS()
 class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface, public INTWeaponCollisionInterface
 {
@@ -37,8 +28,8 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	//UFUNCTION()
+	//virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 
 /////////////////////////////////////////
@@ -60,6 +51,7 @@ public:
 	virtual float GetAITurnSpeed() override;
 	virtual void AttackByAI() override;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
+	virtual float ApplyDamage(const float InDamage, const float InDrain, const bool bIsParry) override;
 	virtual uint8 GetAttackDirection() override;
 
 protected:
@@ -92,17 +84,26 @@ protected:	// BlueprintEditable
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> LongAttackMontage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	float AttackDamage = 10.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float AttackDrain;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float GuardDrain;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	float AttackRangeShort = 200.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	float AttackRangeMiddle = 450.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	TMap<EAttackDistance, uint8> AttackDirections;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	TMap<EAttackDistance, bool> AttackParryables;
 
 	// Weapon
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
@@ -133,7 +134,6 @@ public:
 // Attack
 protected:
 	void BeginAttack(const EAttackDistance InAttackType);
-	void AttackHitCheck();
 	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void EndAttack();
 
@@ -165,4 +165,13 @@ protected:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	TObjectPtr <class UStatComponent> StatComponent;
+
+
+////////////////////////////////////////
+//
+//   Exhausted
+//
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
+	float ExhaustedDuration = 0;
 };

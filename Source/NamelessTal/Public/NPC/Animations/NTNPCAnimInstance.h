@@ -7,15 +7,17 @@
 #include "NTNPCAnimInstance.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class NAMELESSTAL_API UNTNPCAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
-	
+
 public:
 	UNTNPCAnimInstance();
+
+	void SetAnimIsExhausted(const uint8 InIsExhausted);
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -48,4 +50,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
 	float JumpingThreshould;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	uint8 bIsExhausted : 1;
 };

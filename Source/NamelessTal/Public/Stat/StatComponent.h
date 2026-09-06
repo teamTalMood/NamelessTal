@@ -17,14 +17,14 @@ class NAMELESSTAL_API UStatComponent : public UActorComponent
 protected:
 	virtual void BeginPlay() override;
 
-public:	
+public:
 	// Sets default values for this component's properties
 	UStatComponent();
 
 public: // 체력 관련 설정
 	UPROPERTY(EditAnywhere, Category="Stat")
 	float MaxHP = 200.0f;
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentHP;
 
@@ -34,7 +34,9 @@ public: // 체력 관련 설정
 	void RestoreFull(); // 화톳불용
 
 	bool IsDead() const { return CurrentHP <= 0.0f; }
-	
+
+	void RestoreSoul();
+
 
 
 public: //넋 관련 설정
@@ -47,20 +49,21 @@ public: //넋 관련 설정
 	// HP 구간별 넋 회복 속도 (초당)
 	UPROPERTY(EditAnyWhere, Category = "Stat")
 	float SoulRegenRate_Over75 = 20.0f;
+
 	UPROPERTY(EditAnyWhere, Category = "Stat")
 	float SoulRegenRate_50to75 = 15.0f;
+
 	UPROPERTY(EditAnyWhere, Category = "Stat")
 	float SoulRegenRate_25to50 = 12.0f;
+
 	UPROPERTY(EditAnyWhere, Category = "Stat")
 	float SoulRegenRate_Under25 = 8.0f;
-	
-
 
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	//마지막 소모 후 회복 시작까지 시간 (1초)
 	float SoulRegenDelay = 1.0f;
 
-	// 넋 고갈 시 
+	// 넋 고갈 시
 
 	// 30 이상 시 고갈 상태 해제
 	UPROPERTY(EditAnyWhere, Category = "Stat")
