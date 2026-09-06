@@ -2,7 +2,7 @@
 
 
 #include "Stat/StatComponent.h"
-
+#include "MCLOG.h"
 
 
 
@@ -23,8 +23,8 @@ void UStatComponent::BeginPlay()
 
 void UStatComponent::ApplyDamage(float HitDamage)
 {
-
 	CurrentHP = FMath::Clamp(CurrentHP - HitDamage, 0.0f, MaxHP);
+	MC_LOG(LogMC, Log, TEXT("CurrentHP : %f"), CurrentHP);
 }
 
 void UStatComponent::HealHp(float HealAmount)
@@ -40,6 +40,11 @@ void UStatComponent::RestoreFull()
 	CurrentSoul = MaxSoul;
 }
 
+void UStatComponent::RestoreSoul()
+{
+	CurrentSoul = MaxSoul;
+}
+
 
 
 void UStatComponent::DrainSoul(float Amount)
@@ -51,6 +56,7 @@ void UStatComponent::DrainSoul(float Amount)
 		bIsSoulExhausted = true; // 고갈 진입
 	}
 	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
+	MC_LOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
 
 	//언제 마지막으로 사용했는지 체크하기
 	LastSoulDrainTime = GetWorld()->GetTimeSeconds();
@@ -67,11 +73,11 @@ void UStatComponent::SetSoulRegenBlocked(bool bBlocked)
 }
 
 // 시간이 지나면 (1초) 넋이 시간초에 따라 자동으로 찬다
-void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
+void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* PCSoulTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, PCSoulTickFunction);
-	
+
 	if (bSoulRegenBlocked)
 	{
 		return;
@@ -88,7 +94,7 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 	if (bIsSoulExhausted && CurrentSoul >= SoulExhaustedUnlock)
 	{
-		bIsSoulExhausted = false; // 고갈 해제 
+		bIsSoulExhausted = false; // 고갈 해제
 	}
 }
 
