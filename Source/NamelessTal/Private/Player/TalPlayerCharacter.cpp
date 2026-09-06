@@ -122,7 +122,8 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		SafeInterpSpeed
 	);
 
-
+	//플레이어 표시 여부
+	UpdatePlayerCameraVisibility();
 
 	//카메라 Pitch제한
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -1112,4 +1113,27 @@ void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
 	CurrentLockOnTarget->SetLockOnWidgetVisible(false);
 	CurrentLockOnTarget = BestTarget;
 	CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+}
+
+void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
+{
+	if (!IsLocallyControlled() || !IsValid(CameraTarget) || !IsValid(FollowCamera)) return;
+
+	const float DistanceSquared = FVector::DistSquared(
+		CameraTarget->GetComponentLocation(),
+		FollowCamera->GetComponentLocation()
+	);
+
+	if (!bHiddenByCameraDistance && DistanceSquared <= FMath::Square(PlayerHideDistance))
+	{
+		bHiddenByCameraDistance = true;
+		GetMesh()->SetOwnerNoSee(true);
+		WeaponMesh->SetOwnerNoSee(true);
+	}
+	else if (bHiddenByCameraDistance && DistanceSquared >= FMath::Square(PlayerShowDistance))
+	{
+		bHiddenByCameraDistance = false;
+		GetMesh()->SetOwnerNoSee(false);
+		WeaponMesh->SetOwnerNoSee(false);
+	}
 }

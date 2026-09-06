@@ -80,6 +80,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
 	float VerticalCameraSensitivity = 50.0f;
 
+
+
 	// 무기
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <UStaticMeshComponent> WeaponMesh;
@@ -141,6 +143,15 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bIsSprinting = false;
 
+	//카메라 숨김설정(플레이어)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera|Visibility")
+	float PlayerHideDistance = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera|Visibility")
+	float PlayerShowDistance = 130.0f;
+
+	bool bHiddenByCameraDistance = false;
+
 public: // Property Camera (카메라 속성)
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
@@ -157,7 +168,7 @@ protected: // Player Move and use CameraMovement use Mouse
 
 	void StopSprint(const FInputActionValue& Value);
 
-
+	void UpdatePlayerCameraVisibility();
 
 ////////////////////////////////////////
 //
