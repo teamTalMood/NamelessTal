@@ -5,7 +5,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interface/NTWeaponCollisionInterface.h"
+#include "Player/Interface/NTPlayerApplyDamageInterface.h"
 #include "TalPlayerCharacter.generated.h"
+
 
 class UAnimMontage;
 class UInputMappingContext;
@@ -21,7 +23,7 @@ class UNTLockOnTargetComponent; //락온 전방선언
 
 
 UCLASS()
-class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
+class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface, public INTPlayerApplyDamageInterface
 {
 	GENERATED_BODY()
 
@@ -41,6 +43,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) override;
 
 ////////////////////////////////////////
 //
@@ -253,8 +256,7 @@ protected:
 	void Attack(const FInputActionValue& Value);
 
 	UFUNCTION() // 무기 콜리전이 겹칠 때 호출
-	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	// 한번 공격시 줄 데미지 양, 에디터에서 조절
 	UPROPERTY(EditAnywhere, Category = "Attack")
