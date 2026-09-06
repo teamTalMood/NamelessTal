@@ -308,7 +308,7 @@ protected:
 
 		////////////////////////////////////////////////////////////////////////////
 ///////		가드 / 패링 시스템
-		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard", 
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard",
 			meta = (AllowPrivateAccess = "true"))
 		TObjectPtr<UGuardComponent> GuardComponent;
 
