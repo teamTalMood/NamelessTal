@@ -40,7 +40,7 @@ public:
 	virtual void AttackByAI() = 0;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) = 0;
 
-	virtual float ApplyDamage(const float InDamage, const float InDrain, const bool bIsParry) = 0;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) = 0;
 
 	// 0 : 애니메이션 없음 | 1 : 시계방향 스윙 | 2 : 반시계방향 스윙 | 3 : 정면방향 스윙
 	virtual uint8 GetAttackDirection() = 0;

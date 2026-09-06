@@ -51,7 +51,7 @@ public:
 	virtual float GetAITurnSpeed() override;
 	virtual void AttackByAI() override;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
-	virtual float ApplyDamage(const float InDamage, const float InDrain, const bool bIsParry) override;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) override;
 	virtual uint8 GetAttackDirection() override;
 
 protected:

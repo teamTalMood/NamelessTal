@@ -219,7 +219,7 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 	OnAICharacterAttackFinished = InOnAttackFinished;
 }
 
-float ANTNPCCharacterBase::ApplyDamage(const float InDamage, const float InDrain, const bool bIsParry)
+float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
@@ -382,7 +382,7 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	}
 	HitActors.Add(OtherActor);
 
-	PlayerCharacter->ApplyDamage(AttackDamage, AttackDrain, GuardDrain, AttackParryables[CurrentAttack]);
+	PlayerCharacter->ApplyDamage(this, AttackDamage, AttackDrain, GuardDrain, AttackParryables[CurrentAttack]);
 
 	//const FVector ImpactPoint = SweepResult.bBlockingHit ? FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);

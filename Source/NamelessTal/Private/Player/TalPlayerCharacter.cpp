@@ -94,7 +94,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	//이동방향으로 캐릭터 회전
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 	GuardComponent = CreateDefaultSubobject<UGuardComponent>(TEXT("GuardComponent"));
@@ -252,7 +252,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 		{ // AddmovementInput is ignored during dodge
 			return;
 		}
-		
+
 		if (GuardComponent->IsGuarding())
 		{
 			if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -266,7 +266,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 				}
 			}
 		}
-		
+
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -344,7 +344,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 			if (bParried)
 			{
 				FName ParrySection = TEXT("Parry_LDRU"); // 패링성공시 LDRU뿜뿜
-				
+
 				if (INTNPCCharacterBaseInterface* NPCCharacter =
 					Cast<INTNPCCharacterBaseInterface>(DamageCauser))
 				{
@@ -362,7 +362,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
 				AnimInstance->Montage_SetEndDelegate(EndDelegate, ParryMontage);
-				
+
 				return 0.0f;
 			}
 			else
@@ -385,12 +385,12 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	}
 
 	StatComponent->ApplyDamage(Damage);
-	StatComponent->DrainSoul(10.0f); 
+	StatComponent->DrainSoul(10.0f);
 	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
 	return Damage;
 }
 
-float ATalPlayerCharacter::ApplyDamage(const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
+float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
 {
 
 	//회피중이면 무적(데미지 무시)
@@ -409,15 +409,15 @@ float ATalPlayerCharacter::ApplyDamage(const float InDamage, const float InAttac
 			{
 				FName ParrySection = TEXT("Parry_LDRU"); // 패링성공시 LDRU뿜뿜
 
-				//if (INTNPCCharacterBaseInterface* NPCCharacter =
-				//	Cast<INTNPCCharacterBaseInterface>(DamageCauser))
-				//{
-				//	const uint8 AttackDirection = NPCCharacter->GetAttackDirection();
-				//	if (AttackDirection == 3) //정면방향만 RULD
-				//	{
-				//		ParrySection = TEXT("Parry_RULD");
-				//	}
-				//}
+				if (INTNPCCharacterBaseInterface* NPCCharacter =
+					Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+				{
+					const uint8 AttackDirection = NPCCharacter->GetAttackDirection();
+					if (AttackDirection == 3) //정면방향만 RULD
+					{
+						ParrySection = TEXT("Parry_RULD");
+					}
+				}
 
 				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
 
@@ -607,7 +607,7 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 	//드레인 수치는 임의값, 나중에 수정할것
-	NPCCharacter->ApplyDamage(AttackDamage, 10.0f, false);
+	NPCCharacter->ApplyDamage(this, AttackDamage, 10.0f, false);
 }
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
@@ -774,7 +774,7 @@ void ATalPlayerCharacter::CloseComboWindow()
 
 
 
-// 패링 / 가드 시스템 연동 
+// 패링 / 가드 시스템 연동
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
 	if (StatComponent->IsSoulExhausted()) return; //고갈중 가드 불가
@@ -789,7 +789,7 @@ void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 	StatComponent->SetSoulRegenBlocked(false);
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
-		//GuardMontage에서 Guard_End를 찾아 점프하십시오 
+		//GuardMontage에서 Guard_End를 찾아 점프하십시오
 		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"),GuardMontage);
 	}
 }

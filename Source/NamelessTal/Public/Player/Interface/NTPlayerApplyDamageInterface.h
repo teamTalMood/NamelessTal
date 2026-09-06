@@ -22,5 +22,5 @@ class NAMELESSTAL_API INTPlayerApplyDamageInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
-	virtual float ApplyDamage(const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) =0;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) =0;
 };
