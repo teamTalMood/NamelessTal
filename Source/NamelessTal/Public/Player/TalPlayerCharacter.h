@@ -322,7 +322,7 @@ protected:
 		float ParrySlowMoTimeDilation = 0.15f;
 
 		UPROPERTY(EditAnywhere, Category = "Guard")
-		float ParrySlowMoRealDuration = 0.3f;
+		float ParrySlowMoRealDuration = 1.0f;
 
 		bool bParrySlowMoActive = false;
 		float ParrySlowMoEndRealTime = 0.0f;
