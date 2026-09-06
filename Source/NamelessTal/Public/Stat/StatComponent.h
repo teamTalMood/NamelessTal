@@ -23,7 +23,7 @@ public:
 
 public: // 체력 관련 설정
 	UPROPERTY(EditAnywhere, Category="Stat")
-	float MaxHP = 100.0f;
+	float MaxHP = 200.0f;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentHP;
@@ -44,12 +44,38 @@ public: //넋 관련 설정
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentSoul;
 
+	// HP 구간별 넋 회복 속도 (초당)
 	UPROPERTY(EditAnyWhere, Category = "Stat")
-	float SoulRegenRate = 30.0f; //초당 회복량 (넋)
+	float SoulRegenRate_Over75 = 20.0f;
+	UPROPERTY(EditAnyWhere, Category = "Stat")
+	float SoulRegenRate_50to75 = 15.0f;
+	UPROPERTY(EditAnyWhere, Category = "Stat")
+	float SoulRegenRate_25to50 = 12.0f;
+	UPROPERTY(EditAnyWhere, Category = "Stat")
+	float SoulRegenRate_Under25 = 8.0f;
+	
+
 
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	//마지막 소모 후 회복 시작까지 시간 (1초)
 	float SoulRegenDelay = 1.0f;
+
+	// 넋 고갈 시 
+
+	// 30 이상 시 고갈 상태 해제
+	UPROPERTY(EditAnyWhere, Category = "Stat")
+	float SoulExhaustedUnlock = 30.0f;
+
+	// 고갈 중 회복 배율
+	UPROPERTY(EditAnyWhere, Category = "Stat")
+	float SoulExhaustedRegenMultiplier = 1.5f;
+
+	// 고갈 중 이동 속도 배율
+	UPROPERTY(EditAnyWhere, Category = "Stat")
+	float SoulExhaustedMoveSpeedMultiplier = 0.6f;
+
+
+
 
 	void DrainSoul(float Amount);
 
@@ -57,11 +83,21 @@ public: //넋 관련 설정
 	void SetSoulRegenBlocked(bool bBlocked);
 	bool HasSoul() const { return CurrentSoul > 0.0f; }
 
+
+	// 넋 소모하는 행동이 내가 가진 넋보다 많은지 체크하기
+	bool HasEnoughSoul(float Cost) const { return CurrentSoul >= Cost; }
+
+	bool IsSoulExhausted() const { return bIsSoulExhausted; }
+
 protected:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 		FActorComponentTickFunction* PCSoulTickFunction) override;
 
+	// 지금 넋이 초당 몇 회복되어야하는지 계산하는 함수
+	float GetSoulRegenRateForCurrentHP() const;
+
 private:
 	float LastSoulDrainTime = 0.0f;
 	bool bSoulRegenBlocked = false;
+	bool bIsSoulExhausted = false;
 };

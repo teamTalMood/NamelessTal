@@ -44,7 +44,7 @@ protected:
 	// 일반 가드 시 받는 데미지(비율)
 
 	UPROPERTY(EditAnywhere, Category = "Guard")
-	float GuardSoulCost = 30.0f; 
+	float GuardSoulCost = 12.0f; 
 	// 가드 성공 시 넋 소모량
 
 	UPROPERTY(EditAnywhere, Category = "Guard")

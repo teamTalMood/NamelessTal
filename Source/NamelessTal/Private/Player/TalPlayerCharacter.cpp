@@ -155,8 +155,13 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	//}
 
 	// Sprint Speed Interpolation
-	const float TargetSpeed = GuardComponent->IsGuarding() ? GuardComponent->GetGuardWalkSpeed()
+	float TargetSpeed = GuardComponent->IsGuarding() ? GuardComponent->GetGuardWalkSpeed()
 		: (bIsSprinting ? SprintSpeed : WalkSpeed);
+
+	if (StatComponent->IsSoulExhausted())
+	{
+		TargetSpeed *= StatComponent->SoulExhaustedMoveSpeedMultiplier;
+	}
 
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
@@ -176,6 +181,11 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
+	if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(15.0f))
+	{
+		return;
+	}
+
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
 	if (bIsDodging) // Already Dodging or No RollMontage
@@ -371,13 +381,11 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
-		const float ReducedDamage = Damage * 0.3f; // 임시 값
-		StatComponent->ApplyDamage(ReducedDamage);
-		return ReducedDamage;
+		return 0.0f; // HP 피해 없음
 	}
 
 	StatComponent->ApplyDamage(Damage);
-
+	StatComponent->DrainSoul(10.0f); 
 	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
 	return Damage;
 }
@@ -705,6 +713,7 @@ void ATalPlayerCharacter::CloseComboWindow()
 // 패링 / 가드 시스템 연동 
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
+	if (StatComponent->IsSoulExhausted()) return; //고갈중 가드 불가
 	GuardComponent->StartGuard();
 	StatComponent->SetSoulRegenBlocked(true);
 	PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Start"));

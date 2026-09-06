@@ -46,6 +46,10 @@ void UStatComponent::DrainSoul(float Amount)
 {
 	CurrentSoul = FMath::Clamp(CurrentSoul - Amount, 0.0f, MaxSoul);
 
+	if (CurrentSoul <= 0.0f)
+	{
+		bIsSoulExhausted = true; // 고갈 진입
+	}
 	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
 
 	//언제 마지막으로 사용했는지 체크하기
@@ -79,7 +83,27 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 	}
 
-	CurrentSoul = FMath::Clamp(CurrentSoul + SoulRegenRate * DeltaTime, 0.0f, MaxSoul);
+	CurrentSoul = FMath::Clamp(CurrentSoul + GetSoulRegenRateForCurrentHP() * DeltaTime,
+		0.0f, MaxSoul);
+
+	if (bIsSoulExhausted && CurrentSoul >= SoulExhaustedUnlock)
+	{
+		bIsSoulExhausted = false; // 고갈 해제 
+	}
+}
+
+float UStatComponent::GetSoulRegenRateForCurrentHP() const
+{
+	const float HPPercent = MaxHP > 0.0f ? (CurrentHP / MaxHP) * 100.0f : 0.0f;
+
+	float BaseRate;
+	if (HPPercent >= 75.0f)	     BaseRate = SoulRegenRate_Over75;
+	else if (HPPercent >= 50.0f) BaseRate = SoulRegenRate_50to75;
+	else if (HPPercent >= 25.0f) BaseRate = SoulRegenRate_25to50;
+	else						 BaseRate = SoulRegenRate_Under25;
+
+
+	return bIsSoulExhausted ? BaseRate * SoulExhaustedRegenMultiplier : BaseRate;
 }
 
 
