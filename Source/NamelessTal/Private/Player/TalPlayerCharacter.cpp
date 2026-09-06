@@ -52,7 +52,7 @@
 #include "UObject/UObjectIterator.h"
 
 // 적 애니메이션 ( 맞춤 패링 )
-#include "NPC/Interface//NTNPCCharacterBaseInterface.h"
+#include "NPC/Interface/NTNPCCharacterBaseInterface.h"
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -529,21 +529,21 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 {
 	// 떄려지는 객체 확인 로그
 	UE_LOG(LogTemp, Warning, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
-	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	//if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	//{
+	//	return;
+	//}
+	INTNPCCharacterBaseInterface* NPCCharacter = Cast<INTNPCCharacterBaseInterface>(OtherActor);
+	if (NPCCharacter == nullptr)
 	{
 		return;
 	}
 
-	//ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
-	//if (Damageable == nullptr)
-	//{
-	//	return;
-	//}
 	HitActors.Add(OtherActor);
 
-	//const FVector ImpactPoint = SweepResult.bBlockingHit ? 	FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
-	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
-	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+	//드레인 수치는 임의값, 나중에 수정할것
+	NPCCharacter->ApplyDamage(AttackDamage, 10.0f, false);
 }
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)

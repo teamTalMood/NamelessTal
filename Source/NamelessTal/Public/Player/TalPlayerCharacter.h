@@ -41,6 +41,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual float ApplyDamage(const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) = 0;
 
 ////////////////////////////////////////
 //
