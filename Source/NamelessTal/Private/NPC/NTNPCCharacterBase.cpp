@@ -12,17 +12,18 @@
 
 //Engine
 #include "Kismet/GameplayStatics.h"
+#include "Animation/AnimMontage.h"
 
 //AI
 #include "BehaviorTree/BehaviorTreeComponent.h"
 
 //NT
 #include "NPC/NTAIController.h"
-#include "Animation/AnimMontage.h"
 #include "Stat/StatComponent.h"
+#include "NPC/Animations/NTNPCAnimInstance.h"
 
 //Interface
-#include "Variant_Combat/Interfaces/CombatDamageable.h"
+#include "Player/Interface/NTPlayerApplyDamageInterface.h"
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
@@ -49,12 +50,18 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 
 	// Stat
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
+	StatComponent->SetSoulRegenBlocked(true);
 
 	// Attack Direction Set
 	AttackDirections.Add(EAttackDistance::AttackNone, 0);
 	AttackDirections.Add(EAttackDistance::AttackShort, 0);
 	AttackDirections.Add(EAttackDistance::AttackMiddle, 0);
 	AttackDirections.Add(EAttackDistance::AttackLong, 0);
+
+	AttackParryables.Add(EAttackDistance::AttackNone, false);
+	AttackParryables.Add(EAttackDistance::AttackShort, false);
+	AttackParryables.Add(EAttackDistance::AttackMiddle, false);
+	AttackParryables.Add(EAttackDistance::AttackLong, false);
 }
 
 // Called when the game starts or when spawned
@@ -71,6 +78,7 @@ void ANTNPCCharacterBase::BeginPlay()
 	AttackMontages.Add(EAttackDistance::AttackLong, LongAttackMontage);
 }
 
+/*
 float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
@@ -109,6 +117,7 @@ float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 	return Damage;
 }
+*/
 
 // Called every frame
 void ANTNPCCharacterBase::Tick(float DeltaTime)
@@ -210,6 +219,79 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 	OnAICharacterAttackFinished = InOnAttackFinished;
 }
 
+float ANTNPCCharacterBase::ApplyDamage(const float InDamage, const float InDrain, const bool bIsParry)
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	if (BTComponent == nullptr)
+	{
+		return 0.0f;
+	}
+
+	if (bIsAttacking)
+	{
+		// 공격 로직 초기화
+		EndAttack();
+	}
+
+	// 스탯 적용
+	StatComponent->ApplyDamage(InDamage);
+	StatComponent->DrainSoul(InDrain);
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr)
+	{
+		return 0.0f;
+	}
+
+	BTComponent->PauseLogic(TEXT("Damaged"));
+	AnimInstance->Montage_Stop(0.1f);
+
+	// 그로기 처리
+	if(StatComponent->IsSoulExhausted())
+	{
+		MC_LOG(LogMC, Log, TEXT("Exhausted"));
+		UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance);
+		if (NPCAnim == nullptr)
+		{
+			return 0.0f;
+		}
+
+		NPCAnim->SetAnimIsExhausted(true);
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
+			{
+				MC_LOG(LogMC, Log, TEXT("Soul Restored"));
+				UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
+				Anim->SetAnimIsExhausted(false);
+				BTComponent->ResumeLogic(TEXT("Exhausted End"));
+				StatComponent->RestoreSoul();
+			}
+		), ExhaustedDuration, false);
+	}
+
+	// Damaged처리
+	if (!StatComponent->IsSoulExhausted())
+	{
+		//MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
+
+		if (DamageMontage == nullptr)
+		{
+			return 0.0f;
+		}
+
+		// 피격 애니메이션 실행
+
+		AnimInstance->Montage_Play(DamageMontage, DamageSpeedRate);
+
+		FOnMontageEnded EndDelegate;
+		EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnDamageMontageEnd);
+		AnimInstance->Montage_SetEndDelegate(EndDelegate, DamageMontage);
+	}
+
+	return InDamage;
+}
+
 uint8 ANTNPCCharacterBase::GetAttackDirection()
 {
 	return AttackDirections[CurrentAttack];
@@ -279,44 +361,6 @@ void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 	AnimInstance->Montage_SetEndDelegate(EndDelegate, AttackMontage);
 }
 
-void ANTNPCCharacterBase::AttackHitCheck()
-{
-	MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	FHitResult OutHitResult;
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(Attack), false, this);
-
-	const float AttackRange = 40.0f;
-	const float AttackRadius = 50.0f;
-	const FVector Start = GetActorLocation() + GetActorForwardVector() * GetCapsuleComponent()->GetScaledCapsuleRadius();
-	const FVector End = Start + GetActorForwardVector() * AttackRange;
-
-	bool HitDetected = GetWorld()->SweepSingleByChannel(OutHitResult, Start, End, FQuat::Identity, ECC_WorldDynamic, FCollisionShape::MakeSphere(AttackRadius), Params);
-	if (HitDetected)
-	{
-		AActor* HitActor = OutHitResult.GetActor();
-		if (HitActor)
-		{
-			UGameplayStatics::ApplyDamage(HitActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
-		}
-	}
-	MC_LOG(LogMC, Log, TEXT("HitDetected : %d"), HitDetected);
-
-#if ENABLE_DRAW_DEBUG
-
-	FVector CapsuleOrigin = Start + (End - Start) * 0.5f;
-	float CapsuleHalfHeight = AttackRange * 0.5f;
-	FColor DrawColor = HitDetected ? FColor::Green : FColor::Red;
-
-	DrawDebugCapsule(GetWorld(), CapsuleOrigin, CapsuleHalfHeight, AttackRadius, FRotationMatrix::MakeFromZ(GetActorForwardVector()).ToQuat(), DrawColor, false, 5.0f);
-
-#endif
-
-	OnAICharacterAttackFinished.ExecuteIfBound();
-
-	MC_LOG(LogMC, Log, TEXT("End"));
-}
-
 void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	// 떄려지는 객체 확인 로그
@@ -331,16 +375,18 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 		return;
 	}
 
-	//ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
-	//if (Damageable == nullptr)
-	//{
-	//	return;
-	//}
+	INTPlayerApplyDamageInterface* PlayerCharacter = Cast<INTPlayerApplyDamageInterface>(OtherActor);
+	if (PlayerCharacter == nullptr)
+	{
+		return;
+	}
 	HitActors.Add(OtherActor);
+
+	PlayerCharacter->ApplyDamage(AttackDamage, AttackDrain, GuardDrain, AttackParryables[CurrentAttack]);
 
 	//const FVector ImpactPoint = SweepResult.bBlockingHit ? FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
-	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 }
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
