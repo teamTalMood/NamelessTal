@@ -390,6 +390,70 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	return Damage;
 }
 
+float ATalPlayerCharacter::ApplyDamage(const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
+{
+
+	//회피중이면 무적(데미지 무시)
+	if (bIsInvincible)
+	{
+		return 0.0f;
+	}
+
+	if (GuardComponent->IsGuarding())
+	{
+		const bool bParried = GuardComponent->TryParry();
+
+		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+		{
+			if (bParried)
+			{
+				FName ParrySection = TEXT("Parry_LDRU"); // 패링성공시 LDRU뿜뿜
+
+				//if (INTNPCCharacterBaseInterface* NPCCharacter =
+				//	Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+				//{
+				//	const uint8 AttackDirection = NPCCharacter->GetAttackDirection();
+				//	if (AttackDirection == 3) //정면방향만 RULD
+				//	{
+				//		ParrySection = TEXT("Parry_RULD");
+				//	}
+				//}
+
+				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
+
+				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
+
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate, ParryMontage);
+
+				return 0.0f;
+			}
+			else
+			{
+				AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+			}
+
+		}
+
+		if (bParried)
+		{
+			return 0.0f;
+		}
+
+		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
+		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
+
+		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		return 0.0f; // HP 피해 없음
+	}
+
+	StatComponent->ApplyDamage(InDamage);
+	StatComponent->DrainSoul(10.0f);
+	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
+	return InDamage;
+}
+
 void ATalPlayerCharacter::NotifyControllerChanged()
 {
 	Super::NotifyControllerChanged();

@@ -5,7 +5,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interface/NTWeaponCollisionInterface.h"
+#include "Player/Interface/NTPlayerApplyDamageInterface.h"
 #include "TalPlayerCharacter.generated.h"
+
 
 class UAnimMontage;
 class UInputMappingContext;
@@ -21,7 +23,7 @@ class UNTLockOnTargetComponent; //락온 전방선언
 
 
 UCLASS()
-class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
+class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface, public INTPlayerApplyDamageInterface
 {
 	GENERATED_BODY()
 
@@ -41,7 +43,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-	virtual float ApplyDamage(const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) = 0;
+	virtual float ApplyDamage(const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) override;
 
 ////////////////////////////////////////
 //
