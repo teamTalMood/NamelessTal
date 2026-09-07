@@ -444,7 +444,10 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
 
 				//패링 성공 분기
-				GuardComponent->StartStagger(0.1f);
+				//패링 성공 후 -> 0.1초 특정 행동 사용 불가
+				const float ParrySectionLength = ParryMontage ? ParryMontage->GetSectionLength(
+					ParryMontage->GetSectionIndex(ParrySection)) : 0.0f;
+				GuardComponent->StartStagger(ParrySectionLength + ParryStaggerTime);
 
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
@@ -468,7 +471,11 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 		StatComponent->DrainSoul(InGuardDrain * GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
-		GuardComponent->StartStagger(0.2f);
+		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
+		const float GuardHitSectionLength = GuardMontage
+			? GuardMontage->GetSectionLength(GuardMontage->GetSectionIndex(TEXT("Guard_hit")))
+			: 0.0f;
+		GuardComponent->StartStagger(GuardHitSectionLength + GuardStaggerTime);
 		return 0.0f; // HP 피해 없음
 	}
 
