@@ -2,6 +2,7 @@
 
 
 #include "Guard/GuardComponent.h"
+#include "TimerManager.h"
 
 // Sets default values for this component's properties
 UGuardComponent::UGuardComponent()
@@ -10,21 +11,62 @@ UGuardComponent::UGuardComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
+bool UGuardComponent::IsStaggered() const
+{
+	return GetWorld()->GetTimeSeconds() < StaggerEndTime;
+}
+
+void UGuardComponent::StartStagger(float Duration)
+{
+	StaggerEndTime = GetWorld()->GetTimeSeconds() + Duration;
+}
+
+
 void UGuardComponent::BeginPlay()
 {
 	Super::BeginPlay();
 }
 
-
-void UGuardComponent::StartGuard()
+void UGuardComponent::ActivateGuard()
 {
 	bIsGuarding = true;
 	GuardStartTime = GetWorld()->GetTimeSeconds();
+
+	const float MinParryWindow = ParryWindowBase - ParryWindowStackDec * MaxParryStackCount;
+
+	CurrentParryWindow = FMath::Max(ParryWindowBase - ParryWindowStackDec * ParryWindowStackCount,
+		MinParryWindow);
+}
+
+
+void UGuardComponent::StartGuard()
+{
+	// 가드 해제 후 짧은 시간 내 재입력시 패링 윈도우 스택 누적
+	const float TimeSinceLastStop = GetWorld()->GetTimeSeconds() - LastGuardStopTime;
+
+	if (TimeSinceLastStop <= ParryWindowRetryLimit)
+	{ 
+		// 5까지 현재 스택 누적
+		ParryWindowStackCount = FMath::Min(ParryWindowStackCount + 1, MaxParryStackCount);
+	} 
+	else { // 시간 지나면 리셋
+		ParryWindowStackCount = 0;
+	}
+	
+	//실제 가드 활성화는 딜레이 이후
+	GetWorld()->GetTimerManager().SetTimer(
+		GuardActivationTimerHandle, this, &UGuardComponent::ActivateGuard,
+		GuardActivationDelay, false);
+
+
 }
 
 void UGuardComponent::StopGuard()
 {
+	// 딜레이 중 버튼 뗄 시 , 활성화 안되도록 타이머 취소
+	GetWorld()->GetTimerManager().ClearTimer(GuardActivationTimerHandle);
 	bIsGuarding = false;
+	LastGuardStopTime = GetWorld()->GetTimeSeconds();
 }
 
 bool UGuardComponent::TryParry() const
@@ -36,9 +78,9 @@ bool UGuardComponent::TryParry() const
 		return false;
 	}
 	
-	// 지금 시간 - 가드 시작 시간 <= 0.1초 보다 작거나 같을 경우에만 True 반환
+	// 지금 시간 - 가드 시작 시간 <= 이번 가드의 패링 윈도우보다 작거나 같을 시 True 반환
 	const float TimeSinceGuard = GetWorld()->GetTimeSeconds() - GuardStartTime;
-	const bool bParried = TimeSinceGuard <= ParryWindow;
+	const bool bParried = TimeSinceGuard <= CurrentParryWindow;
 
 	if (bParried)
 	{
