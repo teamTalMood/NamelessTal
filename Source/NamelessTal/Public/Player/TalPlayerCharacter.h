@@ -5,7 +5,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Interface/NTWeaponCollisionInterface.h"
+#include "Player/Interface/NTPlayerApplyDamageInterface.h"
 #include "TalPlayerCharacter.generated.h"
+
 
 class UAnimMontage;
 class UInputMappingContext;
@@ -21,7 +23,7 @@ class UNTLockOnTargetComponent; //락온 전방선언
 
 
 UCLASS()
-class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface
+class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface, public INTPlayerApplyDamageInterface
 {
 	GENERATED_BODY()
 
@@ -41,6 +43,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) override;
 
 ////////////////////////////////////////
 //
@@ -76,6 +79,8 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
 	float VerticalCameraSensitivity = 50.0f;
+
+
 
 	// 무기
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
@@ -113,8 +118,12 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputAction> SprintAction;
 
+	//락온
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputAction> LockOnAction;
+	//락온변경
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> SwitchLockOnTargetAction;
 
 
 ////////////////////////////////////////
@@ -134,6 +143,15 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bIsSprinting = false;
 
+	//카메라 숨김설정(플레이어)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera|Visibility")
+	float PlayerHideDistance = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera|Visibility")
+	float PlayerShowDistance = 130.0f;
+
+	bool bHiddenByCameraDistance = false;
+
 public: // Property Camera (카메라 속성)
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
@@ -150,7 +168,7 @@ protected: // Player Move and use CameraMovement use Mouse
 
 	void StopSprint(const FInputActionValue& Value);
 
-
+	void UpdatePlayerCameraVisibility();
 
 ////////////////////////////////////////
 //
@@ -249,8 +267,7 @@ protected:
 	void Attack(const FInputActionValue& Value);
 
 	UFUNCTION() // 무기 콜리전이 겹칠 때 호출
-	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	// 한번 공격시 줄 데미지 양, 에디터에서 조절
 	UPROPERTY(EditAnywhere, Category = "Attack")
@@ -304,7 +321,7 @@ protected:
 
 		////////////////////////////////////////////////////////////////////////////
 ///////		가드 / 패링 시스템
-		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard", 
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard",
 			meta = (AllowPrivateAccess = "true"))
 		TObjectPtr<UGuardComponent> GuardComponent;
 
@@ -314,9 +331,31 @@ protected:
 		void StartGuard(const FInputActionValue& Value);
 		void StopGuard(const FInputActionValue& Value);
 
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		float ParrySlowMoTimeDilation = 0.15f;
+
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		float ParrySlowMoRealDuration = 1.0f;
+
+		bool bParrySlowMoActive = false;
+		float ParrySlowMoEndRealTime = 0.0f;
+
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		UAnimMontage* ParryMontage;
+
+		public :
+			void TriggerParrySlowMo();
+
+			void OnParryMontage(UAnimMontage* Montage, bool bInterrupted);
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
+	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
+	bool bIsLockOnActive = false;//락온 활성화 여부
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn", meta = (ClampMin = "0.0", UTMin = "0.0"))
 	float MaxLockOnDistance = 1500.0f;
 
@@ -328,4 +367,19 @@ protected:
 	UNTLockOnTargetComponent* FindBestLockOnTarget() const;
 
 	void ClearLockOnTarget();
+
+	void BeginLockOn();
+	void UpdateLockOn(float DeltaTime);
+
+	void SwitchLockOnTarget(const FInputActionValue& Value);
+	bool TryGetValidLockOnCandidateScreenPosition(
+		UNTLockOnTargetComponent* Candidate,
+		const class APlayerController* PlayerController,
+		FVector2D& OutScreenPosition
+	) const;
+
+	////////////////////////////////////////////////////////////////////////////
+///////		가드 / 패링
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	UAnimMontage* GuardMontage;
 };

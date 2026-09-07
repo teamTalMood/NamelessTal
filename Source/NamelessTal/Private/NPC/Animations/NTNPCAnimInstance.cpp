@@ -11,6 +11,11 @@ UNTNPCAnimInstance::UNTNPCAnimInstance()
 	JumpingThreshould = 100.0f;
 }
 
+void UNTNPCAnimInstance::SetAnimIsExhausted(const uint8 InIsExhausted)
+{
+	bIsExhausted = InIsExhausted;
+}
+
 void UNTNPCAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();

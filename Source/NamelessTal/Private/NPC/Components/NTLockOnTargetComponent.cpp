@@ -31,7 +31,6 @@ bool UNTLockOnTargetComponent::IsLockOnAvailable() const
 	const AActor* OwnerActor = GetOwner();
 
 	return bLockOnEnabled
-		&& IsActive()
 		&& IsValid(OwnerActor)
 		&& !OwnerActor->IsActorBeingDestroyed();
 }

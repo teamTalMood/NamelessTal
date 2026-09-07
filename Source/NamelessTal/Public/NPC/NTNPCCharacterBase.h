@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -28,8 +28,8 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	UFUNCTION()
-	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	//UFUNCTION()
+	//virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 
 /////////////////////////////////////////
@@ -51,6 +51,22 @@ public:
 	virtual float GetAITurnSpeed() override;
 	virtual void AttackByAI() override;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) override;
+	virtual uint8 GetAttackDirection() override;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float AIPatrolRadius = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float AIDetectRange = 1000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float AIAttackRange = 700.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	float AITurnSpeed;
+
 
 
 
@@ -58,27 +74,56 @@ public:
 //
 //   Attack
 //
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
-	TObjectPtr<class UAnimMontage> ComboAttackMontage;
+protected:	// BlueprintEditable
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> ShortAttackMontage;
 
-	// ÇÑ¹ø °ø°İ½Ã ÁÙ µ¥¹ÌÁö ¾ç, ¿¡µğÅÍ¿¡¼­ Á¶Àı
-	UPROPERTY(EditAnywhere, Category = "Attack")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> MiddleAttackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> LongAttackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	float AttackDamage = 10.0f;
 
-private:
-	FAICharacterAttackFinished OnAICharacterAttackFinished;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float AttackDrain;
 
-	// ÀÌ¹ø °ø°İ(ÇÑ¹øÀÇ Äİ¸®Àü) µ¿¾È ¸ÂÀº ´ë»óµé ¸ñ·Ï
-	// Äİ¸®Àü ÄÑÁö¸é ºñ¿öÁÖ°í ¸ÂÀ¸¸é Ãß°¡ÇØÁØ´Ù
-	TArray<AActor*> HitActors;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float GuardDrain;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float AttackRangeShort = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float AttackRangeMiddle = 450.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	TMap<EAttackDistance, uint8> AttackDirections;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	TMap<EAttackDistance, bool> AttackParryables;
 
 	// Weapon
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attack", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr <class UStaticMeshComponent> WeaponMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attack", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr <class UCapsuleComponent> WeaponCollision;
+
+protected:	// BlueprintReadOnly
+	FAICharacterAttackFinished OnAICharacterAttackFinished;
+
+	// ì´ë²ˆ ê³µê²©(í•œë²ˆì˜ ì½œë¦¬ì „) ë™ì•ˆ ë§ì€ ëŒ€ìƒë“¤ ëª©ë¡
+	// ì½œë¦¬ì „ ì¼œì§€ë©´ ë¹„ì›Œì£¼ê³  ë§ìœ¼ë©´ ì¶”ê°€í•´ì¤€ë‹¤
+	TArray<AActor*> HitActors;
+
+	EAttackDistance CurrentAttack = EAttackDistance::AttackNone;
+
+	TMap<EAttackDistance, TObjectPtr<class UAnimMontage>> AttackMontages;
+
+	uint8 bIsAttacking : 1 = false;
 
 
 // INTWeaponCollisionInterface override
@@ -87,24 +132,46 @@ public:
 	virtual void DisableWeaponCollision() override;
 
 // Attack
-private:
-	void AttackHitCheck();
-	void ProcessComboCommand();
+protected:
+	void BeginAttack(const EAttackDistance InAttackType);
+	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void EndAttack();
 
-	// ¹«±â Äİ¸®ÀüÀÌ °ãÄ¥ ¶§ È£Ãâ
+	// ë¬´ê¸° ì½œë¦¬ì „ì´ ê²¹ì¹  ë•Œ í˜¸ì¶œ
 	UFUNCTION()
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 
+////////////////////////////////////////
+//
+//   Damaged
+//
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> DamageMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	float DamageSpeedRate = 1.0f;
+
+
+protected:
+	void OnDamageMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+
 
 ////////////////////////////////////////
 //
-//   Damage
+//   Stat
 //
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
+	TObjectPtr <class UStatComponent> StatComponent;
 
 
-
-
-
-
+////////////////////////////////////////
+//
+//   Exhausted
+//
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
+	float ExhaustedDuration = 0;
 };
