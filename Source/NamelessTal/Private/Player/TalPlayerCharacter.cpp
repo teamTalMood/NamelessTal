@@ -51,6 +51,9 @@
 #include "Engine/World.h"
 #include "UObject/UObjectIterator.h"
 
+// 적 애니메이션 ( 맞춤 패링 )
+#include "NPC/Interface/NTNPCCharacterBaseInterface.h"
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -91,7 +94,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	//이동방향으로 캐릭터 회전
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); 
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 	GuardComponent = CreateDefaultSubobject<UGuardComponent>(TEXT("GuardComponent"));
@@ -101,6 +104,12 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >= ParrySlowMoEndRealTime)
+	{
+		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
+		bParrySlowMoActive = false;
+	}
 
 	//카메라 거리보간
 	const float SafeCameraDistance = FMath::Max(0.0f, CameraDistance);
@@ -112,6 +121,10 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		DeltaTime,
 		SafeInterpSpeed
 	);
+
+	//플레이어 표시 여부
+	UpdatePlayerCameraVisibility();
+
 	//카메라 Pitch제한
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
@@ -123,6 +136,10 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 			CameraManager->ViewPitchMin = SafePitchMin;
 			CameraManager ->ViewPitchMax = SafePitchMax;
 		}
+	}
+	if (bIsLockOnActive)
+	{
+		UpdateLockOn(DeltaTime);
 	}
 
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
@@ -139,7 +156,14 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	//}
 
 	// Sprint Speed Interpolation
-	const float TargetSpeed = bIsSprinting ? SprintSpeed : WalkSpeed;
+	float TargetSpeed = GuardComponent->IsGuarding() ? GuardComponent->GetGuardWalkSpeed()
+		: (bIsSprinting ? SprintSpeed : WalkSpeed);
+
+	if (StatComponent->IsSoulExhausted())
+	{
+		TargetSpeed *= StatComponent->SoulExhaustedMoveSpeedMultiplier;
+	}
+
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
 }
@@ -158,6 +182,11 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
+	if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(15.0f))
+	{
+		return;
+	}
+
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
 	if (bIsDodging) // Already Dodging or No RollMontage
@@ -196,6 +225,8 @@ void ATalPlayerCharacter::EndDodge()
 {
 	bIsDodging = false;
 	bIsInvincible = false;
+
+	bUseControllerRotationYaw = bIsLockOnActive; //락온중이면 회전 활성화, 아니면 비활성화
 }
 
 // Player Move
@@ -221,6 +252,20 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 		if (bIsDodging)
 		{ // AddmovementInput is ignored during dodge
 			return;
+		}
+
+		if (GuardComponent->IsGuarding())
+		{
+			if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+			{
+				FName CurrentSection = AnimInstance->Montage_GetCurrentSection(GuardMontage);
+
+				if (CurrentSection == TEXT("Guard_hit") || CurrentSection == TEXT("Parry_LDRU")
+					|| CurrentSection == TEXT("Parry_RULD"))
+				{
+					return; // 패링,가드 (맞는 경우 이동 무시)
+				}
+			}
 		}
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
@@ -276,6 +321,8 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		//락온 바인딩 추가
 		EnhancedInputComponent->BindAction(LockOnAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::ToggleLockOn);
+		EnhancedInputComponent->BindAction(SwitchLockOnTargetAction, ETriggerEvent::Started,
+			this, &ATalPlayerCharacter::SwitchLockOnTarget);
 	}
 }
 
@@ -291,24 +338,121 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 	if (GuardComponent->IsGuarding())
 	{
-		if (GuardComponent->TryParry())
+		const bool bParried = GuardComponent->TryParry();
+
+		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+		{
+			if (bParried)
+			{
+				FName ParrySection = TEXT("Parry_LDRU"); // 패링성공시 LDRU뿜뿜
+
+				if (INTNPCCharacterBaseInterface* NPCCharacter =
+					Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+				{
+					const uint8 AttackDirection = NPCCharacter->GetAttackDirection();
+					if (AttackDirection == 3) //정면방향만 RULD
+					{
+						ParrySection = TEXT("Parry_RULD");
+					}
+				}
+
+				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
+
+				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
+
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate, ParryMontage);
+
+				return 0.0f;
+			}
+			else
+			{
+				AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+			}
+
+		}
+
+		if (bParried)
 		{
 			return 0.0f;
 		}
 
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
-		StatComponent->DrainSoul(30.0f);
+		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
-		const float ReducedDamage = Damage * 0.3f; // 임시 값
-		StatComponent->ApplyDamage(ReducedDamage);
-		return ReducedDamage;
+		return 0.0f; // HP 피해 없음
 	}
 
 	StatComponent->ApplyDamage(Damage);
-
+	StatComponent->DrainSoul(10.0f);
 	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
 	return Damage;
+}
+
+float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
+{
+
+	//회피중이면 무적(데미지 무시)
+	if (bIsInvincible)
+	{
+		return 0.0f;
+	}
+
+	if (GuardComponent->IsGuarding())
+	{
+		const bool bParried = GuardComponent->TryParry();
+
+		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+		{
+			if (bParried)
+			{
+				FName ParrySection = TEXT("Parry_LDRU"); // 패링성공시 LDRU뿜뿜
+
+				if (INTNPCCharacterBaseInterface* NPCCharacter =
+					Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+				{
+					const uint8 AttackDirection = NPCCharacter->GetAttackDirection();
+					if (AttackDirection == 3) //정면방향만 RULD
+					{
+						ParrySection = TEXT("Parry_RULD");
+					}
+				}
+
+				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
+
+				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
+
+				FOnMontageEnded EndDelegate;
+				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
+				AnimInstance->Montage_SetEndDelegate(EndDelegate, ParryMontage);
+
+				return 0.0f;
+			}
+			else
+			{
+				AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+			}
+
+		}
+
+		if (bParried)
+		{
+			return 0.0f;
+		}
+
+		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
+		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
+
+		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		return 0.0f; // HP 피해 없음
+	}
+
+	StatComponent->ApplyDamage(InDamage);
+	StatComponent->DrainSoul(10.0f);
+	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
+	return InDamage;
 }
 
 void ATalPlayerCharacter::NotifyControllerChanged()
@@ -330,6 +474,8 @@ void ATalPlayerCharacter::NotifyControllerChanged()
 
 void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 {
+	//락온여부
+	if (bIsLockOnActive || Controller == nullptr) return;
 	const FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 	if (Controller == nullptr) return;
@@ -448,21 +594,21 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 {
 	// 떄려지는 객체 확인 로그
 	UE_LOG(LogTemp, Warning, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
-	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	//if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	//{
+	//	return;
+	//}
+	INTNPCCharacterBaseInterface* NPCCharacter = Cast<INTNPCCharacterBaseInterface>(OtherActor);
+	if (NPCCharacter == nullptr)
 	{
 		return;
 	}
 
-	//ICombatDamageable* Damageable = Cast<ICombatDamageable>(OtherActor);
-	//if (Damageable == nullptr)
-	//{
-	//	return;
-	//}
 	HitActors.Add(OtherActor);
 
-	//const FVector ImpactPoint = SweepResult.bBlockingHit ? 	FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
-	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);
-	UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
+	//드레인 수치는 임의값, 나중에 수정할것
+	NPCCharacter->ApplyDamage(this, AttackDamage, 10.0f, false);
 }
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
@@ -629,21 +775,57 @@ void ATalPlayerCharacter::CloseComboWindow()
 
 
 
-// 패링 / 가드 시스템 연동 
+// 패링 / 가드 시스템 연동
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
+	if (StatComponent->IsSoulExhausted()) return; //고갈중 가드 불가
 	GuardComponent->StartGuard();
 	StatComponent->SetSoulRegenBlocked(true);
+	PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Start"));
 }
 
 void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 {
 	GuardComponent->StopGuard();
 	StatComponent->SetSoulRegenBlocked(false);
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		//GuardMontage에서 Guard_End를 찾아 점프하십시오
+		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"),GuardMontage);
+	}
+}
+
+void ATalPlayerCharacter::TriggerParrySlowMo()
+{
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), ParrySlowMoTimeDilation);
+	bParrySlowMoActive = true; // 슬로우 시작
+	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() + ParrySlowMoRealDuration;
+}
+
+void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
+{
+	// 아직 가드 버튼 누르고 있음
+	if (GuardComponent->IsGuarding())
+	{
+		PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_loop"));
+	}
 }
 
 
 //락온 시스템
+void ATalPlayerCharacter::BeginLockOn()
+{
+	if (!IsValid(CurrentLockOnTarget)) return;
+
+	bIsLockOnActive = true;
+
+	//락온 중에는 상대를 바라봄
+	bUseControllerRotationYaw = true;
+	GetCharacterMovement()->bOrientRotationToMovement = false;
+
+	CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+}
+
 void ATalPlayerCharacter::ToggleLockOn(const FInputActionValue& Value)
 {
 	if (IsValid(CurrentLockOnTarget))
@@ -656,7 +838,7 @@ void ATalPlayerCharacter::ToggleLockOn(const FInputActionValue& Value)
 
 	if (IsValid(CurrentLockOnTarget))
 	{
-		CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+		BeginLockOn();
 	}
 }
 
@@ -668,13 +850,19 @@ void ATalPlayerCharacter::ClearLockOnTarget()
 	}
 
 	CurrentLockOnTarget = nullptr;
+	bIsLockOnActive = false;
+
+	//일반 이동, 카메라 상태 복구
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bOrientRotationToMovement = true;
 }
 
 UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 {
+	MC_LOG(LogSY, Log, TEXT("최고의 락온 대상을 찾는 중"));
 	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
 
-	if (!IsValid(PlayerController) || !IsValid(FollowCamera)) return nullptr;
+	if (!IsValid(PlayerController)) return nullptr;
 
 	int32 ViewportWidth = 0;
 	int32 ViewportHeight = 0;
@@ -683,4 +871,269 @@ UNTLockOnTargetComponent* ATalPlayerCharacter::FindBestLockOnTarget() const
 	if (ViewportWidth <= 0 || ViewportHeight <= 0) return nullptr;
 
 	const FVector2D ScreenCenter(ViewportWidth * 0.5f, ViewportHeight * 0.5f);
+
+	UNTLockOnTargetComponent* BestTarget = nullptr;
+	float BestScreenDistanceSquared = TNumericLimits<float>::Max();
+
+	for (TObjectIterator<UNTLockOnTargetComponent> It; It; ++It)
+	{
+		UNTLockOnTargetComponent* Candidate = *It;
+		FVector2D CandidateScreenPosition;
+
+		if (!TryGetValidLockOnCandidateScreenPosition(
+			Candidate,
+			PlayerController,
+			CandidateScreenPosition))
+		{
+			continue;
+		}
+
+		const float ScreenDistanceSquared =
+			FVector2D::DistSquared(
+				CandidateScreenPosition,
+				ScreenCenter
+			);
+
+		if (ScreenDistanceSquared < BestScreenDistanceSquared)
+		{
+			BestScreenDistanceSquared = ScreenDistanceSquared;
+			BestTarget = Candidate;
+		}
+
+	}
+	return BestTarget;
+}
+
+void ATalPlayerCharacter::UpdateLockOn(float DeltaTime)
+{
+	if (!IsValid(CurrentLockOnTarget)
+		|| !CurrentLockOnTarget->IsLockOnAvailable()
+		|| Controller == nullptr)
+	{
+		ClearLockOnTarget();
+		return;
+	}
+
+	const FVector TargetLocation = CurrentLockOnTarget->GetLockOnLocation();
+	const float DistanceSquared = FVector::DistSquared(GetActorLocation(), TargetLocation);
+
+	if (DistanceSquared > FMath::Square(MaxLockOnDistance))
+	{
+		ClearLockOnTarget();
+		return;
+	}
+
+	const FVector CameraPivotLocation =
+		IsValid(CameraTarget)
+		? CameraTarget->GetComponentLocation()
+		: GetActorLocation();
+
+	const FVector DirectionToTarget = TargetLocation - CameraPivotLocation;
+
+	if (DirectionToTarget.IsNearlyZero()) return;
+
+	FRotator TargetControlRotation = DirectionToTarget.Rotation();
+
+	const float SafePitchMin = FMath::Clamp(
+		FMath::Min(MinCameraPitch, MaxCameraPitch),
+		-89.0f,
+		89.0f
+	);
+
+	const float SafePitchMax = FMath::Clamp(
+		FMath::Max(MinCameraPitch, MaxCameraPitch),
+		-89.0f,
+		89.0f
+	);
+
+	TargetControlRotation.Pitch = FMath::Clamp(
+		FRotator::NormalizeAxis(TargetControlRotation.Pitch),
+		SafePitchMin,
+		SafePitchMax
+	);
+
+	TargetControlRotation.Roll = 0.0f;
+
+	const FRotator NewControlRotation = FMath::RInterpTo(
+		Controller->GetControlRotation(),
+		TargetControlRotation,
+		DeltaTime,
+		FMath::Max(0.0f, LockOnCameraInterpSpeed)
+	);
+
+	Controller->SetControlRotation(NewControlRotation);
+}
+
+bool ATalPlayerCharacter::TryGetValidLockOnCandidateScreenPosition(
+	UNTLockOnTargetComponent* Candidate,
+	const APlayerController* PlayerController,
+	FVector2d& OutScreenPosition
+) const
+{
+	if (!IsValid(Candidate)
+		|| Candidate->IsTemplate()
+		|| Candidate->GetWorld() != GetWorld()
+		|| !Candidate->IsLockOnAvailable()
+		|| !IsValid(PlayerController)
+		|| !IsValid(FollowCamera))
+	{
+		return false;
+	}
+
+	AActor* TargetActor = Candidate->GetOwner();
+
+	if (!IsValid(TargetActor) || TargetActor == this)
+	{
+		return false;
+	}
+
+	const FVector TargetLocation = Candidate->GetLockOnLocation();
+	const float DistanceSquared = FVector::DistSquared(
+		GetActorLocation(), TargetLocation
+	);
+
+	if (DistanceSquared > FMath::Square(MaxLockOnDistance))
+	{
+		return false;
+	}
+
+	const FVector CameraLocation = FollowCamera->GetComponentLocation();
+	const FVector CameraToTarget = TargetLocation - CameraLocation;
+
+	if (FVector::DotProduct(FollowCamera->GetForwardVector(), CameraToTarget) <= 0.0f)
+	{
+		return false;
+	}
+
+	if (!PlayerController->ProjectWorldLocationToScreen(
+		TargetLocation,
+		OutScreenPosition,
+		true))
+	{
+		return false;
+	}
+
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+
+	PlayerController->GetViewportSize(
+		ViewportWidth,
+		ViewportHeight
+	);
+
+	const bool bInsideScreen =
+		OutScreenPosition.X >= 0.0f
+		&& OutScreenPosition.X <= ViewportWidth
+		&& OutScreenPosition.Y >= 0.0f
+		&& OutScreenPosition.Y <= ViewportHeight;
+
+	if (!bInsideScreen) return false;
+
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(LockOnVisibility),
+		false,
+		this
+	);
+
+	FHitResult VisibilityHit;
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		VisibilityHit,
+		CameraLocation,
+		TargetLocation,
+		ECC_Visibility,
+		QueryParams
+	);
+
+	return !bHit || VisibilityHit.GetActor() == TargetActor;
+}
+
+void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
+{
+	if (!bIsLockOnActive || !IsValid(CurrentLockOnTarget)) return;
+
+	const float Direction = Value.Get<float>();
+
+	if (FMath::IsNearlyZero(Direction)) return;
+
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+
+	if (!IsValid(PlayerController)) return;
+
+	FVector2D CurrentScreenPosition;
+
+	if (!PlayerController->ProjectWorldLocationToScreen(
+		CurrentLockOnTarget->GetLockOnLocation(),
+		CurrentScreenPosition,
+		true))
+	{
+		return;
+	}
+
+	UNTLockOnTargetComponent* BestTarget = nullptr;
+	float BestHorizontalDistance = TNumericLimits<float>::Max();
+
+	for (TObjectIterator<UNTLockOnTargetComponent> It; It; ++It)
+	{
+		UNTLockOnTargetComponent* Candidate = *It;
+
+		if (Candidate == CurrentLockOnTarget) continue;
+
+		FVector2D CandidateScreenPosition;
+
+		if (!TryGetValidLockOnCandidateScreenPosition(
+			Candidate,
+			PlayerController,
+			CandidateScreenPosition))
+		{
+			continue;
+		}
+
+		const float HorizontalDelta = CandidateScreenPosition.X - CurrentScreenPosition.X;
+
+		const bool bCorrectDirection =
+			Direction < 0.0f
+			? HorizontalDelta < 0.0f
+			: HorizontalDelta > 0.0f;
+
+		if (!bCorrectDirection) continue;
+
+		const float HorizontalDistance = FMath::Abs(HorizontalDelta);
+
+		if (HorizontalDistance < BestHorizontalDistance)
+		{
+			BestHorizontalDistance = HorizontalDistance;
+			BestTarget = Candidate;
+		}
+	}
+
+	if (!IsValid(BestTarget)) return;
+
+	//여기서 체인쥐
+	CurrentLockOnTarget->SetLockOnWidgetVisible(false);
+	CurrentLockOnTarget = BestTarget;
+	CurrentLockOnTarget->SetLockOnWidgetVisible(true);
+}
+
+void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
+{
+	if (!IsLocallyControlled() || !IsValid(CameraTarget) || !IsValid(FollowCamera)) return;
+
+	const float DistanceSquared = FVector::DistSquared(
+		CameraTarget->GetComponentLocation(),
+		FollowCamera->GetComponentLocation()
+	);
+
+	if (!bHiddenByCameraDistance && DistanceSquared <= FMath::Square(PlayerHideDistance))
+	{
+		bHiddenByCameraDistance = true;
+		GetMesh()->SetOwnerNoSee(true);
+		WeaponMesh->SetOwnerNoSee(true);
+	}
+	else if (bHiddenByCameraDistance && DistanceSquared >= FMath::Square(PlayerShowDistance))
+	{
+		bHiddenByCameraDistance = false;
+		GetMesh()->SetOwnerNoSee(false);
+		WeaponMesh->SetOwnerNoSee(false);
+	}
 }
