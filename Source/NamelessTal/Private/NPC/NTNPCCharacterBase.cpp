@@ -44,6 +44,7 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	WeaponCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("WeaponCollision"));
+	WeaponCollision->ComponentTags.Add(TEXT("WeaponCollision"));
 	WeaponCollision->SetupAttachment(WeaponMesh);
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
@@ -291,9 +292,12 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	AnimInstance->Montage_Stop(0.1f);
 
 	// 그로기 처리
-	if(StatComponent->IsSoulExhausted())
+	if(StatComponent->IsSoulExhausted() && !bIsExhausting)
 	{
 		MC_LOG(LogMC, Log, TEXT("Exhausted"));
+
+		bIsExhausting = true;
+
 		UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance);
 		if (NPCAnim == nullptr)
 		{
@@ -304,11 +308,13 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 		FTimerHandle Handle;
 		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
 			{
-				MC_LOG(LogMC, Log, TEXT("Soul Restored"));
 				UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
 				Anim->SetAnimIsExhausted(false);
 				BTComponent->ResumeLogic(TEXT("Exhausted End"));
 				StatComponent->RestoreSoul();
+				bIsExhausting = false;
+
+				MC_LOG(LogMC, Log, TEXT("Soul Restored"));
 			}
 		), ExhaustedDuration, false);
 	}
@@ -423,6 +429,13 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	{
 		return;
 	}
+
+	if (OtherComp && OtherComp->ComponentHasTag(TEXT("WeaponCollision")))
+	{
+		//MC_LOG(LogMC, Log, TEXT("WeaponCollision"));
+		return; // 무기끼리 부딪힌 경우는 데미지 적용 안 함
+	}
+
 	HitActors.Add(OtherActor);
 
 	PlayerCharacter->ApplyDamage(this, AttackDamage, AttackDrain, GuardDrain, AttackParryables[CurrentAttack]);

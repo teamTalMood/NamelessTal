@@ -177,4 +177,6 @@ protected:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
 	float ExhaustedDuration = 0;
+
+	uint8 bIsExhausting : 1 = false;
 };
