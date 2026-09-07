@@ -31,6 +31,9 @@ protected:
 	//UFUNCTION()
 	//virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
+protected:
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 
 /////////////////////////////////////////
 //
