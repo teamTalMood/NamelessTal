@@ -53,7 +53,8 @@
 
 // 적 애니메이션 ( 맞춤 패링 )
 #include "NPC/Interface/NTNPCCharacterBaseInterface.h"
-
+// 모션워핑
+#include "MotionWarpingComponent.h"
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -98,6 +99,8 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 	GuardComponent = CreateDefaultSubobject<UGuardComponent>(TEXT("GuardComponent"));
+	
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 }
 
 
@@ -365,8 +368,10 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
 				
-				//패링 성공시 공격,회피,달리기 금지 시간 
-				GuardComponent->StartStagger(0.1f);
+				//패링 성공 후 -> 0.1초 특정 행동 사용 불가
+				const float ParrySectionLength = ParryMontage ? ParryMontage->GetSectionLength(
+					ParryMontage->GetSectionIndex(ParrySection)) : 0.0f;
+				GuardComponent->StartStagger(ParrySectionLength + ParryStaggerTime);
 
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
@@ -391,8 +396,11 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
 		
-		//가드 성공시 구르기,공격 등 금지시간
-		GuardComponent->StartStagger(0.2f);
+		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
+		const float GuardHitSectionLength = GuardMontage
+			? GuardMontage->GetSectionLength(GuardMontage->GetSectionIndex(TEXT("Guard_hit")))
+			: 0.0f;
+		GuardComponent->StartStagger(GuardHitSectionLength + GuardStaggerTime);
 		return 0.0f; // HP 피해 없음
 	}
 
@@ -829,7 +837,6 @@ bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
 	const float AngleDeg = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(Forward, ToAttacker)));
 
 	return AngleDeg <= GuardFrontHalfAngle;
-	
 }
 
 void ATalPlayerCharacter::TriggerParrySlowMo()

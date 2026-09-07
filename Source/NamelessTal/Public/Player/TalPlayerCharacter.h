@@ -20,6 +20,7 @@ class ATalWeapon; //무기 전방선언
 class UStatComponent; //스탯 전방선언
 class UGuardComponent; // 가드/패링 클래스 전방선언
 class UNTLockOnTargetComponent; //락온 전방선언
+class UMotionWarpingComponent; //모션워핑 전방선언
 
 
 UCLASS()
@@ -80,7 +81,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "100.0", UTMin = "0.0", UTMax = "100.0"))
 	float VerticalCameraSensitivity = 50.0f;
 
-
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 
 	// 무기
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
@@ -320,39 +322,54 @@ protected:
 		TObjectPtr<UStatComponent> StatComponent;
 
 		////////////////////////////////////////////////////////////////////////////
-///////		가드 / 패링 시스템
-		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard",
-			meta = (AllowPrivateAccess = "true"))
-		TObjectPtr<UGuardComponent> GuardComponent;
+		///////        가드 / 패링 시스템
 
-		UPROPERTY(EditAnywhere, Category = "Input")
-		TObjectPtr<UInputAction> GuardAction;
+protected:
+	//가드 몽타주 
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	UAnimMontage* GuardMontage;
 
-		void StartGuard(const FInputActionValue& Value);
-		void StopGuard(const FInputActionValue& Value);
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Guard",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UGuardComponent> GuardComponent;
 
-		UPROPERTY(EditAnywhere, Category = "Guard")
-		float ParrySlowMoTimeDilation = 0.15f;
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> GuardAction;
 
-		UPROPERTY(EditAnywhere, Category = "Guard")
-		float ParrySlowMoRealDuration = 1.0f;
+	void StartGuard(const FInputActionValue& Value);
+	void StopGuard(const FInputActionValue& Value);
 
-		bool bParrySlowMoActive = false;
-		float ParrySlowMoEndRealTime = 0.0f;
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParrySlowMoTimeDilation = 0.15f;
 
-		UPROPERTY(EditAnywhere, Category = "Guard")
-		UAnimMontage* ParryMontage;
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParrySlowMoRealDuration = 1.0f;
 
-		// 정면 120도 범위 절반
-		UPROPERTY(EditAnywhere, Category = "Guard")
-		float GuardFrontHalfAngle = 60.0f;
+	bool bParrySlowMoActive = false;
+	float ParrySlowMoEndRealTime = 0.0f;
 
-		bool IsWithinFrontTalGuardAngle(AActor* DamageCauser) const;
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	UAnimMontage* ParryMontage;
 
-		public :
-			void TriggerParrySlowMo();
+	// 정면 120도 범위 절반
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float GuardFrontHalfAngle = 60.0f;
 
-			void OnParryMontage(UAnimMontage* Montage, bool bInterrupted);
+	bool IsWithinFrontTalGuardAngle(AActor* DamageCauser) const;
+
+	// 가드,패링 애니메이션 끝난 후 시간(달리기,구르기,공격 금지)
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParryStaggerTime = 0.1f;
+
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float GuardStaggerTime = 0.2f;
+
+
+
+public:
+	void TriggerParrySlowMo();
+
+	void OnParryMontage(UAnimMontage* Montage, bool bInterrupted);
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:
@@ -383,9 +400,4 @@ protected:
 		const class APlayerController* PlayerController,
 		FVector2D& OutScreenPosition
 	) const;
-
-	////////////////////////////////////////////////////////////////////////////
-///////		가드 / 패링
-	UPROPERTY(EditAnywhere, Category = "Guard")
-	UAnimMontage* GuardMontage;
 };
