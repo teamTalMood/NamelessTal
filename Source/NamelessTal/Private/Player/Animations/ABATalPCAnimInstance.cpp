@@ -3,6 +3,7 @@
 
 #include "Player/Animations/ABATalPCAnimInstance.h"
 #include "Player/TalPlayerCharacter.h"
+#include "KismetAnimationLibrary.h"
 
 void UABATalPCAnimInstance::NativeInitializeAnimation()
 {
@@ -21,7 +22,12 @@ void UABATalPCAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 
 	if (TalPlayerCharacter != nullptr) {
-		Speed = TalPlayerCharacter->GetVelocity().Size();
+		Speed = TalPlayerCharacter->GetVelocity().Size2D();
+		Direction = UKismetAnimationLibrary::CalculateDirection(
+			TalPlayerCharacter->GetVelocity(),
+			TalPlayerCharacter->GetActorRotation()
+		);
 		bIsDodging = TalPlayerCharacter->IsDodging();
+
 	}
 }
