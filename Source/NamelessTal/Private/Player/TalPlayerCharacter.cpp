@@ -555,15 +555,20 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	{
 		return;
 	}
-	StatComponent->DrainSoul(10.0f);//공격시 넋 10 소모
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 
 	if (AnimInstance == nullptr) return;
 
+
 	//몽타주 재생이 아니면 1타 시작
 	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
 	{
+		// 1타 쓸 넋이 없으면 리턴
+		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost1)) return;
+		// 1타 코스트 사용
+		StatComponent->DrainSoul(AttackSoulCost1);
+
 		ComboIndex = 1;
 		bCanCombo = false;
 
@@ -572,17 +577,17 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 		return;
 	}
 
-	//공격무시
+	// 시간 지나면 1타부터
 	if (!bCanCombo) return;
 
 	//2타 연결
 	if (ComboIndex == 1)
 	{
-		//AnimInstance->Montage_SetNextSection(
-		//	TEXT("Attack1"),
-		//	TEXT("Attack2"),
-		//	AttackMontage
-		//);
+		// 2타 넋 없으면 리턴
+		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost2)) return;
+
+		// 2타 넋 코스트 사용
+		StatComponent->DrainSoul(AttackSoulCost2);
 
 		ComboIndex = 2;
 		bCanCombo = false;
@@ -596,11 +601,11 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//3타 연결
 	else if (ComboIndex == 2)
 	{
-		//AnimInstance->Montage_SetNextSection(
-		//	TEXT("Attack2"),
-		//	TEXT("Attack3"),
-		//	AttackMontage
-		//);
+		//3타 넋 없으면 리턴
+		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost3)) return;
+
+		//3타 넋 코스트 사용
+		StatComponent->DrainSoul(AttackSoulCost3);
 
 		ComboIndex = 3;
 		bCanCombo = false;
@@ -870,7 +875,7 @@ void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupte
 
 void ATalPlayerCharacter::ApplyGuardKnockBack(float InAttackDamage)
 {
-	const float Scale = AttackDamage / KnockBackRefDamage;
+	const float Scale = InAttackDamage / KnockBackRefDamage;
 	const FVector KnockbackOffSet = -GetActorForwardVector() * KnockBackDistance * Scale;
 
 	// true = 벽 등 sweep(도형 기반 감지) 처리

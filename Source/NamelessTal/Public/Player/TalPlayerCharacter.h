@@ -273,8 +273,19 @@ protected:
 
 	// 한번 공격시 줄 데미지 양, 에디터에서 조절
 	UPROPERTY(EditAnywhere, Category = "Attack")
-	float AttackDamage = 10.0f;
+	float AttackDamage = 10.0f; 
 
+	// 공격에 사용되는 넋의 양
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float AttackSoulCost1 = 10.0f; // 1타
+	
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float AttackSoulCost2 = 11.0f; // 2타
+
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float AttackSoulCost3 = 14.0f; // 3타
+
+	 
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
@@ -371,7 +382,7 @@ protected:
 	// 이 데미지 기준 넉백 거리 적용 (강하거나 약하면 비례해서)
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float KnockBackRefDamage = 20.0f;
-
+	
 
 
 public:

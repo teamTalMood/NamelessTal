@@ -90,6 +90,7 @@ public: //넋 관련 설정
 	// 넋 소모하는 행동이 내가 가진 넋보다 많은지 체크하기
 	bool HasEnoughSoul(float Cost) const { return CurrentSoul >= Cost; }
 
+	// 넋이 바닥났다가 30이상이냐 < 체크 
 	bool IsSoulExhausted() const { return bIsSoulExhausted; }
 
 protected:
