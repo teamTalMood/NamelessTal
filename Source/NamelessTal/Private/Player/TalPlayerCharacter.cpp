@@ -182,6 +182,10 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
+
+	// 패링,가드 성공 시(시간 초만큼 실행불가능)
+	if (GuardComponent->IsStaggered()) return;
+
 	if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(15.0f))
 	{
 		return;
@@ -271,7 +275,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
-
+	
 
 }
 
@@ -336,7 +340,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		return 0.0f;
 	}
 
-	if (GuardComponent->IsGuarding())
+	if (GuardComponent->IsGuarding() &&
+		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
 		const bool bParried = GuardComponent->TryParry();
 
@@ -359,6 +364,9 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
 
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
+				
+				//패링 성공시 공격,회피,달리기 금지 시간 
+				GuardComponent->StartStagger(0.1f);
 
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
@@ -379,9 +387,12 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		}
 
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
-		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
+		StatComponent->DrainSoul(Damage * GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		
+		//가드 성공시 구르기,공격 등 금지시간
+		GuardComponent->StartStagger(0.2f);
 		return 0.0f; // HP 피해 없음
 	}
 
@@ -400,7 +411,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 		return 0.0f;
 	}
 
-	if (GuardComponent->IsGuarding())
+	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
 		const bool bParried = GuardComponent->TryParry();
 
@@ -424,6 +435,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
 
+				//패링 성공 분기
+				GuardComponent->StartStagger(0.1f);
+
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
 				AnimInstance->Montage_SetEndDelegate(EndDelegate, ParryMontage);
@@ -443,9 +457,10 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 		}
 
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
-		StatComponent->DrainSoul(GuardComponent->GetGuardSoulCost());
+		StatComponent->DrainSoul(InGuardDrain * GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		GuardComponent->StartStagger(0.2f);
 		return 0.0f; // HP 피해 없음
 	}
 
@@ -493,6 +508,9 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
+	// 패링,가드 성공 시(시간 초만큼 실행불가능)
+	if (GuardComponent->IsStaggered()) return;
+	
 	if (!StatComponent->HasSoul()) return;
 
 	bIsSprinting = true;
@@ -509,6 +527,9 @@ void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
+	// 패링,가드 성공 시(시간 초만큼 실행불가능)
+	if (GuardComponent->IsStaggered()) return;
+
 	if (bIsDodging || AttackMontage == nullptr)
 	{
 		return;
@@ -793,6 +814,22 @@ void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 		//GuardMontage에서 Guard_End를 찾아 점프하십시오
 		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"),GuardMontage);
 	}
+}
+
+bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
+{
+	if (!IsValid(DamageCauser))
+	{
+		return false;
+	}
+
+	const FVector ToAttacker = (DamageCauser->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+	const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+
+	const float AngleDeg = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(Forward, ToAttacker)));
+
+	return AngleDeg <= GuardFrontHalfAngle;
+	
 }
 
 void ATalPlayerCharacter::TriggerParrySlowMo()

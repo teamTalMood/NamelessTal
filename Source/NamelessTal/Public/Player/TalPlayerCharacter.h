@@ -343,6 +343,12 @@ protected:
 		UPROPERTY(EditAnywhere, Category = "Guard")
 		UAnimMontage* ParryMontage;
 
+		// 정면 120도 범위 절반
+		UPROPERTY(EditAnywhere, Category = "Guard")
+		float GuardFrontHalfAngle = 60.0f;
+
+		bool IsWithinFrontTalGuardAngle(AActor* DamageCauser) const;
+
 		public :
 			void TriggerParrySlowMo();
 
