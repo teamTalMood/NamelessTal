@@ -410,7 +410,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	return Damage;
 }
 
-float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
+float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, 
+	const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
 {
 
 	//회피중이면 무적(데미지 무시)
@@ -444,6 +445,8 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
 
 				//패링 성공 분기
+				// 넉백 거리
+				ApplyGuardKnockBack(InDamage);
 				//패링 성공 후 -> 0.1초 특정 행동 사용 불가
 				const float ParrySectionLength = ParryMontage ? ParryMontage->GetSectionLength(
 					ParryMontage->GetSectionIndex(ParrySection)) : 0.0f;
@@ -469,6 +472,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
 		StatComponent->DrainSoul(InGuardDrain * GuardComponent->GetGuardSoulCost());
+
+		// 넉백
+		ApplyGuardKnockBack(InDamage);
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
 		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
@@ -549,15 +555,20 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	{
 		return;
 	}
-	StatComponent->DrainSoul(10.0f);//공격시 넋 10 소모
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 
 	if (AnimInstance == nullptr) return;
 
+
 	//몽타주 재생이 아니면 1타 시작
 	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
 	{
+		// 1타 쓸 넋이 없으면 리턴
+		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost1)) return;
+		// 1타 코스트 사용
+		StatComponent->DrainSoul(AttackSoulCost1);
+
 		ComboIndex = 1;
 		bCanCombo = false;
 
@@ -566,17 +577,17 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 		return;
 	}
 
-	//공격무시
+	// 시간 지나면 1타부터
 	if (!bCanCombo) return;
 
 	//2타 연결
 	if (ComboIndex == 1)
 	{
-		//AnimInstance->Montage_SetNextSection(
-		//	TEXT("Attack1"),
-		//	TEXT("Attack2"),
-		//	AttackMontage
-		//);
+		// 2타 넋 없으면 리턴
+		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost2)) return;
+
+		// 2타 넋 코스트 사용
+		StatComponent->DrainSoul(AttackSoulCost2);
 
 		ComboIndex = 2;
 		bCanCombo = false;
@@ -590,11 +601,11 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//3타 연결
 	else if (ComboIndex == 2)
 	{
-		//AnimInstance->Montage_SetNextSection(
-		//	TEXT("Attack2"),
-		//	TEXT("Attack3"),
-		//	AttackMontage
-		//);
+		//3타 넋 없으면 리턴
+		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost3)) return;
+
+		//3타 넋 코스트 사용
+		StatComponent->DrainSoul(AttackSoulCost3);
 
 		ComboIndex = 3;
 		bCanCombo = false;
@@ -860,6 +871,15 @@ void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupte
 	{
 		PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_loop"));
 	}
+}
+
+void ATalPlayerCharacter::ApplyGuardKnockBack(float InAttackDamage)
+{
+	const float Scale = InAttackDamage / KnockBackRefDamage;
+	const FVector KnockbackOffSet = -GetActorForwardVector() * KnockBackDistance * Scale;
+
+	// true = 벽 등 sweep(도형 기반 감지) 처리
+	SetActorLocation(GetActorLocation() + KnockbackOffSet, true);
 }
 
 

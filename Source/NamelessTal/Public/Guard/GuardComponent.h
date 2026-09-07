@@ -56,9 +56,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParryWindowRetryLimit = 0.5f;
 
-	UPROPERTY(EditAnywhere, Category = "Guard")
-	float GuardSoulCostPersent = 0.7;
 	// 가드 성공 시 넋 소모량 ( 적 공격(넋값) * 이 값)
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float GuardSoulCostPersent = 0.7f;
 
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float GuardWalkSpeed = 50.0f; // 가드 중 이동 속도 (0.5m/s)
