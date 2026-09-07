@@ -87,6 +87,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	WeaponCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("WeaponCollision"));
+	WeaponCollision->ComponentTags.Add(TEXT("WeaponCollision"));
 	WeaponCollision->SetupAttachment(WeaponMesh);
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
@@ -641,14 +642,21 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 {
 	// 떄려지는 객체 확인 로그
 	UE_LOG(LogTemp, Warning, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
-	//if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
-	//{
-	//	return;
-	//}
+	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	{
+		return;
+	}
+
 	INTNPCCharacterBaseInterface* NPCCharacter = Cast<INTNPCCharacterBaseInterface>(OtherActor);
 	if (NPCCharacter == nullptr)
 	{
 		return;
+	}
+
+	if (OtherComp && OtherComp->ComponentHasTag(TEXT("WeaponCollision")))
+	{
+		//MC_LOG(LogMC, Log, TEXT("WeaponCollision"));
+		return; // 무기끼리 부딪힌 경우는 데미지 적용 안 함
 	}
 
 	HitActors.Add(OtherActor);
