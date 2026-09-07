@@ -265,7 +265,7 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 
 float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (BTComponent == nullptr)
 	{
@@ -275,26 +275,35 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	if (bIsAttacking)
 	{
 		// 공격 로직 초기화
+		//bIsAttacking = false;
+		//CurrentAttack = EAttackDistance::AttackNone;
+		//OnAICharacterAttackFinished.ExecuteIfBound();
 		EndAttack();
 	}
 
-	// 스탯 적용
-	StatComponent->ApplyDamage(InDamage);
-	StatComponent->DrainSoul(InDrain);
-
+	BTComponent->PauseLogic(TEXT("Damaged"));
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance == nullptr)
 	{
 		return 0.0f;
 	}
 
-	BTComponent->PauseLogic(TEXT("Damaged"));
+	static FOnMontageEnded EmptyDelegate;
+	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+	if (CurrentMontage)
+	{
+		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
+	}
 	AnimInstance->Montage_Stop(0.1f);
+
+	// 스탯 적용
+	StatComponent->ApplyDamage(InDamage);
+	StatComponent->DrainSoul(InDrain);
 
 	// 그로기 처리
 	if(StatComponent->IsSoulExhausted() && !bIsExhausting)
 	{
-		MC_LOG(LogMC, Log, TEXT("Exhausted"));
+		//MC_LOG(LogMC, Log, TEXT("Exhausted"));
 
 		bIsExhausting = true;
 
@@ -305,16 +314,19 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 		}
 
 		NPCAnim->SetAnimIsExhausted(true);
+
 		FTimerHandle Handle;
 		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
 			{
+				//MC_LOG(LogMC, Log, TEXT("Soul Restored Begin"));
+
 				UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
 				Anim->SetAnimIsExhausted(false);
 				BTComponent->ResumeLogic(TEXT("Exhausted End"));
 				StatComponent->RestoreSoul();
 				bIsExhausting = false;
 
-				MC_LOG(LogMC, Log, TEXT("Soul Restored"));
+				//MC_LOG(LogMC, Log, TEXT("Soul Restored End"));
 			}
 		), ExhaustedDuration, false);
 	}
@@ -322,7 +334,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	// Damaged처리
 	if (!StatComponent->IsSoulExhausted())
 	{
-		//MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
+		//MC_LOG(LogMC, Log, TEXT("Damaged"));
 
 		if (DamageMontage == nullptr)
 		{
@@ -337,6 +349,8 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 		EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnDamageMontageEnd);
 		AnimInstance->Montage_SetEndDelegate(EndDelegate, DamageMontage);
 	}
+
+	//MC_LOG(LogMC, Log, TEXT("End"));
 
 	return InDamage;
 }
@@ -481,6 +495,8 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::EndAttack()
 {
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	bIsAttacking = false;
 	CurrentAttack = EAttackDistance::AttackNone;
 	BTComponent->ResumeLogic(TEXT("Attack End"));

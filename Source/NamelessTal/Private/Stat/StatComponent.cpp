@@ -24,7 +24,7 @@ void UStatComponent::BeginPlay()
 void UStatComponent::ApplyDamage(float HitDamage)
 {
 	CurrentHP = FMath::Clamp(CurrentHP - HitDamage, 0.0f, MaxHP);
-	MC_LOG(LogMC, Log, TEXT("CurrentHP : %f"), CurrentHP);
+	MC_SUBLOG(LogMC, Log, TEXT("CurrentHP : %f"), CurrentHP);
 }
 
 void UStatComponent::HealHp(float HealAmount)
@@ -43,6 +43,8 @@ void UStatComponent::RestoreFull()
 void UStatComponent::RestoreSoul()
 {
 	CurrentSoul = MaxSoul;
+	bIsSoulExhausted = false;
+	MC_SUBLOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
 }
 
 
@@ -56,7 +58,7 @@ void UStatComponent::DrainSoul(float Amount)
 		bIsSoulExhausted = true; // 고갈 진입
 	}
 	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
-	MC_LOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
+	MC_SUBLOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
 
 	//언제 마지막으로 사용했는지 체크하기
 	LastSoulDrainTime = GetWorld()->GetTimeSeconds();
