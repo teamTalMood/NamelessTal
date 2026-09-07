@@ -16,6 +16,7 @@
 
 //AI
 #include "BehaviorTree/BehaviorTreeComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 //NT
 #include "NPC/NTAIController.h"
@@ -76,6 +77,48 @@ void ANTNPCCharacterBase::BeginPlay()
 	AttackMontages.Add(EAttackDistance::AttackShort, ShortAttackMontage);
 	AttackMontages.Add(EAttackDistance::AttackMiddle, MiddleAttackMontage);
 	AttackMontages.Add(EAttackDistance::AttackLong, LongAttackMontage);
+
+	// 현재위치를 HomePos로 지정
+	if (UBlackboardComponent* BB = AICon->GetBlackboardComponent())
+	{
+		BB->SetValueAsVector(TEXT("HomePos"), GetActorLocation());
+	}
+}
+
+void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 1. 무기 콜리전 오버랩 델리게이트 해제
+	if (WeaponCollision)
+	{
+		WeaponCollision->OnComponentBeginOverlap.RemoveDynamic(this, &ANTNPCCharacterBase::OnWeaponOverlap);
+	}
+
+	// 2. 애님 몽타주 End 델리게이트 해제 (공격/피격 둘 다)
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		if (UAnimInstance* AnimInstance = MeshComp->GetAnimInstance())
+		{
+			static FOnMontageEnded EmptyDelegate;
+			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, ShortAttackMontage);
+			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, MiddleAttackMontage);
+			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, LongAttackMontage);
+			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, DamageMontage);
+
+			// 재생 중인 몽타주도 즉시 정지
+			AnimInstance->StopAllMontages(0.0f);
+		}
+	}
+
+	// 3. AI 공격 완료 델리게이트 초기화 (AIController 등 외부에서 바인딩했을 수 있음)
+	OnAICharacterAttackFinished.Unbind();
+
+	// 4. BTComponent 정지 (있다면)
+	if (BTComponent)
+	{
+		BTComponent->StopLogic(TEXT("EndPlay"));
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 /*
