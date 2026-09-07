@@ -35,6 +35,8 @@
 
 //tal 헤더들 추가
 #include "TalBase.h"
+#include "Components/NTTalComponent.h"
+#include "NPC/Components/NTTalChiTargetComponent.h"
 #include "DrawDebugHelpers.h"//디버그용
 
 //무기헤더
@@ -55,6 +57,8 @@
 #include "NPC/Interface/NTNPCCharacterBaseInterface.h"
 // 모션워핑
 #include "MotionWarpingComponent.h"
+
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -75,7 +79,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 	// Follow Camera Set
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera -> SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
 	// For Roll Dodge Input
@@ -100,8 +104,10 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 	GuardComponent = CreateDefaultSubobject<UGuardComponent>(TEXT("GuardComponent"));
-	
+
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
+
+	TalComponent = CreateDefaultSubobject<UNTTalComponent>(TEXT("TalComponent"));
 }
 
 
@@ -138,7 +144,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 			const float SafePitchMax = FMath::Clamp(FMath::Max(MinCameraPitch, MaxCameraPitch), -89.0f, 89.0f);
 
 			CameraManager->ViewPitchMin = SafePitchMin;
-			CameraManager ->ViewPitchMax = SafePitchMax;
+			CameraManager->ViewPitchMax = SafePitchMax;
 		}
 	}
 	if (bIsLockOnActive)
@@ -252,7 +258,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 
 		// Last Move Input World Direction remember for Dodge Direction
 		FVector InputDir = ForwardDirection * MovementVector.Y + RightDirection * MovementVector.X;
-		if(!InputDir.IsNearlyZero())
+		if (!InputDir.IsNearlyZero())
 		{
 			LastMoveInputWorldDir = InputDir.GetSafeNormal();
 		}
@@ -279,7 +285,7 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
-	
+
 
 }
 
@@ -368,7 +374,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
 
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
-				
+
 				//패링 성공 후 -> 0.1초 특정 행동 사용 불가
 				const float ParrySectionLength = ParryMontage ? ParryMontage->GetSectionLength(
 					ParryMontage->GetSectionIndex(ParrySection)) : 0.0f;
@@ -396,7 +402,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		StatComponent->DrainSoul(Damage * GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
-		
+
 		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
 		const float GuardHitSectionLength = GuardMontage
 			? GuardMontage->GetSectionLength(GuardMontage->GetSectionIndex(TEXT("Guard_hit")))
@@ -411,7 +417,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	return Damage;
 }
 
-float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, 
+float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage,
 	const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
 {
 
@@ -503,7 +509,7 @@ void ATalPlayerCharacter::NotifyControllerChanged()
 		{
 			if (DefaultMappingContext)
 			{
-				Subsystem -> AddMappingContext(DefaultMappingContext, 0);
+				Subsystem->AddMappingContext(DefaultMappingContext, 0);
 			}
 		}
 	}
@@ -532,7 +538,7 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered()) return;
-	
+
 	if (!StatComponent->HasSoul()) return;
 
 	bIsSprinting = true;
@@ -668,23 +674,15 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
-	if (!NewTal) return; //널처리
-
-	//탈바꿈
-	CurrentTal = NewTal;
-	CurrentTal->SetOwner(this);
-	CurrentTal->AttachToComponent(
-		GetMesh(),
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		TEXT("TalSocket")
-	);
+	if (TalComponent)
+	{
+		TalComponent->EquipTal(NewTal);
+	}
 }
 
 ATalBase* ATalPlayerCharacter::GetCurrentTal() const
 {
-	if (!CurrentTal) return NULL; //널처리
-
-	return CurrentTal;
+	return TalComponent ? TalComponent->GetCurrentTal() : nullptr;
 }
 
 void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
@@ -692,11 +690,9 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 	Super::BeginPlay();
 
 	//기본 탈 장착
-	if (DefaultTalClass)
+	if (TalComponent && DefaultTalClass)
 	{
-		ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(DefaultTalClass);
-
-		EquipTal(NewTal);
+		TalComponent->SpawnDefaultTal(DefaultTalClass);
 	}
 
 	////기본 무기 장착
@@ -721,48 +717,149 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 
 ATalBase* ATalPlayerCharacter::UnequipTal()
 {
-	if (!CurrentTal) return nullptr;
-
-	ATalBase* OldTal = CurrentTal;
-	CurrentTal = nullptr;
-	OldTal->DetachFromActor(
-		FDetachmentTransformRules::KeepWorldTransform
-	);
-
-	OldTal->SetOwner(nullptr);
-
-	return OldTal;
+	return TalComponent ? TalComponent->UnequipTal() : nullptr;
 }
 
-void ATalPlayerCharacter::TakeTalFrom(ATalPlayerCharacter* TargetCharacter)
+void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 {
-	if (!TargetCharacter || TargetCharacter == this) return;
-	if (!TargetCharacter->GetCurrentTal())			 return;
+	SelectedTalChiTarget.Reset();
 
-	ATalBase* TakenTal = TargetCharacter->UnequipTal();
-	if (!TakenTal) return;
+	if (!IsValid(TargetActor)
+		|| TargetActor == this
+		|| TargetActor->IsActorBeingDestroyed())
+	{
+		return;
+	}
 
-	ATalBase* MyOldTal = UnequipTal();
-	if (MyOldTal) MyOldTal->K2_DestroyActor();
+	const float MaxDistance = FMath::Max(0.0f, InteractionDistance);
+	const float DistanceSquared = FVector::DistSquared(
+		GetActorLocation(),
+		TargetActor->GetActorLocation()
+	);
+	const float ActualDistance = FMath::Sqrt(DistanceSquared);
 
-	EquipTal(TakenTal);
+	MC_LOG(
+		LogSY,
+		Warning,
+		TEXT("Target=%s / Distance=%.1f / MaxDistance=%.1f"),
+		*GetNameSafe(TargetActor),
+		ActualDistance,
+		MaxDistance
+	);
+
+	if (DistanceSquared > FMath::Square(MaxDistance))
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈을 빼앗기에 상대가 너무 멉니다"));
+		return;
+	}
+
+	UNTTalComponent* TargetTalComponent = TargetActor->FindComponentByClass<UNTTalComponent>();
+
+	if (!IsValid(TargetTalComponent) || !IsValid(TargetTalComponent->GetCurrentTal()))
+	{
+		MC_LOG(LogSY, Warning, TEXT("상대 탈이 없다"));
+		return;
+	}
+
+	UNTTalChiTargetComponent* TargetPoint = TargetActor->FindComponentByClass<UNTTalChiTargetComponent>();
+
+	if (!IsValid(TargetPoint) || !TargetPoint->IsTalchiAvailable())
+	{
+		MC_LOG(LogSY, Warning, TEXT("타겟이 없습니다"));
+		return;
+	}
+
+	SelectedTalChiTarget = TargetPoint;
+
+	const FTransform TargetTransform = TargetPoint->GetTalchiTransform();
+	const FVector TargetLocation = TargetTransform.GetLocation();
+
+	///////////////////////
+	//디버그용이랑 지울것들
+	DrawDebugSphere(
+		GetWorld(),
+		TargetLocation,
+		15.0f,
+		12,
+		FColor::Green,
+		false,
+		2.0f
+	);
+	// 초록 화살표: 도착 후 바라볼 방향
+	DrawDebugDirectionalArrow(
+		GetWorld(),
+		TargetLocation,
+		TargetLocation + TargetTransform.GetRotation().GetForwardVector() * 80.0f,
+		15.0f,
+		FColor::Green,
+		false,
+		2.0f,
+		0,
+		2.0f
+	);
+	UE_LOG(
+		LogTemp,
+		Log,
+		TEXT("TalChi selected: %s / Position: %s"),
+		*GetNameSafe(TargetActor),
+		*TargetLocation.ToString()
+	);
+
+	/////////////////////////////////
+	//탈취 몽타주 시작
+	static const FName TalchiWarpTargetName(TEXT("TalchiTarget"));
+
+	if (!IsValid(MotionWarpingComponent))
+	{
+		MC_LOG(LogSY, Warning, TEXT("모션워핑컴포넌트가 없음"));
+		return;
+	}
+
+	UAnimMontage* PlayerTalchiMontage = TargetPoint->GetPlayerTalchiMontage();
+
+	if (!IsValid(PlayerTalchiMontage))
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈취 몽타주가 없음"));
+		return;
+	}
+
+	MotionWarpingComponent->AddOrUpdateWarpTargetFromTransform(TalchiWarpTargetName,TargetTransform);
+
+	const float MontageLength = PlayAnimMontage(PlayerTalchiMontage);
+
+	if (MontageLength <= 0.0f)
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈취 몽타주 재생 실패"));
+		return;
+	}
+
+	MC_LOG(LogSY, Warning, TEXT("탈취 모션 시작"));
+
 }
 
 void ATalPlayerCharacter::Interact()
 {
-	if (!FollowCamera) return;
+	SelectedTalChiTarget.Reset();
 
-	//카메라 위치
+	if (!FollowCamera || !GetWorld()) return;
+
 	const FVector Start = FollowCamera->GetComponentLocation();
 
-	const FVector End = Start + FollowCamera->GetForwardVector() * 1000.0f;
+	const float TraceLength = FVector::Distance(Start, GetActorLocation())
+		+ FMath::Max(0.0f, InteractionDistance);
 
-	FHitResult HitResult;
+	const FVector End = Start + FollowCamera->GetForwardVector() * TraceLength;
 
 	FCollisionQueryParams QueryParams;
-
-	//자기 자신은 검사하지 않음
 	QueryParams.AddIgnoredActor(this);
+
+	//내 탈은 무시
+	if (ATalBase* MyTal = GetCurrentTal())
+	{
+		QueryParams.AddIgnoredActor(MyTal);
+	}
+
+	FHitResult HitResult;
 
 	const bool bHit = GetWorld()->LineTraceSingleByChannel(
 		HitResult,
@@ -772,33 +869,31 @@ void ATalPlayerCharacter::Interact()
 		QueryParams
 	);
 
-	if (!bHit)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("아무것도 못 맞춤..")); return;
-	}
-
-	AActor* HitActor = HitResult.GetActor();
-	UE_LOG(
-		LogTemp,
-		Warning,
-		TEXT("Hit Actor = %s / Class = %s"),
-		*GetNameSafe(HitActor),
-		*GetNameSafe(HitActor ? HitActor->GetClass() : nullptr)
-	);
-
-	//확인용 선
+	//디버깅용 지울것
 	DrawDebugLine(
 		GetWorld(),
 		Start,
-		End,
+		bHit ? HitResult.ImpactPoint : End,
 		bHit ? FColor::Green : FColor::Red,
 		false,
 		2.0f,
 		0,
-		2.0f
+		1.5f
 	);
-	ATalPlayerCharacter* TargetCharacter = Cast<ATalPlayerCharacter>(HitResult.GetActor());
-	TakeTalFrom(TargetCharacter);
+
+	if (!bHit)
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈취 대상을 찾지 못했습니다"));
+		return;
+	}
+
+	AActor* TargetActor = HitResult.GetActor();
+	if (ATalBase* HitTal = Cast<ATalBase>(TargetActor))
+	{
+		TargetActor = HitTal->GetOwner();
+	}
+
+	TakeTalFrom(TargetActor);
 }
 
 //void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
@@ -846,7 +941,7 @@ void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		//GuardMontage에서 Guard_End를 찾아 점프하십시오
-		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"),GuardMontage);
+		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"), GuardMontage);
 	}
 }
 

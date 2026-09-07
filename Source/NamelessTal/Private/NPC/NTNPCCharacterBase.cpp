@@ -26,6 +26,10 @@
 //Interface
 #include "Player/Interface/NTPlayerApplyDamageInterface.h"
 
+//Tal
+#include "TalBase.h"
+#include "Components/NTTalComponent.h"
+
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
 {
@@ -64,6 +68,8 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	AttackParryables.Add(EAttackDistance::AttackShort, false);
 	AttackParryables.Add(EAttackDistance::AttackMiddle, false);
 	AttackParryables.Add(EAttackDistance::AttackLong, false);
+
+	TalComponent = CreateDefaultSubobject<UNTTalComponent>(TEXT("TalComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -83,6 +89,11 @@ void ANTNPCCharacterBase::BeginPlay()
 	if (UBlackboardComponent* BB = AICon->GetBlackboardComponent())
 	{
 		BB->SetValueAsVector(TEXT("HomePos"), GetActorLocation());
+	}
+
+	if (TalComponent && DefaultTalClass)
+	{
+		TalComponent->SpawnDefaultTal(DefaultTalClass);
 	}
 }
 

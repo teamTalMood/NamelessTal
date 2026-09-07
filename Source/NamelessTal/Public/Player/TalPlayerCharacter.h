@@ -16,6 +16,8 @@ struct FInputActionValue;
 class UStaticMeshComponent;
 class UCapsuleComponent;
 class ATalBase; //탈 전방선언
+class UNTTalComponent; //탈 탈부착 전방선언
+class UNTTalChiTargetComponent; //탈 탈취 전방선언
 class ATalWeapon; //무기 전방선언
 class UStatComponent; //스탯 전방선언
 class UGuardComponent; // 가드/패링 클래스 전방선언
@@ -235,8 +237,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
 
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Tal")
-	TObjectPtr<ATalBase> CurrentTal;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal")
+	TObjectPtr<UNTTalComponent> TalComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")//탈바꿈 테스트용
 	float InteractionDistance = 300.0f;
@@ -245,10 +247,13 @@ public:
 	void EquipTal(ATalBase* NewTal);// 탈 착용
 	ATalBase* GetCurrentTal() const;// 현재 탈 반환
 	ATalBase* UnequipTal();//탈 벗고 반환
-	void TakeTalFrom(ATalPlayerCharacter* TargetCharacter);//탈바꿈
+	void TakeTalFrom(AActor* TargetActor);//탈바꿈
 
 protected:
 	void Interact();//탈바꿈
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UNTTalChiTargetComponent> SelectedTalChiTarget;
 
 
 
