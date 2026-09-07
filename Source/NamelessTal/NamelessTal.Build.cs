@@ -20,7 +20,8 @@ public class NamelessTal : ModuleRules
 			"UMG",
 			"Slate",
 			"NavigationSystem", "AIModule", "GameplayTasks",
-            "MotionWarping"
+            "MotionWarping",
+			"AnimGraphRuntime"
         });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
