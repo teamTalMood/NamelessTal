@@ -410,7 +410,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	return Damage;
 }
 
-float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
+float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage, 
+	const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
 {
 
 	//회피중이면 무적(데미지 무시)
@@ -444,6 +445,8 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 				PlayAnimMontage(ParryMontage, 1.0f, ParrySection); //패링몽타주 재생
 
 				//패링 성공 분기
+				// 넉백 거리
+				ApplyGuardKnockBack(InDamage);
 				//패링 성공 후 -> 0.1초 특정 행동 사용 불가
 				const float ParrySectionLength = ParryMontage ? ParryMontage->GetSectionLength(
 					ParryMontage->GetSectionIndex(ParrySection)) : 0.0f;
@@ -469,6 +472,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
 		StatComponent->DrainSoul(InGuardDrain * GuardComponent->GetGuardSoulCost());
+
+		// 넉백
+		ApplyGuardKnockBack(InDamage);
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
 		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
@@ -860,6 +866,15 @@ void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupte
 	{
 		PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_loop"));
 	}
+}
+
+void ATalPlayerCharacter::ApplyGuardKnockBack(float InAttackDamage)
+{
+	const float Scale = AttackDamage / KnockBackRefDamage;
+	const FVector KnockbackOffSet = -GetActorForwardVector() * KnockBackDistance * Scale;
+
+	// true = 벽 등 sweep(도형 기반 감지) 처리
+	SetActorLocation(GetActorLocation() + KnockbackOffSet, true);
 }
 
 

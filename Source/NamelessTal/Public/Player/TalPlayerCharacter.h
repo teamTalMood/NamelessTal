@@ -364,12 +364,22 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float GuardStaggerTime = 0.2f;
 
+	// 넉백 0.2m
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float KnockBackDistance = 20.0f;
+
+	// 이 데미지 기준 넉백 거리 적용 (강하거나 약하면 비례해서)
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float KnockBackRefDamage = 20.0f;
+
 
 
 public:
 	void TriggerParrySlowMo();
 
 	void OnParryMontage(UAnimMontage* Montage, bool bInterrupted);
+
+	void ApplyGuardKnockBack(float InAttackDamage);
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:
