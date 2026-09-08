@@ -30,10 +30,10 @@ class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponC
 {
 	GENERATED_BODY()
 
-////////////////////////////////////////
-//
-//   Character Basic : 캐릭터나 Actor 제공 클래스 override
-//
+	////////////////////////////////////////
+	//
+	//   Character Basic : 캐릭터나 Actor 제공 클래스 override
+	//
 public:
 	ATalPlayerCharacter();
 
@@ -48,10 +48,10 @@ protected:
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry) override;
 
-////////////////////////////////////////
-//
-//   Basic Components : 컴포넌트들
-//
+	////////////////////////////////////////
+	//
+	//   Basic Components : 컴포넌트들
+	//
 protected:
 	// CameraBoom , Follow Camera, Camera Root ( 카메라 암, 카메라 )
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAcess = "true"))
@@ -95,10 +95,10 @@ protected:
 
 
 
-////////////////////////////////////////
-//
-//   Input
-//
+	////////////////////////////////////////
+	//
+	//   Input
+	//
 protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레이어 이동 , 카메라 이동 마우스 사용)
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr <UInputMappingContext> DefaultMappingContext;
@@ -110,7 +110,7 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	TObjectPtr <UInputAction> LookAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input") // Sword Attack Input
-	TObjectPtr <UInputAction> SwordAttackAction;
+		TObjectPtr <UInputAction> SwordAttackAction;
 
 	//F 상호작용 - 탈바꿈
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -130,10 +130,10 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	TObjectPtr<UInputAction> SwitchLockOnTargetAction;
 
 
-////////////////////////////////////////
-//
-//   카메라 무빙, 기본이동, 질주
-//
+	////////////////////////////////////////
+	//
+	//   카메라 무빙, 기본이동, 질주
+	//
 protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	float WalkSpeed = 500.0f;
@@ -174,10 +174,10 @@ protected: // Player Move and use CameraMovement use Mouse
 
 	void UpdatePlayerCameraVisibility();
 
-////////////////////////////////////////
-//
-//   Dodging
-//
+	////////////////////////////////////////
+	//
+	//   Dodging
+	//
 protected:
 	UPROPERTY(EditAnywhere, Category = "Dodge")
 	TObjectPtr <UAnimMontage> RollMontage_F;
@@ -229,10 +229,10 @@ protected: // Roll Dodge Input (회피 입력)
 
 
 
-////////////////////////////////////////
-//
-//   탈
-//
+	////////////////////////////////////////
+	//
+	//   탈
+	//
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
@@ -241,7 +241,7 @@ protected:
 	TObjectPtr<UNTTalComponent> TalComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")//탈바꿈 테스트용
-	float InteractionDistance = 300.0f;
+		float InteractionDistance = 300.0f;
 
 public:
 	void EquipTal(ATalBase* NewTal);// 탈 착용
@@ -257,16 +257,16 @@ protected:
 
 
 
-////////////////////////////////////////
-//
-//   무기
-//
-////////////////////////////////////////////////////////////////////////////////weapon 구버전
+	////////////////////////////////////////
+	//
+	//   무기
+	//
+	////////////////////////////////////////////////////////////////////////////////weapon 구버전
 protected: // Attack
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	UAnimMontage* AttackMontage;
 
-public : // 무기 콜리젼 조절하는곳
+public: // 무기 콜리젼 조절하는곳
 	virtual void EnableWeaponCollision() override;
 	virtual void DisableWeaponCollision() override;
 
@@ -274,23 +274,23 @@ protected:
 	void Attack(const FInputActionValue& Value);
 
 	UFUNCTION() // 무기 콜리전이 겹칠 때 호출
-	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+		void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	// 한번 공격시 줄 데미지 양, 에디터에서 조절
 	UPROPERTY(EditAnywhere, Category = "Attack")
-	float AttackDamage = 10.0f; 
+	float AttackDamage = 10.0f;
 
 	// 공격에 사용되는 넋의 양
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackSoulCost1 = 10.0f; // 1타
-	
+
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackSoulCost2 = 11.0f; // 2타
 
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackSoulCost3 = 14.0f; // 3타
 
-	 
+
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
@@ -332,13 +332,13 @@ protected:
 
 	////////////////////////////////////////////////////////////////////////////
 ///////		스탯
-	protected:
-		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat",
-			meta = (AllowPrivateAccess = "true"))
-		TObjectPtr<UStatComponent> StatComponent;
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat",
+		meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStatComponent> StatComponent;
 
-		////////////////////////////////////////////////////////////////////////////
-		///////        가드 / 패링 시스템
+	////////////////////////////////////////////////////////////////////////////
+	///////        가드 / 패링 시스템
 
 protected:
 	//가드 몽타주 
@@ -387,7 +387,7 @@ protected:
 	// 이 데미지 기준 넉백 거리 적용 (강하거나 약하면 비례해서)
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float KnockBackRefDamage = 20.0f;
-	
+
 
 
 public:
@@ -396,6 +396,11 @@ public:
 	void OnParryMontage(UAnimMontage* Montage, bool bInterrupted);
 
 	void ApplyGuardKnockBack(float InAttackDamage);
+
+	// 가드 중인지 ( 내부접근하기 Guardcomponent) 
+	bool IsGuarding() const;
+
+
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
 protected:
