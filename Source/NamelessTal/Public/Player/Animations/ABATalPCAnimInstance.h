@@ -20,6 +20,9 @@ public :
 	float Speed = 0.0f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	float Direction = 0.0f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bIsDodging = false;
 
 protected:
