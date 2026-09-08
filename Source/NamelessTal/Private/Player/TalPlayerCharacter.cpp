@@ -107,6 +107,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 
+
 	TalComponent = CreateDefaultSubobject<UNTTalComponent>(TEXT("TalComponent"));
 }
 
@@ -470,7 +471,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 			}
 			else
 			{
-				AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+				PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_hit"));
 			}
 
 		}
@@ -480,8 +481,27 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 			return 0.0f;
 		}
 
+
 		// 패링 X 가드 O 성공 시 넋 30(임시) 줄어듦
 		StatComponent->DrainSoul(InGuardDrain * GuardComponent->GetGuardSoulCost());
+
+		// 가드 중 넋 고갈시 가드 브레이크
+		if (StatComponent->IsSoulExhausted())
+		{
+			GuardComponent->StopGuard();
+			StatComponent->SetSoulRegenBlocked(false);
+
+			PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Hit_Break"));
+
+			const float BreakLength = GuardMontage
+				? GuardMontage->GetSectionLength(GuardMontage->GetSectionIndex(TEXT("Guard_Hit_Break")))
+				: 0.0f;
+
+			GuardComponent->StartStagger(BreakLength + GuardStaggerTime);
+
+			ApplyGuardKnockBack(InDamage);
+			return 0.0f; // -> 가드 깨질 시 받을 데미지 입력해야함
+		}
 
 		// 넉백
 		ApplyGuardKnockBack(InDamage);
@@ -677,8 +697,10 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
+	MC_LOG(LogSY, Warning, TEXT("착용?"));
 	if (TalComponent)
 	{
+		MC_LOG(LogSY, Warning, TEXT("착용~"));
 		TalComponent->EquipTal(NewTal);
 	}
 }
@@ -698,24 +720,10 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 		TalComponent->SpawnDefaultTal(DefaultTalClass);
 	}
 
-	////기본 무기 장착
-	//if (DefaultWeaponClass)
-	//{
-	//	FActorSpawnParameters SpawnParams;
-	//	SpawnParams.Owner = this;
-	//	SpawnParams.Instigator = this;
-	//	SpawnParams.SpawnCollisionHandlingOverride =
-	//		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	//	ATalWeapon* NewWeapon =
-	//		GetWorld()->SpawnActor<ATalWeapon>(
-	//			DefaultWeaponClass,
-	//			FTransform::Identity,
-	//			SpawnParams
-	//		);
-
-	//	EquipWeapon(NewWeapon);
-	//}
+	if (StatComponent)
+	{
+		StatComponent->OnDeath.AddUniqueDynamic(this, &ATalPlayerCharacter::HandleDeath);//델리게이트 등록
+	}
 }
 
 ATalBase* ATalPlayerCharacter::UnequipTal()
@@ -1322,4 +1330,39 @@ void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
 		GetMesh()->SetOwnerNoSee(false);
 		WeaponMesh->SetOwnerNoSee(false);
 	}
+}
+
+void ATalPlayerCharacter::HandleDeath()
+{
+	if (bIsDead) return;
+
+	bIsDead = true;
+
+	ClearLockOnTarget(); //락온 해제
+	SetActorEnableCollision(false); //갖고있는 콜리전 다 해제
+	//isableWeaponCollision(); //공격 판정 해제
+	
+
+	//이동중단
+	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+	{
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->DisableMovement();
+	}
+	//입력차단
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		DisableInput(PlayerController);
+	}
+
+	//사망 애니메이션 재생
+	if (DeathMontage)
+	{
+		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+		{
+			AnimInstance->Montage_Play(DeathMontage);
+		}
+	}
+
+	MC_LOG(LogSY, Warning, TEXT("Player Dead!"));
 }
