@@ -471,6 +471,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 			}
 			else
 			{
+				// 블렌드 스페이스
+				// 
+				//AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
 				PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_hit"));
 			}
 
