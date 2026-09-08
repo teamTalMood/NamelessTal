@@ -30,6 +30,9 @@
 #include "TalBase.h"
 #include "Components/NTTalComponent.h"
 
+//State
+#include "GameFramework/CharacterMovementComponent.h"
+
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
 {
@@ -95,10 +98,20 @@ void ANTNPCCharacterBase::BeginPlay()
 	{
 		TalComponent->SpawnDefaultTal(DefaultTalClass);
 	}
+
+	if (StatComponent)
+	{
+		StatComponent->OnDeath.AddUniqueDynamic(this, &ANTNPCCharacterBase::HandleDeath);
+	}
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	// 0. 델리게이트 빼기
+	if (StatComponent)
+	{
+		StatComponent->OnDeath.RemoveDynamic(this, &ANTNPCCharacterBase::HandleDeath);
+	}
 	// 1. 무기 콜리전 오버랩 델리게이트 해제
 	if (WeaponCollision)
 	{
@@ -277,8 +290,7 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	if (BTComponent == nullptr)
+	if (BTComponent == nullptr || bIsDead || !StatComponent)
 	{
 		return 0.0f;
 	}
@@ -309,6 +321,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 
 	// 스탯 적용
 	StatComponent->ApplyDamage(InDamage);
+	if (bIsDead) return InDamage; //만약 피해받고 죽었으면 피격 처리 중단
 	StatComponent->DrainSoul(InDrain);
 
 	// 그로기 처리
@@ -518,4 +531,46 @@ void ANTNPCCharacterBase::EndAttack()
 void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
 	BTComponent->ResumeLogic(TEXT("Damage End"));
+}
+
+void ANTNPCCharacterBase::HandleDeath()
+{
+	if (bIsDead) return;
+
+	bIsDead = true;
+	SetCanBeDamaged(false);
+
+	//공격 상태 종료
+	bIsAttacking = false;
+	CurrentAttack = EAttackDistance::AttackNone;//상태변환
+	SetActorEnableCollision(false);//갖고있는 콜리전 다 해제
+	//DisableWeaponCollision();//콜리전해제
+	OnAICharacterAttackFinished.Unbind();//바인드해제
+
+	if (BTComponent)
+	{
+		BTComponent->StopLogic(TEXT("NPC Dead"));
+	}
+	
+	//이동정지
+	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
+	{
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->DisableMovement();
+	}
+
+	if (DeathMontage)
+	{
+		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+		{
+			AnimInstance->Montage_Play(DeathMontage);
+		}
+	}
+	else
+	{
+		MC_LOG(LogSY, Warning, TEXT("DeathMontage is not assigned : %s"), *GetName());
+	}
+
+
+	MC_LOG(LogSY, Warning, TEXT("NPC DEAD : %s"), *GetName());
 }

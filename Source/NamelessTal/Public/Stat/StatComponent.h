@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "StatComponent.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeath);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class NAMELESSTAL_API UStatComponent : public UActorComponent
@@ -23,10 +24,14 @@ public:
 
 public: // 체력 관련 설정
 	UPROPERTY(EditAnywhere, Category="Stat")
-	float MaxHP = 200.0f;
+	float MaxHP = 20.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentHP;
+	
+	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
+	FOnDeath OnDeath; //죽음
+
 
 	// 다른 클래스에서 호출해야함
 	void ApplyDamage(float HitDamage);
@@ -104,4 +109,5 @@ private:
 	float LastSoulDrainTime = 0.0f;
 	bool bSoulRegenBlocked = false;
 	bool bIsSoulExhausted = false;
+	bool bDeathBroadcasted = false;//중복 방송 방지
 };

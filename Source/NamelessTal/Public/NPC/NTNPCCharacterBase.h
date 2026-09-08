@@ -157,6 +157,9 @@ protected:
 	TObjectPtr<class UAnimMontage> DamageMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	float DamageSpeedRate = 1.0f;
 
 
@@ -194,4 +197,14 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
+
+
+/////////////////////////////////////////////////////////////////
+//캐릭터 상태
+protected:
+	UFUNCTION()
+	void HandleDeath();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	bool bIsDead = false;
 };
