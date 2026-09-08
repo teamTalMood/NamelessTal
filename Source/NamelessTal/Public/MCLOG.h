@@ -5,6 +5,7 @@
 //StandAlone
 #define LOG_CALLINFO ANSI_TO_TCHAR(__FUNCTION__)
 #define MC_LOG(CatName, Verbosity, Format, ...) UE_LOG(CatName, Verbosity, TEXT("[%s] : %s"), LOG_CALLINFO, *FString::Printf(Format, ##__VA_ARGS__))
+#define MC_SUBLOG(CatName, Verbosity, Format, ...) UE_LOG(CatName, Verbosity, TEXT("[%s|%s] : %s"), GetOwner() ? *GetOwner()->GetClass()->GetName() : TEXT("NoOwner"), LOG_CALLINFO,*FString::Printf(Format, ##__VA_ARGS__))
 
 //Network
 //#define LOG_NETMODEINFO ((GetNetMode() == ENetMode::NM_Client)? *FString::Printf(TEXT("CLIENT%d"), UE::GetPlayInEditorID()) : (GetNetMode() == ENetMode::NM_Standalone)? TEXT("STANDALONE") : TEXT("SERVER"))

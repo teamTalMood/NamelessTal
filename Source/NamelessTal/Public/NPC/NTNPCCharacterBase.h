@@ -8,6 +8,9 @@
 #include "Interface/NTWeaponCollisionInterface.h"
 #include "NTNPCCharacterBase.generated.h"
 
+class ATalBase;
+class UNTTalComponent;
+
 UCLASS()
 class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface, public INTWeaponCollisionInterface
 {
@@ -177,4 +180,18 @@ protected:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
 	float ExhaustedDuration = 0;
+
+	uint8 bIsExhausting : 1 = false;
+
+
+////////////////////////////////////////
+//
+//   Tal
+//
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal")
+	TObjectPtr<UNTTalComponent> TalComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
+	TSubclassOf<ATalBase> DefaultTalClass;
 };
