@@ -6,11 +6,12 @@
 #include "GameFramework/Actor.h"
 #include "TalBase.generated.h"
 
+class USceneComponent;
 class UStaticMeshComponent;
 class UAnimMontage;//몽타주
 
 UENUM(BlueprintType)
-enum class ETalStyle :uint8
+enum class ETalStyle :uint8//나중에 강공격을 위해 남겨두었음
 {
 	Default		UMETA(DisplayName = "Default"),
 	SWORD		UMETA(DisplayName = "SWORD"),
@@ -30,6 +31,10 @@ public:
 	UAnimMontage* GetAttackMontage() const;
 
 protected:
+	//탈 루트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal")
+	TObjectPtr<USceneComponent> TalRoot;
+
 	//탈 메시
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal")
 	TObjectPtr<UStaticMeshComponent> TalMesh;

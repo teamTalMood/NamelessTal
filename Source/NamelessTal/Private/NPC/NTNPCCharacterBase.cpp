@@ -543,14 +543,15 @@ void ANTNPCCharacterBase::HandleDeath()
 	//공격 상태 종료
 	bIsAttacking = false;
 	CurrentAttack = EAttackDistance::AttackNone;//상태변환
-	DisableWeaponCollision();//콜리전해제
+	SetActorEnableCollision(false);//갖고있는 콜리전 다 해제
+	//DisableWeaponCollision();//콜리전해제
 	OnAICharacterAttackFinished.Unbind();//바인드해제
 
 	if (BTComponent)
 	{
 		BTComponent->StopLogic(TEXT("NPC Dead"));
 	}
-
+	
 	//이동정지
 	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
 	{
@@ -567,7 +568,7 @@ void ANTNPCCharacterBase::HandleDeath()
 	}
 	else
 	{
-		MC_SUBLOG(LogMC, Warning, TEXT("DeathMontage is not assigned : %s"), *GetName());
+		MC_LOG(LogSY, Warning, TEXT("DeathMontage is not assigned : %s"), *GetName());
 	}
 
 
