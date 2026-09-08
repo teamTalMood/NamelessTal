@@ -23,8 +23,22 @@ void UStatComponent::BeginPlay()
 
 void UStatComponent::ApplyDamage(float HitDamage)
 {
+	if (HitDamage <= 0.0f || bDeathBroadcasted) return; //예외처리
+	
+	const float PreviousHP = CurrentHP;
+
+	//데미지 처리
 	CurrentHP = FMath::Clamp(CurrentHP - HitDamage, 0.0f, MaxHP);
 	MC_SUBLOG(LogMC, Log, TEXT("CurrentHP : %f"), CurrentHP);
+
+	//델리게이트
+	if (PreviousHP > 0.0f && CurrentHP <= 0.0f)
+	{
+		bDeathBroadcasted = true;
+
+		MC_SUBLOG(LogMC, Log, TEXT("아잇 죽었다(테스트용)"));
+		OnDeath.Broadcast();
+	}
 }
 
 void UStatComponent::HealHp(float HealAmount)
@@ -113,5 +127,4 @@ float UStatComponent::GetSoulRegenRateForCurrentHP() const
 
 	return bIsSoulExhausted ? BaseRate * SoulExhaustedRegenMultiplier : BaseRate;
 }
-
 
