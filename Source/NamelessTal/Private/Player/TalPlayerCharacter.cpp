@@ -388,7 +388,10 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 			}
 			else
 			{
-				AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+				// 블렌드 스페이스
+				// 
+				//AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
+				PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_hit"));
 			}
 
 		}
@@ -931,18 +934,20 @@ void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 	if (StatComponent->IsSoulExhausted()) return; //고갈중 가드 불가
 	GuardComponent->StartGuard();
 	StatComponent->SetSoulRegenBlocked(true);
-	PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Start"));
+	//PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Start"));
+	// 가드 블렌드 스페이스 사용위해 잠시 주석처리 잘되면 지울거임
 }
 
 void ATalPlayerCharacter::StopGuard(const FInputActionValue& Value)
 {
 	GuardComponent->StopGuard();
 	StatComponent->SetSoulRegenBlocked(false);
-	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
-	{
-		//GuardMontage에서 Guard_End를 찾아 점프하십시오
-		AnimInstance->Montage_JumpToSection(TEXT("Guard_End"), GuardMontage);
-	}
+	//가드 블렌드 스페이스 사용 위해 주석처리
+	//if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	//{
+	//	//GuardMontage에서 Guard_End를 찾아 점프하십시오
+	//	AnimInstance->Montage_JumpToSection(TEXT("Guard_End"), GuardMontage);
+	//}
 }
 
 bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
@@ -969,11 +974,12 @@ void ATalPlayerCharacter::TriggerParrySlowMo()
 
 void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
 {
+	// 블렌드 스페이스 위해 주석삭제
 	// 아직 가드 버튼 누르고 있음
-	if (GuardComponent->IsGuarding())
+	/*if (GuardComponent->IsGuarding())
 	{
 		PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_loop"));
-	}
+	}*/
 }
 
 void ATalPlayerCharacter::ApplyGuardKnockBack(float InAttackDamage)
@@ -984,6 +990,12 @@ void ATalPlayerCharacter::ApplyGuardKnockBack(float InAttackDamage)
 	// true = 벽 등 sweep(도형 기반 감지) 처리
 	SetActorLocation(GetActorLocation() + KnockbackOffSet, true);
 }
+
+bool ATalPlayerCharacter::IsGuarding() const
+{
+	return GuardComponent->IsGuarding();
+}
+
 
 
 //락온 시스템

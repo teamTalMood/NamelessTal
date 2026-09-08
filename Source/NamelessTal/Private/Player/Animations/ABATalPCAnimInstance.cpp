@@ -27,7 +27,9 @@ void UABATalPCAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			TalPlayerCharacter->GetVelocity(),
 			TalPlayerCharacter->GetActorRotation()
 		);
+		// 회피중?
 		bIsDodging = TalPlayerCharacter->IsDodging();
-
+		// 가드중?
+		bIsGuarding = TalPlayerCharacter->IsGuarding();
 	}
 }
