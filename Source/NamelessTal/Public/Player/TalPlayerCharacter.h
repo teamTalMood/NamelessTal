@@ -431,4 +431,18 @@ protected:
 		const class APlayerController* PlayerController,
 		FVector2D& OutScreenPosition
 	) const;
+
+
+
+	/////////////////////////////////////////////////////////////////
+	//플레이어 상태
+	protected:
+	UFUNCTION()
+	void HandleDeath();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	bool bIsDead = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
 };
