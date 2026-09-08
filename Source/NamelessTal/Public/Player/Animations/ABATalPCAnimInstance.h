@@ -25,6 +25,9 @@ public :
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bIsDodging = false;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	bool bIsGuarding = false;
+
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
