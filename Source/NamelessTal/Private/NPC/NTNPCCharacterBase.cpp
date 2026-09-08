@@ -22,6 +22,7 @@
 #include "NPC/NTAIController.h"
 #include "Stat/StatComponent.h"
 #include "NPC/Animations/NTNPCAnimInstance.h"
+#include "NPC/NTAIParams.h"
 
 //Interface
 #include "Player/Interface/NTPlayerApplyDamageInterface.h"
@@ -192,6 +193,10 @@ void ANTNPCCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bIsAttacking)
+	{
+		AddActorWorldOffset(AttackMoving * DeltaTime, true);
+	}
 }
 
 // Called to bind functionality to input
@@ -441,6 +446,15 @@ void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 
 	bIsAttacking = true;
 
+	//공격 몽타주 실행시간 계산
+	const float AttackMontageDuration = AttackMontage->GetPlayLength() / AttackSpeedRate;
+	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
+	AttackMoving = (AttackMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation()) / AttackMontageDuration : FVector::ZeroVector;
+
+#if ENABLE_DRAW_DEBUG
+	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, AttackMontageDuration);
+#endif
+
 	AnimInstance->Montage_Play(AttackMontage, AttackSpeedRate);
 
 	FOnMontageEnded EndDelegate;
@@ -551,7 +565,7 @@ void ANTNPCCharacterBase::HandleDeath()
 	{
 		BTComponent->StopLogic(TEXT("NPC Dead"));
 	}
-	
+
 	//이동정지
 	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
 	{

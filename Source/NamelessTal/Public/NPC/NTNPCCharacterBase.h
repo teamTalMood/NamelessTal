@@ -131,6 +131,8 @@ protected:	// BlueprintReadOnly
 
 	uint8 bIsAttacking : 1 = false;
 
+	FVector AttackMoving = FVector(0, 0, 0);
+
 
 // INTWeaponCollisionInterface override
 public:
