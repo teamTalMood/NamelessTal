@@ -42,6 +42,15 @@ bool UNTBTD_AttackInRange::CalculateRawConditionValue(UBehaviorTreeComponent& Ow
 	float AttackRangeWithRadius = AIPawn->GetAIAttackRange();
 	bResult = (DistanceToTarget <= AttackRangeWithRadius);
 
+	if (bResult)
+	{
+		OwnerComp.GetBlackboardComponent()->SetValueAsVector(BBKEY_ATTACKPOS, Target->GetActorLocation());
+	}
+	//else
+	//{
+	//	OwnerComp.GetBlackboardComponent()->SetValueAsVector(BBKEY_ATTACKPOS, ControllingPawn->GetActorLocation());
+	//}
+
 	//MC_LOG(LogMC, Log, TEXT("End : %d - DistanceToTarget : %f | AttackRangeWithRadius : %f"), bResult, DistanceToTarget, AttackRangeWithRadius);
 
 
