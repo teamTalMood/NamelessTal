@@ -126,12 +126,12 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	const float SafeCameraDistance = FMath::Max(0.0f, CameraDistance);
 	const float SafeInterpSpeed = FMath::Max(0.0f, CameraDistanceInterpSpeed);
 
-	CameraBoom->TargetArmLength = FMath::FInterpTo(
-		CameraBoom->TargetArmLength,
-		SafeCameraDistance,
-		DeltaTime,
-		SafeInterpSpeed
-	);
+	//CameraBoom->TargetArmLength = FMath::FInterpTo(
+	//	CameraBoom->TargetArmLength,
+	//	SafeCameraDistance,
+	//	DeltaTime,
+	//	SafeInterpSpeed
+	//);
 
 	//플레이어 표시 여부
 	UpdatePlayerCameraVisibility();
@@ -720,10 +720,8 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
-	MC_LOG(LogSY, Warning, TEXT("착용?"));
 	if (TalComponent)
 	{
-		MC_LOG(LogSY, Warning, TEXT("착용~"));
 		TalComponent->EquipTal(NewTal);
 	}
 }

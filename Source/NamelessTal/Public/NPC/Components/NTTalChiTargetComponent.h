@@ -17,7 +17,7 @@ public:
 	// Sets default values for this component's properties
 	UNTTalChiTargetComponent();
 	
-	UFUNCTION(BlueprintPure, Category = "≈ª√Î")
+	UFUNCTION(BlueprintPure, Category = "Talchi")
 	FTransform GetTalchiTransform() const;
 
 	UFUNCTION(BlueprintPure, Category = "Talchi")
