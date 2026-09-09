@@ -23,6 +23,7 @@
 #include "Stat/StatComponent.h"
 #include "NPC/Animations/NTNPCAnimInstance.h"
 #include "NPC/NTAIParams.h"
+#include "NPC/Components/NTLockOnTargetComponent.h"
 
 //Interface
 #include "Player/Interface/NTPlayerApplyDamageInterface.h"
@@ -552,6 +553,13 @@ void ANTNPCCharacterBase::HandleDeath()
 	if (bIsDead) return;
 
 	bIsDead = true;
+
+	//락온 해제
+	if (UNTLockOnTargetComponent* LockOnTarget = FindComponentByClass<UNTLockOnTargetComponent>())
+	{
+		LockOnTarget->SetLockOnEnabled(false);
+	}
+
 	SetCanBeDamaged(false);
 
 	//공격 상태 종료
