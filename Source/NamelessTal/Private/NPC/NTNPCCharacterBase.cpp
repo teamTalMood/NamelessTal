@@ -194,7 +194,7 @@ void ANTNPCCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bIsAttacking)
+	if (bISAttackMoving)
 	{
 		AddActorWorldOffset(AttackMoving * DeltaTime, true);
 	}
@@ -273,6 +273,7 @@ void ANTNPCCharacterBase::AttackByAI()
 #endif
 	}
 
+	// 원거리
 	if (Dist > AttackRangeMiddle) // 4.5m ~ 7m
 	{
 		//MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
@@ -285,7 +286,32 @@ void ANTNPCCharacterBase::AttackByAI()
 #endif
 	}
 
-	BeginAttack(ResultAttckType);
+	CurrentAttack = ResultAttckType;
+
+	//점프 몽타주 실행시간 계산
+
+	if (JumpMontage == nullptr)
+	{
+		MC_LOG(LogMC, Error, TEXT("No JumpMontage!!"));
+		return;
+	}
+
+	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
+	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
+	AttackMoving = (JumpMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation() - 100) / JumpMontageDuration : FVector::ZeroVector;
+
+#if ENABLE_DRAW_DEBUG
+	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
+#endif
+
+	if (CurrentAttack == EAttackDistance::AttackMiddle || CurrentAttack == EAttackDistance::AttackLong)
+	{
+		MoveToAttackPoint(CurrentAttack);
+	}
+	else
+	{
+		BeginAttack(ResultAttckType);
+	}
 }
 
 void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
@@ -447,15 +473,6 @@ void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 
 	bIsAttacking = true;
 
-	//공격 몽타주 실행시간 계산
-	const float AttackMontageDuration = AttackMontage->GetPlayLength() / AttackSpeedRate;
-	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
-	AttackMoving = (AttackMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation()) / AttackMontageDuration : FVector::ZeroVector;
-
-#if ENABLE_DRAW_DEBUG
-	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, AttackMontageDuration);
-#endif
-
 	AnimInstance->Montage_Play(AttackMontage, AttackSpeedRate);
 
 	FOnMontageEnded EndDelegate;
@@ -541,6 +558,24 @@ void ANTNPCCharacterBase::EndAttack()
 	BTComponent->ResumeLogic(TEXT("Attack End"));
 	OnAICharacterAttackFinished.ExecuteIfBound();
 	return;
+}
+
+void ANTNPCCharacterBase::MoveToAttackPoint(const EAttackDistance InAttackType)
+{
+	bISAttackMoving = true;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(JumpMontage, JumpMontageSpeedRate);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnJumpMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, JumpMontage);
+}
+
+void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	bISAttackMoving = false;
+	BeginAttack(CurrentAttack);
 }
 
 void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
