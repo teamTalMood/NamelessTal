@@ -63,6 +63,12 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <class UCameraComponent> FollowCamera;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<USceneComponent> TalchiCameraTarget;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraComponent> TalchiCamera;//1인칭 카메라(연출용)
+
 
 	//카메라 변수
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera", meta = (ClampMin = "0.0", UIMin = "0.0"))
@@ -250,6 +256,10 @@ public:
 	ATalBase* GetCurrentTal() const;// 현재 탈 반환
 	ATalBase* UnequipTal();//탈 벗고 반환
 	void TakeTalFrom(AActor* TargetActor);//탈바꿈
+	void StartVictimTalchiMontage();//탈취 애니메이션 시작
+	void TransferSelectedTal(); //탈 이전
+	void GrabSelectedTalToHand();
+	void EquipHeldTalToFace();
 
 protected:
 	void Interact();//탈바꿈
@@ -257,7 +267,8 @@ protected:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UNTTalChiTargetComponent> SelectedTalChiTarget;
 
-
+	UPROPERTY(Transient)
+	TObjectPtr<ATalBase> HeldStolenTal;
 
 	////////////////////////////////////////
 	//

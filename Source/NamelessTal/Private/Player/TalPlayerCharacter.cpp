@@ -82,6 +82,16 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	//Talchi Camera Set
+	TalchiCameraTarget = CreateDefaultSubobject<USceneComponent>(TEXT("TalchiCameraTarget"));
+	TalchiCameraTarget->SetupAttachment(RootComponent);
+	TalchiCameraTarget->SetRelativeLocation(FVector(20.0f, 0.0f, 160.0f));
+
+	TalchiCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("TalchiCamera"));
+	TalchiCamera->SetupAttachment(TalchiCameraTarget);
+	TalchiCamera->bUsePawnControlRotation = false;
+	TalchiCamera->bAutoActivate = false;
+
 	// For Roll Dodge Input
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -1386,4 +1396,134 @@ void ATalPlayerCharacter::HandleDeath()
 	}
 
 	MC_LOG(LogSY, Warning, TEXT("Player Dead!"));
+}
+
+void ATalPlayerCharacter::StartVictimTalchiMontage()
+{
+	if (!SelectedTalChiTarget.IsValid())
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈취할 사람이 없다"));
+		return;
+	}
+
+	UNTTalChiTargetComponent* TargetPoint = SelectedTalChiTarget.Get();
+	ACharacter* VictimCharacter = Cast<ACharacter>(TargetPoint->GetOwner());
+	UAnimMontage * VictimMontage = TargetPoint->GetVictimTalchiMontage();
+
+	if(!IsValid(VictimCharacter) || !IsValid(VictimMontage)) return;
+
+	const float MontageLength = VictimCharacter->PlayAnimMontage(VictimMontage);
+
+	if (MontageLength <= 0.0f) return;
+
+	MC_LOG(LogSY, Warning, TEXT("적탈취 모션 시작"));
+
+}
+
+void ATalPlayerCharacter::TransferSelectedTal()
+{
+	if (!IsValid(TalComponent) || !SelectedTalChiTarget.IsValid()) return;
+
+	AActor* TargetActor = SelectedTalChiTarget->GetOwner();
+
+	if (!IsValid(TargetActor)) return;
+
+	UNTTalComponent* TargetTalComponent = TargetActor->FindComponentByClass<UNTTalComponent>();
+
+	if (!IsValid(TargetTalComponent)) return;
+
+	ATalBase* TargetTal = TargetTalComponent->GetCurrentTal();
+
+	if (!IsValid(TargetTal)) return;
+
+	ATalBase* OldPlayerTal = TalComponent->UnequipTal();
+	ATalBase* StolenTal = TargetTalComponent->UnequipTal();
+
+	if (!IsValid(StolenTal))
+	{
+		if (IsValid(OldPlayerTal))
+		{
+			TalComponent->EquipTal(OldPlayerTal);
+		}
+
+		return;
+	}
+
+	if (TalComponent->EquipTal(StolenTal))
+	{
+		if (IsValid(OldPlayerTal))
+		{
+			OldPlayerTal->Destroy();
+		}
+
+		return;
+	}
+
+	const bool bEnemyRestored = TargetTalComponent->EquipTal(StolenTal);
+
+	bool bPlayerRestored = true;
+	if (IsValid(OldPlayerTal))
+	{
+		bPlayerRestored = TalComponent->EquipTal(OldPlayerTal);
+	}
+}
+
+void ATalPlayerCharacter::GrabSelectedTalToHand()
+{
+	static const FName TalGrabSocketName(TEXT("TalGrabSocket"));
+
+	if (IsValid(HeldStolenTal)) return;
+	if (!SelectedTalChiTarget.IsValid() || !IsValid(GetMesh())) return;
+	if (!GetMesh()->DoesSocketExist(TalGrabSocketName)) return;
+
+	AActor* TargetActor = SelectedTalChiTarget->GetOwner();
+	if (!IsValid(TargetActor)) return;
+
+	UNTTalComponent* TargetTalComponent = TargetActor->FindComponentByClass<UNTTalComponent>();
+	if (!IsValid(TargetTalComponent) || !IsValid(TargetTalComponent->GetCurrentTal())) return;
+
+	ATalBase* StolenTal = TargetTalComponent->UnequipTal();
+	if (!IsValid(StolenTal)) return;
+
+	const bool bAttached = StolenTal->AttachToComponent(
+		GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		TalGrabSocketName
+	);
+	
+	if (!bAttached)
+	{
+		TargetTalComponent->EquipTal(StolenTal);
+		return;
+	}
+
+	StolenTal->SetOwner(this);
+	HeldStolenTal = StolenTal;
+}
+
+void ATalPlayerCharacter::EquipHeldTalToFace()
+{
+	if (!IsValid(TalComponent) || !IsValid(HeldStolenTal)) return;
+
+	ATalBase* TalToEquip = HeldStolenTal;
+	ATalBase* OldPlayerTal = TalComponent->UnequipTal();
+
+	if (TalComponent->EquipTal(TalToEquip))
+	{
+		if (IsValid(OldPlayerTal))
+		{
+			OldPlayerTal->Destroy();
+		}
+
+		HeldStolenTal = nullptr;
+
+		return;
+	}
+
+	bool bOldTalRestored = true;
+
+	if (IsValid(OldPlayerTal))
+	{
+		bOldTalRestored = TalComponent->EquipTal(OldPlayerTal);
+	}
 }
