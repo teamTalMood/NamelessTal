@@ -24,7 +24,7 @@ public:
 
 public: // 체력 관련 설정
 	UPROPERTY(EditAnywhere, Category="Stat")
-	float MaxHP = 20.0f;
+	float MaxHP = 200.0f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentHP;
