@@ -52,6 +52,8 @@ void UStatComponent::RestoreFull()
 {
 	CurrentHP = MaxHP;
 	CurrentSoul = MaxSoul;
+	bIsSoulExhausted = false; // 고갈 패널티 제거 
+	bDeathBroadcasted = false; // 사망 플래그 초기화
 }
 
 void UStatComponent::RestoreSoul()
