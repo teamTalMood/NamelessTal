@@ -133,6 +133,16 @@ protected:	// BlueprintReadOnly
 
 	FVector AttackMoving = FVector(0, 0, 0);
 
+	uint8 bISAttackMoving : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> JumpMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	float JumpMontageSpeedRate = 2.0f;
+
+
+
 
 // INTWeaponCollisionInterface override
 public:
@@ -144,11 +154,12 @@ protected:
 	void BeginAttack(const EAttackDistance InAttackType);
 	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void EndAttack();
+	void MoveToAttackPoint(const EAttackDistance InAttackType);
+	void OnJumpMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 	// 무기 콜리전이 겹칠 때 호출
 	UFUNCTION()
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
 
 ////////////////////////////////////////
 //
@@ -159,7 +170,7 @@ protected:
 	TObjectPtr<class UAnimMontage> DamageMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
+	TObjectPtr<class UAnimMontage> DeathMontage;//사망 애니메이션
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	float DamageSpeedRate = 1.0f;
@@ -202,7 +213,7 @@ protected:
 
 
 /////////////////////////////////////////////////////////////////
-//캐릭터 상태
+// 캐릭터 상태
 protected:
 	UFUNCTION()
 	void HandleDeath();
