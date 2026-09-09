@@ -129,6 +129,8 @@ protected: // (Player Input) Player Move, Use CameraMovement use Mouse (플레�
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> SwitchLockOnTargetAction;
 
+	void UpdateRotationMode();
+
 
 	////////////////////////////////////////
 	//

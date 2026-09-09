@@ -153,6 +153,8 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		UpdateLockOn(DeltaTime);
 	}
 
+	UpdateRotationMode();
+
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
 	//	const FRotator TargetRotation = DodgeDir.Rotation();
@@ -243,6 +245,22 @@ void ATalPlayerCharacter::EndDodge()
 
 	bUseControllerRotationYaw = bIsLockOnActive; //락온중이면 회전 활성화, 아니면 비활성화
 }
+
+void ATalPlayerCharacter::UpdateRotationMode()
+{
+	if (bIsDodging)
+	{
+		return;
+	}
+
+	const bool bFaceTarget = bIsLockOnActive && !bIsSprinting;
+
+	bUseControllerRotationYaw = false;
+	GetCharacterMovement()->bUseControllerDesiredRotation = bFaceTarget;
+	GetCharacterMovement()->bOrientRotationToMovement = !bFaceTarget;
+
+}
+
 
 // Player Move
 void ATalPlayerCharacter::Move(const FInputActionValue& Value)
