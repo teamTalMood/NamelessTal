@@ -449,6 +449,8 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 					{
 						ParrySection = TEXT("Parry_RULD");
 					}
+
+					NPCCharacter->ApplyDamage(this, 0, 50, true);
 				}
 
 				AnimInstance->Montage_Stop(0.1f, GuardMontage); // 가드몽타주 정지
