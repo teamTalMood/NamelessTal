@@ -41,5 +41,4 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Animation")
 	TObjectPtr<UAnimMontage> VictimTalchiMontage;
-		
 };
