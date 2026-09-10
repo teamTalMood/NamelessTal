@@ -449,7 +449,7 @@ protected:
 
 	/////////////////////////////////////////////////////////////////
 	//플레이어 상태
-	protected:
+protected:
 	UFUNCTION()
 	void HandleDeath();
 
@@ -458,4 +458,31 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
+
+	virtual void Landed(const FHitResult& Hit) override;
+
+	//착치시 
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	float LandingSpeedMultiplier = 0.5f;
+
+public :
+	bool IsRealFalling() const { return bIsRealFalling; }
+
+protected : 
+	// 낙하 높이 설정하기 
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	float MinFallHeightToPlayAnim = 200.0f;
+
+	// 착치 후 이동/행동 막히는 시간 
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	float LandingRecoverTime = 0.5f;
+
+	void UpdateRealFalling();
+	void EndLandingRecovery();
+
+private :
+	bool bIsRealFalling = false;
+	bool bWasRealFallingThisAirtime = false;
+	bool bIsLandingRecovering = false;
+	FTimerHandle LandingRecoveryTimeHandle;
 };
