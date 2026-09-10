@@ -206,8 +206,9 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
 
+
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()) return;
 
 
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
@@ -270,6 +271,11 @@ void ATalPlayerCharacter::UpdateRotationMode()
 // Player Move
 void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
+	if (StatComponent->IsGroggy())
+	{
+		return;
+	}
+
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
 
@@ -374,6 +380,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		return 0.0f;
 	}
 
+	StatComponent->NotifyHitDuringGroggy();
+
 	if (GuardComponent->IsGuarding() &&
 		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -453,6 +461,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	{
 		return 0.0f;
 	}
+
+	//그로기 중 아니면 아무일도 안한다!
+	StatComponent->NotifyHitDuringGroggy();
 
 	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -588,7 +599,7 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()) return;
 
 	bIsSprinting = true;
 
@@ -601,8 +612,10 @@ void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
+
+
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy())return;
 
 	if (bIsDodging || AttackMontage == nullptr)
 	{
