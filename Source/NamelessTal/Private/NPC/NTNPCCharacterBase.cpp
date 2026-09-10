@@ -304,7 +304,7 @@ void ANTNPCCharacterBase::AttackByAI()
 	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
 #endif
 
-	if (CurrentAttack == EAttackDistance::AttackMiddle || CurrentAttack == EAttackDistance::AttackLong)
+	if (Dist > AttackRangeShort)
 	{
 		MoveToAttackPoint(CurrentAttack);
 	}
