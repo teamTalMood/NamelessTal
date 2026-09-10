@@ -11,9 +11,6 @@ struct FNTNPCAttackPatternData : public FTableRowBase
 
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AttackPattern")
-	FString PatternID;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AttackPattern")
 	FString PatternUser;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AttackPattern")
