@@ -206,13 +206,10 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
 
-	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
 
-	if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(15.0f))
-	{
-		return;
-	}
+	// 패링,가드 성공 시(시간 초만큼 실행불가능)
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()) return;
+
 
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
@@ -221,7 +218,6 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 		return;
 	}
 
-	StatComponent->DrainSoul(15.0f);//회피시 넋 15 소모
 
 	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
 
@@ -275,6 +271,11 @@ void ATalPlayerCharacter::UpdateRotationMode()
 // Player Move
 void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
+	if (StatComponent->IsGroggy())
+	{
+		return;
+	}
+
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
 
@@ -379,6 +380,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		return 0.0f;
 	}
 
+	StatComponent->NotifyHitDuringGroggy();
+
 	if (GuardComponent->IsGuarding() &&
 		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -458,6 +461,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	{
 		return 0.0f;
 	}
+
+	//그로기 중 아니면 아무일도 안한다!
+	StatComponent->NotifyHitDuringGroggy();
 
 	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -593,26 +599,23 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
-
-	if (!StatComponent->HasSoul()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()) return;
 
 	bIsSprinting = true;
 
-	StatComponent->SetSoulRegenBlocked(true);
 }
 
 void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 {
 	bIsSprinting = false;
-
-	StatComponent->SetSoulRegenBlocked(false);
 }
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
+
+
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy())return;
 
 	if (bIsDodging || AttackMontage == nullptr)
 	{
@@ -627,10 +630,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//몽타주 재생이 아니면 1타 시작
 	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
 	{
-		// 1타 쓸 넋이 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost1)) return;
-		// 1타 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost1);
 
 		ComboIndex = 1;
 		bCanCombo = false;
@@ -646,11 +645,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//2타 연결
 	if (ComboIndex == 1)
 	{
-		// 2타 넋 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost2)) return;
-
-		// 2타 넋 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost2);
 
 		ComboIndex = 2;
 		bCanCombo = false;
@@ -664,12 +658,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//3타 연결
 	else if (ComboIndex == 2)
 	{
-		//3타 넋 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost3)) return;
-
-		//3타 넋 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost3);
-
 		ComboIndex = 3;
 		bCanCombo = false;
 

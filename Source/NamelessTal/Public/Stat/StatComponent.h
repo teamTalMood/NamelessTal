@@ -98,6 +98,19 @@ public: //넋 관련 설정
 	// 넋이 바닥났다가 30이상이냐 < 체크 
 	bool IsSoulExhausted() const { return bIsSoulExhausted; }
 
+	bool IsGroggy() const { return bIsGroggy; }
+	
+	// 그로기 중 피격 시 호출 -> 그로기 조기 해제
+	void NotifyHitDuringGroggy();
+
+	// 넋 고갈 시 그로기 지속 시간
+	UPROPERTY(EditAnywhere, Category = "Stat")
+	float GroggyDuration = 3.0f;
+
+	// 그로기 해제(피격 또는 시간경과) 시 즉시 회복 되는 넋
+	UPROPERTY(EditAnywhere, Category = "Stat")
+	float GroggyRecoverSoul = 20.0f;
+
 protected:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 		FActorComponentTickFunction* PCSoulTickFunction) override;
@@ -106,6 +119,12 @@ protected:
 	float GetSoulRegenRateForCurrentHP() const;
 
 private:
+
+	void EndGroggy();
+
+	bool bIsGroggy = false;
+	float GroggyEndTime = 0.0f;
+
 	float LastSoulDrainTime = 0.0f;
 	bool bSoulRegenBlocked = false;
 	bool bIsSoulExhausted = false;
