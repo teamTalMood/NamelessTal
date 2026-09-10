@@ -209,10 +209,6 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered()) return;
 
-	if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(15.0f))
-	{
-		return;
-	}
 
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
@@ -221,7 +217,6 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 		return;
 	}
 
-	StatComponent->DrainSoul(15.0f);//회피시 넋 15 소모
 
 	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
 
@@ -595,18 +590,13 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered()) return;
 
-	if (!StatComponent->HasSoul()) return;
-
 	bIsSprinting = true;
 
-	StatComponent->SetSoulRegenBlocked(true);
 }
 
 void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 {
 	bIsSprinting = false;
-
-	StatComponent->SetSoulRegenBlocked(false);
 }
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
@@ -627,10 +617,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//몽타주 재생이 아니면 1타 시작
 	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
 	{
-		// 1타 쓸 넋이 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost1)) return;
-		// 1타 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost1);
 
 		ComboIndex = 1;
 		bCanCombo = false;
@@ -646,11 +632,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//2타 연결
 	if (ComboIndex == 1)
 	{
-		// 2타 넋 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost2)) return;
-
-		// 2타 넋 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost2);
 
 		ComboIndex = 2;
 		bCanCombo = false;
@@ -664,12 +645,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//3타 연결
 	else if (ComboIndex == 2)
 	{
-		//3타 넋 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost3)) return;
-
-		//3타 넋 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost3);
-
 		ComboIndex = 3;
 		bCanCombo = false;
 
