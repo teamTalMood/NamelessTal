@@ -1395,7 +1395,6 @@ void ATalPlayerCharacter::Landed(const FHitResult& Hit)
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->Velocity *= LandingSpeedMultiplier;
-		Movement->MaxWalkSpeed *= LandingSpeedMultiplier;
 	}
 
 	if (bWasRealFallingThisAirtime)
@@ -1412,6 +1411,13 @@ void ATalPlayerCharacter::UpdateRealFalling()
 	if (!GetCharacterMovement()->IsFalling())
 	{
 		bIsRealFalling = false;
+		return;
+	}
+
+	// 이미 공중 구간에서 낙하로 판정시 유지
+	if (bWasRealFallingThisAirtime)
+	{
+		bIsRealFalling = true;
 		return;
 	}
 

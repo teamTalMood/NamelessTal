@@ -475,7 +475,7 @@ protected :
 
 	// 착치 후 이동/행동 막히는 시간 
 	UPROPERTY(EditAnywhere, Category = "Movement")
-	float LandingRecoverTime = 0.5f;
+	float LandingRecoverTime = 0.15f;
 
 	void UpdateRealFalling();
 	void EndLandingRecovery();
