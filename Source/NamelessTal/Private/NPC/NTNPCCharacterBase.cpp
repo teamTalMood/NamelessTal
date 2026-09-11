@@ -353,7 +353,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 
 	// 스탯 적용
 	StatComponent->ApplyDamage(InDamage);
-	if (bIsDead) return InDamage; //만약 피해받고 죽었으면 피격 처리 중단
+	if (bIsDead) return -InDamage; //만약 피해받고 죽었으면 피격 처리 중단
 	StatComponent->DrainSoul(InDrain);
 
 	// 그로기 처리
@@ -407,7 +407,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	}
 
 	//MC_LOG(LogMC, Log, TEXT("End"));
-
+	
 	return InDamage;
 }
 

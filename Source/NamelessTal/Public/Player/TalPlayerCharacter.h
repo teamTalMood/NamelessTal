@@ -283,6 +283,8 @@ public: // 무기 콜리젼 조절하는곳
 	virtual void EnableWeaponCollision() override;
 	virtual void DisableWeaponCollision() override;
 
+
+
 protected:
 	void Attack(const FInputActionValue& Value);
 
@@ -303,6 +305,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Attack")
 	float AttackSoulCost3 = 14.0f; // 3타
 
+	UPROPERTY(EditAnywhere, Category = "Attack")
+	float KillSoulReward = 20.0f;
 
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
@@ -349,6 +353,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat",
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStatComponent> StatComponent;
+
+public :
+	void RecoverSoul(float AMount);
 
 	////////////////////////////////////////////////////////////////////////////
 	///////        가드 / 패링 시스템
