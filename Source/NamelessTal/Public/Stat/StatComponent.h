@@ -7,6 +7,8 @@
 #include "StatComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeath);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHPChanged, float, NewHP, float, MaxHP);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSoulChanged, float, NewSoul, float, MaxSoul);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class NAMELESSTAL_API UStatComponent : public UActorComponent
@@ -31,7 +33,13 @@ public: // 체력 관련 설정
 	
 	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
 	FOnDeath OnDeath; //죽음
+	
+	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
+	FOnHPChanged OnHPChanged; // 체력 변화
 
+
+	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
+	FOnSoulChanged OnSoulChanged; // 넋 변화
 
 	// 다른 클래스에서 호출해야함
 	void ApplyDamage(float HitDamage);
