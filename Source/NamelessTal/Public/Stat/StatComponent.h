@@ -140,4 +140,18 @@ private:
 	bool bSoulRegenBlocked = false;
 	bool bIsSoulExhausted = false;
 	bool bDeathBroadcasted = false;//중복 방송 방지
+
+
+
+public://Getter
+	UFUNCTION(BlueprintPure, Category = "Stat")
+	float GetCurrentHP() const { return CurrentHP; }
+	UFUNCTION(BlueprintPure, Category = "Stat")
+	float GetMaxHP() const { return MaxHP; }
+	UFUNCTION(BlueprintPure, Category = "Stat")
+	float GetCurrentSoul() const { return CurrentSoul; }
+	UFUNCTION(BlueprintPure, Category = "Stat")
+	float GetMaxSoul() const { return MaxSoul; }
+	
+
 };

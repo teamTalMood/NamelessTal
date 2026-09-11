@@ -350,6 +350,13 @@ protected:
 		meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStatComponent> StatComponent;
 
+public:
+	UFUNCTION(BlueprintPure, Category = "Stat")
+	UStatComponent* GetStatComponent() const
+	{
+		return StatComponent;
+	}
+
 	////////////////////////////////////////////////////////////////////////////
 	///////        가드 / 패링 시스템
 
