@@ -31,6 +31,8 @@ void UStatComponent::ApplyDamage(float HitDamage)
 	CurrentHP = FMath::Clamp(CurrentHP - HitDamage, 0.0f, MaxHP);
 	MC_SUBLOG(LogMC, Log, TEXT("CurrentHP : %f"), CurrentHP);
 
+	OnHPChanged.Broadcast(CurrentHP, MaxHP);
+
 	//델리게이트
 	if (PreviousHP > 0.0f && CurrentHP <= 0.0f)
 	{
@@ -44,6 +46,7 @@ void UStatComponent::ApplyDamage(float HitDamage)
 void UStatComponent::HealHp(float HealAmount)
 {
 	CurrentHP = FMath::Clamp(CurrentHP + HealAmount, 0.0f, MaxHP);
+	OnHPChanged.Broadcast(CurrentHP, MaxHP);
 }
 
 
@@ -54,6 +57,9 @@ void UStatComponent::RestoreFull()
 	CurrentSoul = MaxSoul;
 	bIsSoulExhausted = false; // 고갈 패널티 제거 
 	bDeathBroadcasted = false; // 사망 플래그 초기화
+
+	OnHPChanged.Broadcast(CurrentHP, MaxHP);
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
 
 void UStatComponent::RestoreSoul()
@@ -61,6 +67,14 @@ void UStatComponent::RestoreSoul()
 	CurrentSoul = MaxSoul;
 	bIsSoulExhausted = false;
 	MC_SUBLOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
+
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
+}
+
+void UStatComponent::RecoverSoul(float Amount)
+{
+	CurrentSoul = FMath::Clamp(CurrentSoul + Amount, 0.0f, MaxSoul);
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
 
 
@@ -85,8 +99,11 @@ void UStatComponent::DrainSoul(float Amount)
 	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
 	MC_SUBLOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
 
+
+
 	//언제 마지막으로 사용했는지 체크하기
 	LastSoulDrainTime = GetWorld()->GetTimeSeconds();
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
 
 void UStatComponent::SetSoulRegenBlocked(bool bBlocked)
@@ -134,8 +151,11 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 	}
 
-	CurrentSoul = FMath::Clamp(CurrentSoul + GetSoulRegenRateForCurrentHP() * DeltaTime,
+	CurrentSoul = FMath::Clamp(CurrentSoul + 
+		GetSoulRegenRate() * DeltaTime,
 		0.0f, MaxSoul);
+
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 
 	if (bIsSoulExhausted && CurrentSoul >= SoulExhaustedUnlock)
 	{
@@ -143,18 +163,16 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 }
 
+
 float UStatComponent::GetSoulRegenRateForCurrentHP() const
 {
-	const float HPPercent = MaxHP > 0.0f ? (CurrentHP / MaxHP) * 100.0f : 0.0f;
+	return bIsSoulExhausted ? SoulRegenRate * SoulExhaustedRegenMultiplier :
+		SoulRegenRate;
+}
 
-	float BaseRate;
-	if (HPPercent >= 75.0f)	     BaseRate = SoulRegenRate_Over75;
-	else if (HPPercent >= 50.0f) BaseRate = SoulRegenRate_50to75;
-	else if (HPPercent >= 25.0f) BaseRate = SoulRegenRate_25to50;
-	else						 BaseRate = SoulRegenRate_Under25;
-
-
-	return bIsSoulExhausted ? BaseRate * SoulExhaustedRegenMultiplier : BaseRate;
+float UStatComponent::GetSoulRegenRate() const
+{
+	return 0.0f;
 }
 
 void UStatComponent::EndGroggy()
@@ -164,5 +182,6 @@ void UStatComponent::EndGroggy()
 	SetSoulRegenBlocked(false);
 	CurrentSoul = FMath::Clamp(CurrentSoul + GroggyRecoverSoul, 0.0f, MaxSoul);
 
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
 

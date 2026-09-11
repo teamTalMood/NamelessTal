@@ -7,6 +7,8 @@
 #include "StatComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeath);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHPChanged, float, NewHP, float, MaxHP);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSoulChanged, float, NewSoul, float, MaxSoul);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class NAMELESSTAL_API UStatComponent : public UActorComponent
@@ -31,7 +33,13 @@ public: // 체력 관련 설정
 	
 	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
 	FOnDeath OnDeath; //죽음
+	
+	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
+	FOnHPChanged OnHPChanged; // 체력 변화
 
+
+	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
+	FOnSoulChanged OnSoulChanged; // 넋 변화
 
 	// 다른 클래스에서 호출해야함
 	void ApplyDamage(float HitDamage);
@@ -41,7 +49,9 @@ public: // 체력 관련 설정
 	bool IsDead() const { return CurrentHP <= 0.0f; }
 
 	void RestoreSoul();
-
+	
+	// 적 처치 보상
+	void RecoverSoul(float Amount);
 
 
 public: //넋 관련 설정
@@ -51,18 +61,9 @@ public: //넋 관련 설정
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentSoul;
 
-	// HP 구간별 넋 회복 속도 (초당)
-	UPROPERTY(EditAnyWhere, Category = "Stat")
-	float SoulRegenRate_Over75 = 20.0f;
-
-	UPROPERTY(EditAnyWhere, Category = "Stat")
-	float SoulRegenRate_50to75 = 15.0f;
-
-	UPROPERTY(EditAnyWhere, Category = "Stat")
-	float SoulRegenRate_25to50 = 12.0f;
-
-	UPROPERTY(EditAnyWhere, Category = "Stat")
-	float SoulRegenRate_Under25 = 8.0f;
+	// 넋 회복 속도
+	UPROPERTY(EditAnywhere, Category = "Stat")
+	float SoulRegenRate = 5.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	//마지막 소모 후 회복 시작까지 시간 (1초)
@@ -120,6 +121,8 @@ protected:
 
 	// 지금 넋이 초당 몇 회복되어야하는지 계산하는 함수
 	float GetSoulRegenRateForCurrentHP() const;
+
+	float GetSoulRegenRate() const;
 
 private:
 
