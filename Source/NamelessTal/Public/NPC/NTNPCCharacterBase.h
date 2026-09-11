@@ -59,6 +59,7 @@ public:
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) override;
 	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) override;
 	virtual uint8 GetAttackDirection() override;
+	virtual void NotifyAttackDodged() override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
@@ -130,6 +131,9 @@ protected:	// BlueprintReadOnly
 	TMap<EAttackDistance, TObjectPtr<class UAnimMontage>> AttackMontages;
 
 	uint8 bIsAttacking : 1 = false;
+
+	//이번 공격 (몽타주)이 회피 되었는지 확인
+	bool bCurrentAttackDodged = false;
 
 	FVector AttackMoving = FVector(0, 0, 0);
 
