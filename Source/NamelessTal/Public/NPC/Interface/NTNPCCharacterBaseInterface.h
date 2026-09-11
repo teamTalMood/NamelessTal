@@ -42,9 +42,6 @@ public:
 
 	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) = 0;
 
-	//무적 상태에서 이 NPC 공격 회피 시 알림
-	virtual void NotifyAttackDodged() = 0;
-
 	// 0 : 애니메이션 없음 | 1 : 시계방향 스윙 | 2 : 반시계방향 스윙 | 3 : 정면방향 스윙
 	virtual uint8 GetAttackDirection() = 0;
 };

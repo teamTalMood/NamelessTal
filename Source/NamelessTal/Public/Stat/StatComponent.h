@@ -103,6 +103,9 @@ public: //넋 관련 설정
 	// 그로기 중 피격 시 호출 -> 그로기 조기 해제
 	void NotifyHitDuringGroggy();
 
+	// 비전투 상태 시 넋 회복 
+	void NotifyCombatAction(); 
+
 	// 넋 고갈 시 그로기 지속 시간
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	float GroggyDuration = 3.0f;

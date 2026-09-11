@@ -416,11 +416,6 @@ uint8 ANTNPCCharacterBase::GetAttackDirection()
 	return AttackDirections[CurrentAttack];
 }
 
-void ANTNPCCharacterBase::NotifyAttackDodged()
-{
-	bCurrentAttackDodged = true;
-}
-
 void ANTNPCCharacterBase::EnableWeaponCollision()
 {
 	if (WeaponCollision == nullptr)
@@ -446,7 +441,6 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
-	bCurrentAttackDodged = false;
 
 	CurrentAttack = InAttackType;
 	FString EnumString = StaticEnum<EAttackDistance>()->GetNameByValue(static_cast<int64>(CurrentAttack)).ToString();
@@ -513,11 +507,6 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	}
 
 	HitActors.Add(OtherActor);
-
-	if (bCurrentAttackDodged)
-	{
-		return; // 이미 이번 공격은 회피가 되었는가 - 데미지 무시처리
-	}
 
 	PlayerCharacter->ApplyDamage(this, AttackDamage, AttackDrain, GuardDrain, AttackParryables[CurrentAttack]);
 

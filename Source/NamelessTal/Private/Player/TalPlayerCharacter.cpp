@@ -59,6 +59,7 @@
 #include "MotionWarpingComponent.h"
 
 
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -712,6 +713,11 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	}
 
 	HitActors.Add(OtherActor);
+	
+	// 넋 안차요 때리면
+	StatComponent->NotifyCombatAction();
+
+
 
 	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 	//드레인 수치는 임의값, 나중에 수정할것
