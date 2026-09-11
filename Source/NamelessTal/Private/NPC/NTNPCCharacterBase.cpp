@@ -373,7 +373,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
 		StatComponent->DrainSoul(InDrain);
 		StatComponent->ApplyDamage(InDamage);
-		if (bIsDead) return InDamage; //만약 피해받고 죽었으면 피격 처리 중단
+		if (bIsDead) return -InDamage; //만약 피해받고 죽었으면 피격 처리 중단
 	}
 
 
@@ -535,7 +535,14 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 	HitActors.Add(OtherActor);
 
-	PlayerCharacter->ApplyDamage(this, AttackDamage, AttackDrain, GuardDrain, AttackParryables[CurrentAttack]);
+	FPlayerApplyDamageData DamageData;
+	DamageData.HPDamage = AttackDamage;
+	DamageData.SoulDamage = AttackDrain;
+	DamageData.GuardBack = 0.0f;
+	DamageData.bCriticalEnable = AttackParryables[CurrentAttack];
+	DamageData.PlayerRecoveryTime = 0.0f;
+
+	PlayerCharacter->ApplyDamage(this, DamageData);
 
 	//const FVector ImpactPoint = SweepResult.bBlockingHit ? FVector(SweepResult.ImpactPoint) : OtherActor->GetActorLocation();
 	//Damageable->ApplyDamage(AttackDamage, this, ImpactPoint, GetActorForwardVector() * 200.0f);

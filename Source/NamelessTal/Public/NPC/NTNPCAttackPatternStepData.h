@@ -44,7 +44,7 @@ public:
 
 	// 이 타격을 패링했을 때 회심의 일격 연출이 가능한지 여부
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PatternStep")
-	bool bCriticalEnable = false;
+	uint8 bCriticalEnable : 1 = false;
 
 	// 해당 스텝 시작부터 공격판정 발생까지의 시간(초)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "PatternStep")

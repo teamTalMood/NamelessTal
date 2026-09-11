@@ -562,6 +562,13 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	return InDamage;
 }
 
+float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const FPlayerApplyDamageData InDamageData)
+{
+	float ResultDamage = ApplyDamage(DamageCauser, InDamageData.HPDamage, InDamageData.SoulDamage, InDamageData.HPDamage, InDamageData.bCriticalEnable);
+
+	return ResultDamage;
+}
+
 void ATalPlayerCharacter::NotifyControllerChanged()
 {
 	Super::NotifyControllerChanged();
