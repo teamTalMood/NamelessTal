@@ -164,7 +164,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	}
 
 	UpdateRotationMode();
-
+	UpdateRealFalling();
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
 	//	const FRotator TargetRotation = DodgeDir.Rotation();
@@ -206,13 +206,11 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
 
-	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
 
-	if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(15.0f))
-	{
-		return;
-	}
+	// 패링,가드 성공 시(시간 초만큼 실행불가능)
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
+		|| bIsLandingRecovering) return;
+
 
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
 
@@ -221,7 +219,6 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 		return;
 	}
 
-	StatComponent->DrainSoul(15.0f);//회피시 넋 15 소모
 
 	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
 
@@ -275,6 +272,11 @@ void ATalPlayerCharacter::UpdateRotationMode()
 // Player Move
 void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
+	if (StatComponent->IsGroggy() || bIsLandingRecovering)
+	{
+		return;
+	}
+
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	bIsMoving = !MovementVector.IsNearlyZero(); // Input is not zero
 
@@ -379,6 +381,8 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		return 0.0f;
 	}
 
+	StatComponent->NotifyHitDuringGroggy();
+
 	if (GuardComponent->IsGuarding() &&
 		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -458,6 +462,9 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	{
 		return 0.0f;
 	}
+
+	//그로기 중 아니면 아무일도 안한다!
+	StatComponent->NotifyHitDuringGroggy();
 
 	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -593,26 +600,24 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
-
-	if (!StatComponent->HasSoul()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
+		|| bIsLandingRecovering) return;
 
 	bIsSprinting = true;
 
-	StatComponent->SetSoulRegenBlocked(true);
 }
 
 void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 {
 	bIsSprinting = false;
-
-	StatComponent->SetSoulRegenBlocked(false);
 }
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
+
+
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || bIsLandingRecovering) return;
 
 	if (bIsDodging || AttackMontage == nullptr)
 	{
@@ -627,10 +632,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//몽타주 재생이 아니면 1타 시작
 	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
 	{
-		// 1타 쓸 넋이 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost1)) return;
-		// 1타 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost1);
 
 		ComboIndex = 1;
 		bCanCombo = false;
@@ -646,11 +647,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//2타 연결
 	if (ComboIndex == 1)
 	{
-		// 2타 넋 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost2)) return;
-
-		// 2타 넋 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost2);
 
 		ComboIndex = 2;
 		bCanCombo = false;
@@ -664,12 +660,6 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	//3타 연결
 	else if (ComboIndex == 2)
 	{
-		//3타 넋 없으면 리턴
-		if (StatComponent->IsSoulExhausted() || !StatComponent->HasEnoughSoul(AttackSoulCost3)) return;
-
-		//3타 넋 코스트 사용
-		StatComponent->DrainSoul(AttackSoulCost3);
-
 		ComboIndex = 3;
 		bCanCombo = false;
 
@@ -1396,6 +1386,69 @@ void ATalPlayerCharacter::HandleDeath()
 	}
 
 	MC_LOG(LogSY, Warning, TEXT("Player Dead!"));
+}
+
+void ATalPlayerCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->Velocity *= LandingSpeedMultiplier;
+	}
+
+	if (bWasRealFallingThisAirtime)
+	{
+		bIsLandingRecovering = true;
+		GetWorldTimerManager().SetTimer(LandingRecoveryTimeHandle, this,
+			&ATalPlayerCharacter::EndLandingRecovery, LandingRecoverTime, false);
+	}
+	bWasRealFallingThisAirtime = false;
+}
+
+void ATalPlayerCharacter::UpdateRealFalling()
+{
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		bIsRealFalling = false;
+		return;
+	}
+
+	// 이미 공중 구간에서 낙하로 판정시 유지
+	if (bWasRealFallingThisAirtime)
+	{
+		bIsRealFalling = true;
+		return;
+	}
+
+	const FVector Start = GetActorLocation();
+	const FVector End = Start - FVector(0.0f, 0.0f, 2000.0f);
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	FHitResult Hit;
+	bool bHighEnough = false;
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, QueryParams))
+	{
+		const float HeightAboveGround = 
+			Hit.Distance - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		bHighEnough = HeightAboveGround >= MinFallHeightToPlayAnim;
+	}
+
+	bIsRealFalling = bHighEnough;
+
+	if (bIsRealFalling)
+	{
+		bWasRealFallingThisAirtime = true;
+	}
+
+}
+
+void ATalPlayerCharacter::EndLandingRecovery()
+{
+	bIsLandingRecovering = false;
 }
 
 void ATalPlayerCharacter::StartVictimTalchiMontage()

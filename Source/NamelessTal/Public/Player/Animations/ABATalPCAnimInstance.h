@@ -28,6 +28,13 @@ public :
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
 	bool bIsGuarding = false;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	bool bIsFalling = false;
+
+	// 순수하게 땅에 닿는가 
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	bool bIsGrounded = false;
+
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;

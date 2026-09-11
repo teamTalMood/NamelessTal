@@ -72,7 +72,16 @@ void UStatComponent::DrainSoul(float Amount)
 	if (CurrentSoul <= 0.0f)
 	{
 		bIsSoulExhausted = true; // 고갈 진입
+		
+		if (!bIsGroggy)
+		{
+			bIsGroggy = true; // 그로기 시작
+			GroggyEndTime = GetWorld()->GetTimeSeconds() + GroggyDuration;
+			SetSoulRegenBlocked(true);
+		}
 	}
+
+
 	UE_LOG(LogTemp, Warning, TEXT("현재 넋 %f"), CurrentSoul);
 	MC_SUBLOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
 
@@ -90,11 +99,24 @@ void UStatComponent::SetSoulRegenBlocked(bool bBlocked)
 	bSoulRegenBlocked = bBlocked;
 }
 
+void UStatComponent::NotifyHitDuringGroggy()
+{
+	if (bIsGroggy)
+	{
+		EndGroggy();
+	}
+}
+
 // 시간이 지나면 (1초) 넋이 시간초에 따라 자동으로 찬다
 void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* PCSoulTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, PCSoulTickFunction);
+
+	if (bIsGroggy && GetWorld()->GetTimeSeconds() >= GroggyEndTime)
+	{
+		EndGroggy();
+	}
 
 	if (bSoulRegenBlocked)
 	{
@@ -128,5 +150,14 @@ float UStatComponent::GetSoulRegenRateForCurrentHP() const
 
 
 	return bIsSoulExhausted ? BaseRate * SoulExhaustedRegenMultiplier : BaseRate;
+}
+
+void UStatComponent::EndGroggy()
+{
+	if (!bIsGroggy) return; 
+	bIsGroggy = false;
+	SetSoulRegenBlocked(false);
+	CurrentSoul = FMath::Clamp(CurrentSoul + GroggyRecoverSoul, 0.0f, MaxSoul);
+
 }
 
