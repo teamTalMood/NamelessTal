@@ -721,7 +721,13 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 	//드레인 수치는 임의값, 나중에 수정할것
-	NPCCharacter->ApplyDamage(this, AttackDamage, 10.0f, false);
+	float bNPCDead = NPCCharacter->ApplyDamage(this, AttackDamage, 10.0f, false);
+
+	if (bNPCDead < 0)
+	{
+		StatComponent->RecoverSoul(KillSoulReward);
+		UE_LOG(LogTemp, Warning, TEXT("20회복했읍니다"));
+	}
 }
 
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
@@ -961,6 +967,10 @@ void ATalPlayerCharacter::CloseComboWindow()
 	bCanCombo = false;
 }
 
+void ATalPlayerCharacter::RecoverSoul(float Amount)
+{
+	StatComponent->RecoverSoul(Amount);
+}
 
 
 // 패링 / 가드 시스템 연동

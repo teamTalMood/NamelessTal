@@ -74,6 +74,12 @@ void UStatComponent::RestoreSoul()
 	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
 
+void UStatComponent::RecoverSoul(float Amount)
+{
+	CurrentSoul = FMath::Clamp(CurrentSoul + Amount, 0.0f, MaxSoul);
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
+}
+
 
 
 void UStatComponent::DrainSoul(float Amount)
@@ -148,7 +154,8 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 	}
 
-	CurrentSoul = FMath::Clamp(CurrentSoul + GetSoulRegenRateForCurrentHP() * DeltaTime,
+	CurrentSoul = FMath::Clamp(CurrentSoul + 
+		GetSoulRegenRate() * DeltaTime,
 		0.0f, MaxSoul);
 
 	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
@@ -159,18 +166,16 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 }
 
+
 float UStatComponent::GetSoulRegenRateForCurrentHP() const
 {
-	const float HPPercent = MaxHP > 0.0f ? (CurrentHP / MaxHP) * 100.0f : 0.0f;
+	return bIsSoulExhausted ? SoulRegenRate * SoulExhaustedRegenMultiplier :
+		SoulRegenRate;
+}
 
-	float BaseRate;
-	if (HPPercent >= 75.0f)	     BaseRate = SoulRegenRate_Over75;
-	else if (HPPercent >= 50.0f) BaseRate = SoulRegenRate_50to75;
-	else if (HPPercent >= 25.0f) BaseRate = SoulRegenRate_25to50;
-	else						 BaseRate = SoulRegenRate_Under25;
-
-
-	return bIsSoulExhausted ? BaseRate * SoulExhaustedRegenMultiplier : BaseRate;
+float UStatComponent::GetSoulRegenRate() const
+{
+	return 0.0f;
 }
 
 void UStatComponent::EndGroggy()
