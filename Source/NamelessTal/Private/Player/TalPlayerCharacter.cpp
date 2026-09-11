@@ -164,7 +164,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	}
 
 	UpdateRotationMode();
-
+	UpdateRealFalling();
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
 	//	const FRotator TargetRotation = DodgeDir.Rotation();
@@ -208,7 +208,8 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 
 
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
+		|| bIsLandingRecovering) return;
 
 
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
@@ -271,7 +272,7 @@ void ATalPlayerCharacter::UpdateRotationMode()
 // Player Move
 void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
-	if (StatComponent->IsGroggy())
+	if (StatComponent->IsGroggy() || bIsLandingRecovering)
 	{
 		return;
 	}
@@ -599,7 +600,8 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
+		|| bIsLandingRecovering) return;
 
 	bIsSprinting = true;
 
@@ -615,7 +617,7 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 
 
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy())return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || bIsLandingRecovering) return;
 
 	if (bIsDodging || AttackMontage == nullptr)
 	{
@@ -1384,6 +1386,69 @@ void ATalPlayerCharacter::HandleDeath()
 	}
 
 	MC_LOG(LogSY, Warning, TEXT("Player Dead!"));
+}
+
+void ATalPlayerCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->Velocity *= LandingSpeedMultiplier;
+	}
+
+	if (bWasRealFallingThisAirtime)
+	{
+		bIsLandingRecovering = true;
+		GetWorldTimerManager().SetTimer(LandingRecoveryTimeHandle, this,
+			&ATalPlayerCharacter::EndLandingRecovery, LandingRecoverTime, false);
+	}
+	bWasRealFallingThisAirtime = false;
+}
+
+void ATalPlayerCharacter::UpdateRealFalling()
+{
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		bIsRealFalling = false;
+		return;
+	}
+
+	// 이미 공중 구간에서 낙하로 판정시 유지
+	if (bWasRealFallingThisAirtime)
+	{
+		bIsRealFalling = true;
+		return;
+	}
+
+	const FVector Start = GetActorLocation();
+	const FVector End = Start - FVector(0.0f, 0.0f, 2000.0f);
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	FHitResult Hit;
+	bool bHighEnough = false;
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, QueryParams))
+	{
+		const float HeightAboveGround = 
+			Hit.Distance - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		bHighEnough = HeightAboveGround >= MinFallHeightToPlayAnim;
+	}
+
+	bIsRealFalling = bHighEnough;
+
+	if (bIsRealFalling)
+	{
+		bWasRealFallingThisAirtime = true;
+	}
+
+}
+
+void ATalPlayerCharacter::EndLandingRecovery()
+{
+	bIsLandingRecovering = false;
 }
 
 void ATalPlayerCharacter::StartVictimTalchiMontage()

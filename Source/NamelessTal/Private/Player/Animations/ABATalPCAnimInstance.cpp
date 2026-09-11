@@ -3,6 +3,7 @@
 
 #include "Player/Animations/ABATalPCAnimInstance.h"
 #include "Player/TalPlayerCharacter.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "KismetAnimationLibrary.h"
 
 void UABATalPCAnimInstance::NativeInitializeAnimation()
@@ -31,5 +32,8 @@ void UABATalPCAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		bIsDodging = TalPlayerCharacter->IsDodging();
 		// 가드중?
 		bIsGuarding = TalPlayerCharacter->IsGuarding();
+		// 낙하중?
+		bIsFalling = TalPlayerCharacter->IsRealFalling();
+		bIsGrounded = !TalPlayerCharacter->GetCharacterMovement()->IsFalling();
 	}
 }
