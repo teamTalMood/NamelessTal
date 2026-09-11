@@ -322,6 +322,12 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
+
+
+
+	////////////////////////////////
+	// 데미지 적용 전 처리
+
 	if (BTComponent == nullptr || bIsDead || !StatComponent)
 	{
 		return 0.0f;
@@ -336,6 +342,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 		EndAttack();
 	}
 
+	// 현재 실행중인 몽타주강 있다면 EndDelegate 해제하고 멈추기
 	BTComponent->PauseLogic(TEXT("Damaged"));
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance == nullptr)
@@ -351,13 +358,33 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	}
 	AnimInstance->Montage_Stop(0.1f);
 
-	// 스탯 적용
-	StatComponent->ApplyDamage(InDamage);
-	if (bIsDead) return InDamage; //만약 피해받고 죽었으면 피격 처리 중단
-	StatComponent->DrainSoul(InDrain);
+
+
+	////////////////////////////////
+	// 데미지 스텟 처리
+
+	if (bIsParry)
+	{
+		// 패링일때는 HP뎀 없고 넋뎀은 현재 공격중인 넋뎀의 50퍼
+		//StatComponent->DrainSoul(InDrain);
+	}
+	else
+	{
+		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
+		StatComponent->DrainSoul(InDrain);
+		StatComponent->ApplyDamage(InDamage);
+		if (bIsDead) return InDamage; //만약 피해받고 죽었으면 피격 처리 중단
+	}
+
+
+
+	////////////////////////////////
+	// 데미지 사후 처리
+
+	bool bIsSoulExhausted = StatComponent->IsSoulExhausted();
 
 	// 그로기 처리
-	if(StatComponent->IsSoulExhausted() && !bIsExhausting)
+	if(bIsSoulExhausted && !bIsExhausting)
 	{
 		//MC_LOG(LogMC, Log, TEXT("Exhausted"));
 
@@ -388,7 +415,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	}
 
 	// Damaged처리
-	if (!StatComponent->IsSoulExhausted())
+	if (!bIsSoulExhausted)
 	{
 		//MC_LOG(LogMC, Log, TEXT("Damaged"));
 
