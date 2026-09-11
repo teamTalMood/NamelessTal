@@ -107,6 +107,11 @@ void UStatComponent::NotifyHitDuringGroggy()
 	}
 }
 
+void UStatComponent::NotifyCombatAction()
+{
+	LastSoulDrainTime=GetWorld()->GetTimeSeconds();
+}
+
 // 시간이 지나면 (1초) 넋이 시간초에 따라 자동으로 찬다
 void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* PCSoulTickFunction)

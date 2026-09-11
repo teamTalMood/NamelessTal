@@ -59,6 +59,7 @@
 #include "MotionWarpingComponent.h"
 
 
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -378,6 +379,11 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	//회피중이면 무적(데미지 무시)
 	if (bIsInvincible)
 	{
+		if (INTNPCCharacterBaseInterface* NPCInterface =
+			Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+		{
+			NPCInterface->NotifyAttackDodged();
+		}
 		return 0.0f;
 	}
 
@@ -460,6 +466,11 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	//회피중이면 무적(데미지 무시)
 	if (bIsInvincible)
 	{
+		if (INTNPCCharacterBaseInterface* NPCInterface =
+			Cast<INTNPCCharacterBaseInterface>(DamageCauser))
+		{
+			NPCInterface->NotifyAttackDodged();
+		}
 		return 0.0f;
 	}
 
@@ -712,6 +723,11 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	}
 
 	HitActors.Add(OtherActor);
+	
+	// 넋 안차요 때리면
+	StatComponent->NotifyCombatAction();
+
+
 
 	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 	//드레인 수치는 임의값, 나중에 수정할것
