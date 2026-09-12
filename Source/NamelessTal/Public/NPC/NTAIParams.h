@@ -4,5 +4,5 @@
 #define BBKEY_PATROLPOS TEXT("PatrolPos")
 #define BBKEY_TARGET TEXT("Target")
 #define BBKEY_ATTACKPOS TEXT("AttackPos")
-#define BBKEY_SELECTATTACKPATTERN TEXT("SelectAttackPattern")
-#define BB_ATTACKPATTERN_PARAM_NONE TEXT("AttackPatternNone")
+#define BBKEY_SELECTEDATTACK TEXT("SelectedAttack")
+#define BB_ATTACKPATTERN_NONE TEXT("AttackPatternNone")

@@ -24,6 +24,8 @@
 #include "NPC/Animations/NTNPCAnimInstance.h"
 #include "NPC/NTAIParams.h"
 #include "NPC/Components/NTLockOnTargetComponent.h"
+#include "Game/NTGameDataSingleton.h"
+#include "NPC/NTNPCAttackPatternStepData.h"
 
 //Interface
 #include "Player/Interface/NTPlayerApplyDamageInterface.h"
@@ -69,11 +71,6 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	AttackDirections.Add(EAttackDistance::AttackMiddle, 0);
 	AttackDirections.Add(EAttackDistance::AttackLong, 0);
 
-	AttackParryables.Add(EAttackDistance::AttackNone, false);
-	AttackParryables.Add(EAttackDistance::AttackShort, false);
-	AttackParryables.Add(EAttackDistance::AttackMiddle, false);
-	AttackParryables.Add(EAttackDistance::AttackLong, false);
-
 	TalComponent = CreateDefaultSubobject<UNTTalComponent>(TEXT("TalComponent"));
 }
 
@@ -84,16 +81,14 @@ void ANTNPCCharacterBase::BeginPlay()
 
 	AAIController* AICon = GetController<AAIController>();
 	BTComponent = Cast<UBehaviorTreeComponent>(AICon->GetBrainComponent());
-
-	// Attack Montage Set
-	AttackMontages.Add(EAttackDistance::AttackShort, ShortAttackMontage);
-	AttackMontages.Add(EAttackDistance::AttackMiddle, MiddleAttackMontage);
-	AttackMontages.Add(EAttackDistance::AttackLong, LongAttackMontage);
+	BBComponent = AICon->GetBlackboardComponent();
 
 	// 현재위치를 HomePos로 지정
-	if (UBlackboardComponent* BB = AICon->GetBlackboardComponent())
+	if (BBComponent)
 	{
-		BB->SetValueAsVector(TEXT("HomePos"), GetActorLocation());
+		BBComponent->SetValueAsVector(BBKEY_HOMEPOS, GetActorLocation());
+		BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
+		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, GetActorLocation());
 	}
 
 	if (TalComponent && DefaultTalClass)
@@ -106,13 +101,25 @@ void ANTNPCCharacterBase::BeginPlay()
 		StatComponent->OnDeath.AddUniqueDynamic(this, &ANTNPCCharacterBase::HandleDeath);
 	}
 
-	// TEST : 데이터테이블 대신 더미 패턴 데이터로 채움 (패턴 선택 로직 테스트용)
-	AttackPatternDatas = {
-		{ TEXT("Step_ShortAttack"),  2.0f, 200.0f, 50, 0.0f },
-		{ TEXT("Step_MiddleAttack"), 4.0f, 450.0f, 30, 0.0f },
-		{ TEXT("Step_LongAttack"),   6.0f, 700.0f, 15, 0.0f },
-		{ TEXT("Step_ComboAttack"), 10.0f, 300.0f,  5, 0.0f },
-	};
+	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
+	if (FindedPatternDatas.IsEmpty())
+	{
+		MC_LOG(LogMC, Warning, TEXT("No PatternData!"));
+
+		AttackPatternDatas = {
+			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
+			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
+			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
+		};
+	}
+	else
+	{
+		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
+		{
+			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
+		}
+	}
+
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -134,10 +141,15 @@ void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		if (UAnimInstance* AnimInstance = MeshComp->GetAnimInstance())
 		{
 			static FOnMontageEnded EmptyDelegate;
-			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, ShortAttackMontage);
-			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, MiddleAttackMontage);
-			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, LongAttackMontage);
+
 			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, DamageMontage);
+			AnimInstance->Montage_SetEndDelegate(EmptyDelegate, JumpMontage);
+
+			// AttackMontages의 델리게이트 해제
+			for (const auto& AttackMontagePair : AttackMontages)
+			{
+				AnimInstance->Montage_SetEndDelegate(EmptyDelegate, AttackMontagePair.Value);
+			}
 
 			// 재생 중인 몽타주도 즉시 정지
 			AnimInstance->StopAllMontages(0.0f);
@@ -156,48 +168,6 @@ void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
-/*
-float ANTNPCCharacterBase::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
-{
-	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
-
-	MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	if (BTComponent == nullptr)
-	{
-		return 0.0f;
-	}
-
-	if (bIsAttacking)
-	{
-		// 공격 로직 초기화
-		EndAttack();
-	}
-
-	// 스탯 적용
-	StatComponent->ApplyDamage(Damage);
-
-	//MC_LOG(LogMC, Log, TEXT("BTComponent PauseLogic"));
-	BTComponent->PauseLogic(TEXT("Damaged"));
-
-	if (DamageMontage == nullptr)
-	{
-		return 0.0f;
-	}
-
-	// 피격 애니메이션 실행
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AnimInstance->Montage_Play(DamageMontage, DamageSpeedRate);
-
-	FOnMontageEnded EndDelegate;
-	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnDamageMontageEnd);
-	AnimInstance->Montage_SetEndDelegate(EndDelegate, DamageMontage);
-
-	return Damage;
-}
-*/
-
-// Called every frame
 void ANTNPCCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -237,21 +207,12 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	////MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	////////////////////////////////
-	// 패턴 선택 테스트 코드
+	BTComponent->PauseLogic(TEXT("BeginAttack"));
 
-	AAIController* AICon = GetController<AAIController>();
-	if (UBlackboardComponent* BB = AICon->GetBlackboardComponent())
-	{
-		BB->SetValueAsName(BBKEY_SELECTATTACKPATTERN, BB_ATTACKPATTERN_PARAM_NONE);
-	}
-
-
-	////////////////////////////////
 	//  공격 레거시 코드
-
+	/*
 	// 거리 계산
 	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
 	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
@@ -308,42 +269,17 @@ void ANTNPCCharacterBase::AttackByAI()
 	}
 
 	CurrentAttack = ResultAttckType;
+	*/
 
-	//점프 몽타주 실행시간 계산
+	// 타겟 방향으로 바라보기
+	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
+	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
+	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
+	SetActorRotation(NewRotation);
 
-	if (JumpMontage == nullptr)
-	{
-		MC_LOG(LogMC, Error, TEXT("No JumpMontage!!"));
-		return;
-	}
-
-	if (JumpMontageSpeedRate == 0)
-	{
-		MC_LOG(LogMC, Error, TEXT("JumpMontageSpeedRate is 0!!"));
-		return;
-	}
-
-	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
-	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
-	AttackMoving = (JumpMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation() - 100) / JumpMontageDuration : FVector::ZeroVector;
-
-#if ENABLE_DRAW_DEBUG
-	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
-#endif
-
-
-	if (Dist > AttackRangeShort)
-	{
-		//MoveToAttackPoint(CurrentAttack);
-		OnAICharacterAttackFinished.Execute();
-		return;
-	}
-	else
-	{
-		BeginAttack(ResultAttckType);
-		//OnAICharacterAttackFinished.Execute();
-		return;
-	}
+	// 공격 위치로 점프 -> 이 함수 내부에서 공격 시작 콜
+	MoveToAttackPoint();
 }
 
 void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished)
@@ -507,32 +443,98 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
-void ANTNPCCharacterBase::BeginAttack(const EAttackDistance InAttackType)
+void ANTNPCCharacterBase::MoveToAttackPoint()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	CurrentAttack = InAttackType;
-	FString EnumString = StaticEnum<EAttackDistance>()->GetNameByValue(static_cast<int64>(CurrentAttack)).ToString();
-	//MC_LOG(LogMC, Log, TEXT("CurrentAttack : %s"), *EnumString);
-
-	if (CurrentAttack == EAttackDistance::AttackNone)
+	if (JumpMontage == nullptr)
 	{
-		MC_LOG(LogMC, Error, TEXT("No CurrentAttack!"));
+		MC_LOG(LogMC, Error, TEXT("No JumpMontage!!"));
 		return;
 	}
 
-	BTComponent->PauseLogic(TEXT("Start Attack"));
+	if (JumpMontageSpeedRate == 0)
+	{
+		MC_LOG(LogMC, Error, TEXT("JumpMontageSpeedRate is 0!!"));
+		return;
+	}
 
-	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
-	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
-	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
-	SetActorRotation(NewRotation);
+	//점프 거리 계산
+	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
+	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
+	AttackMoving = (JumpMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation() - 100) / JumpMontageDuration : FVector::ZeroVector;
+
+#if ENABLE_DRAW_DEBUG
+	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
+#endif
+
+	//MC_LOG(LogMC, Log, TEXT("JumpMontageDuration : %f"), JumpMontageDuration);
+	//MC_LOG(LogMC, Log, TEXT("TargetAttackPos : %f, %f, %f"), TargetAttackPos.X, TargetAttackPos.Y, TargetAttackPos.Z);
+	//MC_LOG(LogMC, Log, TEXT("AttackMoving : %f, %f, %f"), AttackMoving.X, AttackMoving.Y, AttackMoving.Z);
+
+	float LenSq = AttackMoving.SquaredLength();
+
+	if (LenSq <= 1)
+	{
+		OnJumpMontageEnd(nullptr, false);
+		return;
+	}
+
+	bISAttackMoving = true;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(JumpMontage, JumpMontageSpeedRate);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnJumpMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, JumpMontage);
+}
+
+void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	bISAttackMoving = false;
+
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	BeginAttack();
+}
+
+void ANTNPCCharacterBase::BeginAttack()
+{
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	// 현재 공격 스텝 데이터 갖고오기
+	FName CurrentAttackStep = BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK);
+	const FNTNPCAttackPatternStepData* PatternStepData = UNTGameDataSingleton::Get().GetNPCAttackPatternStep(CurrentAttackStep);
+
+	if (PatternStepData == nullptr)
+	{
+		MC_LOG(LogMC, Warning, TEXT("No PatternStepData!"));
+
+		CurrentAttackData.NextStepID = FName(TEXT(""));
+		CurrentAttackData.DamageHP = 10.0f;
+		CurrentAttackData.DamageSoul = 10.0f;
+		CurrentAttackData.GuardBack = 1.0f;
+		CurrentAttackData.bCriticalEnable = true;
+		CurrentAttackData.HitStun = 3.0f;
+		CurrentAttackData.RecoveryTime = 1.0f;
+		CurrentAttackData.AnimationClip = FName(TEXT("AM_NTMon1Attack1"));
+	}
+	else
+	{
+		CurrentAttackData.NextStepID = PatternStepData->NextStepID;
+		CurrentAttackData.DamageHP = PatternStepData->DamageHP;
+		CurrentAttackData.DamageSoul = PatternStepData->DamageSoul;
+		CurrentAttackData.GuardBack = PatternStepData->GuardBack;
+		CurrentAttackData.bCriticalEnable = PatternStepData->bCriticalEnable;
+		CurrentAttackData.HitStun = PatternStepData->HitStun;
+		CurrentAttackData.RecoveryTime = PatternStepData->RecoveryTime;
+		CurrentAttackData.AnimationClip = PatternStepData->AnimationClip;
+	}
 
 	// Animation Setting
 	const float AttackSpeedRate = 1.0f;
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	UAnimMontage* AttackMontage = AttackMontages[CurrentAttack];
+	UAnimMontage* AttackMontage = AttackMontages[CurrentAttackData.AnimationClip];
 
 	if (AttackMontage == nullptr)
 	{
@@ -578,11 +580,11 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	HitActors.Add(OtherActor);
 
 	FPlayerApplyDamageData DamageData;
-	DamageData.HPDamage = AttackDamage;
-	DamageData.SoulDamage = AttackDrain;
-	DamageData.GuardBack = 0.0f;
-	DamageData.bCriticalEnable = AttackParryables[CurrentAttack];
-	DamageData.PlayerRecoveryTime = 0.0f;
+	DamageData.HPDamage = CurrentAttackData.DamageHP;
+	DamageData.SoulDamage = CurrentAttackData.DamageSoul;
+	DamageData.GuardBack = CurrentAttackData.GuardBack;
+	DamageData.bCriticalEnable = CurrentAttackData.bCriticalEnable;
+	DamageData.PlayerRecoveryTime = CurrentAttackData.RecoveryTime;
 
 	PlayerCharacter->ApplyDamage(this, DamageData);
 
@@ -595,63 +597,27 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	if (CurrentAttack == EAttackDistance::AttackMiddle)
+	if (CurrentAttackData.NextStepID == FName(TEXT("")))
 	{
-		// 현재가 연계 공격이거나 횡공격이면
+		// 연계공격이 없으면
 		EndAttack();
 		return;
 	}
 
-	// 연계 공격 판단하기
-	// 거리 계산
-	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
-
-	EAttackDistance ResultAttckType = EAttackDistance::AttackNone;
-
-	// 근거리
-	if (Dist <= AttackRangeShort) // 2.0m
-	{
-		//MC_LOG(LogMC, Log, TEXT("연계 공격 수행"));
-
-		ResultAttckType = EAttackDistance::AttackMiddle;
-
-		BeginAttack(ResultAttckType);
-	}
-	else
-	{
-		EndAttack();
-	}
-
+	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, CurrentAttackData.NextStepID);
 }
 
 void ANTNPCCharacterBase::EndAttack()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
+	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
+
 	bIsAttacking = false;
 	CurrentAttack = EAttackDistance::AttackNone;
 	BTComponent->ResumeLogic(TEXT("Attack End"));
 	OnAICharacterAttackFinished.ExecuteIfBound();
 	return;
-}
-
-void ANTNPCCharacterBase::MoveToAttackPoint(const EAttackDistance InAttackType)
-{
-	bISAttackMoving = true;
-
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AnimInstance->Montage_Play(JumpMontage, JumpMontageSpeedRate);
-
-	FOnMontageEnded EndDelegate;
-	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnJumpMontageEnd);
-	AnimInstance->Montage_SetEndDelegate(EndDelegate, JumpMontage);
-}
-
-void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
-{
-	bISAttackMoving = false;
-	BeginAttack(CurrentAttack);
 }
 
 void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
