@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "NPC/BTTaskMode/NTBTT_Attack.h"
+#include "NPC/BTTaskNode/NTBTT_Attack.h"
 #include "MCLOG.h"
 #include "AIController.h"
 #include "NPC/Interface/NTNPCCharacterBaseInterface.h"

@@ -12,7 +12,7 @@ struct FNTNPCAttackPatternData : public FTableRowBase
 public:
 	// 패턴의 고유 ID : 이부분은 DataTable의 RowName으로 사용할 것.
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pattern")
-	//FName PatternID; 
+	//FName PatternID;
 
 	// 해당 패턴을 사용하는 몬스터의 ID
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pattern")
