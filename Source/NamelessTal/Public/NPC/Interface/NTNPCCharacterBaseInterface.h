@@ -29,9 +29,9 @@ struct FNPCApplyDamageData
 {
 	GENERATED_BODY()
 
-	uint32 HPDamage = 0;
-	uint32 SoulDamage = 0;
-	uint32 StaggerDamage = 0.0f;
+	int32 HPDamage = 0;
+	int32 SoulDamage = 0;
+	int32 StaggerDamage = 0.0f;
 	uint8 bIsParry : 1 = false;
 };
 

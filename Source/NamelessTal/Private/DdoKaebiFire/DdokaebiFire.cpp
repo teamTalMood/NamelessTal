@@ -40,6 +40,30 @@ ADdokaebiFire::ADdokaebiFire()
 		&ADdokaebiFire::OnRangeEndOverlap);
 }
 
+void ADdokaebiFire::TriggerRest(AActor* User)
+{
+	UStatComponent* Stat = User->FindComponentByClass<UStatComponent>();
+
+	if (Stat == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("화톳불 사용에 실패하셨습니다 : %s"), 
+			*GetNameSafe(User));
+		return;
+	}
+	if (Stat->IsInCombat())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("전투 중엔 화톳불을 사용할 수 없습니다 : %s"), 
+			*GetNameSafe(User));
+		return;
+	}
+
+	Stat->RestoreFull();
+	UE_LOG(LogTemp, Warning, TEXT("화톳불 사용! HP / 넋 회복 완료 : %s"), 
+		*GetNameSafe(User));
+
+	OnBonfireRested.Broadcast();
+}
+
 // Called when the game starts or when spawned
 void ADdokaebiFire::BeginPlay()
 {
@@ -113,22 +137,11 @@ void ADdokaebiFire::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent,
 
 void ADdokaebiFire::OnInteract()
 {
-	// 나중에 HP, 넋 시스템 연결
-	UE_LOG(LogTemp, Warning, TEXT("모닥불 기사 등장! : %s"), *GetNameSafe(OverlappingPlayer));
-	if (OverlappingPlayer == nullptr)
+	if(OverlappingPlayer == nullptr)
 	{
 		return;
 	}
-	if (UStatComponent* Stat = OverlappingPlayer->FindComponentByClass<UStatComponent>())
-	{
-		Stat->RestoreFull();
-		UE_LOG(LogTemp, Warning, TEXT("화톳불 사용! HP / 넋 회복 완료 : %s"),
-			*GetNameSafe(OverlappingPlayer));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("화톳불 사용에 실패하셨습니다 : %s"), 
-			*GetNameSafe(OverlappingPlayer));
-	}
+
+	TriggerRest(OverlappingPlayer);
 
 }

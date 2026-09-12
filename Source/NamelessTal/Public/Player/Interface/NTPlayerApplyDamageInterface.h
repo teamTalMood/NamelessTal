@@ -8,8 +8,8 @@
 
 struct FPlayerApplyDamageData
 {
-	uint32 HPDamage = 0;
-	uint32 SoulDamage = 0;
+	int32 HPDamage = 0;
+	int32 SoulDamage = 0;
 	float GuardBack = 0.0f;
 	uint8 bCriticalEnable : 1 = false;
 	float PlayerRecoveryTime = 0.0f;
