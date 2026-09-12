@@ -18,6 +18,8 @@ void UNTBTS_SelectPattern::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	APawn* ControllingPawn = OwnerComp.GetAIOwner()->GetPawn();
 	if (nullptr == ControllingPawn)
 	{
@@ -49,7 +51,7 @@ void UNTBTS_SelectPattern::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 	// [TEST] 패턴별 이름-현재쿨타임-요구거리 로그
 	for (const FNPCAttackPatternSelectData& Pattern : Patterns)
 	{
-		//MC_LOG(LogMC, Log, TEXT("Pattern %s | CurrentCoolDown=%.2f | PatternRange=%.1f"), *Pattern.FirstStepID.ToString(), Pattern.CurrentCoolDown, Pattern.PatternRange);
+		MC_LOG(LogMC, Log, TEXT("Pattern %s | CurrentCoolDown=%.2f | PatternRange=%.1f"), *Pattern.FirstStepID.ToString(), Pattern.CurrentCoolDown, Pattern.PatternRange);
 	}
 
 	// 1~2. 거리 필터 + 쿨탐 필터
@@ -68,8 +70,8 @@ void UNTBTS_SelectPattern::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 	// 3. 가중치 랜덤 선택 / 4. 없으면 없는 걸로
 	if (AvailablePatterns.Num() == 0 || TotalWeight <= 0)
 	{
-		BB->SetValueAsName(BBKEY_SELECTATTACKPATTERN, BB_ATTACKPATTERN_PARAM_NONE);
-		//MC_LOG(LogMC, Log, TEXT("Distance=%.1f | Selected=None"), DistanceToTarget);
+		BB->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
+		MC_LOG(LogMC, Log, TEXT("Distance=%.1f | Selected=None"), DistanceToTarget);
 		return;
 	}
 
@@ -86,9 +88,9 @@ void UNTBTS_SelectPattern::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 	}
 
 	SelectedPattern->CurrentCoolDown = SelectedPattern->CoolDown;
-	BB->SetValueAsName(BBKEY_SELECTATTACKPATTERN, SelectedPattern->FirstStepID);
+	BB->SetValueAsName(BBKEY_SELECTEDATTACK, SelectedPattern->FirstStepID);
 	BB->SetValueAsVector(BBKEY_ATTACKPOS, Target->GetActorLocation());
 
-	//MC_LOG(LogMC, Log, TEXT("Distance=%.1f | Selected=%s"), DistanceToTarget, *SelectedPattern->FirstStepID.ToString());
+	MC_LOG(LogMC, Log, TEXT("Distance=%.1f | Selected=%s"), DistanceToTarget, *SelectedPattern->FirstStepID.ToString());
 }
 

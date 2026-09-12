@@ -8,7 +8,7 @@
 
 UNTGameDataSingleton::UNTGameDataSingleton()
 {
-	// NPCAttackPatternTable 持失
+	// NPCAttackPatternTable
 	static ConstructorHelpers::FObjectFinder<UDataTable> NPCAttackPatternTableRef(TEXT("/Script/Engine.DataTable'/Game/GameData/DT_NTNPCAttackPattern.DT_NTNPCAttackPattern'"));
 	if (nullptr != NPCAttackPatternTableRef.Object)
 	{
@@ -23,7 +23,7 @@ UNTGameDataSingleton::UNTGameDataSingleton()
 
 	ensure(NPCAttackPatternTable.Num() > 0);
 
-	// NPCAttackPatternStepTable 持失
+	// NPCAttackPatternStepTable
 	static ConstructorHelpers::FObjectFinder<UDataTable> NPCAttackPatternStepTableRef(TEXT("/Script/Engine.DataTable'/Game/GameData/DT_NTNPCAttackPatternStep.DT_NTNPCAttackPatternStep'"));
 	if (nullptr != NPCAttackPatternStepTableRef.Object)
 	{
@@ -38,7 +38,7 @@ UNTGameDataSingleton::UNTGameDataSingleton()
 
 	ensure(NPCAttackPatternStepTable.Num() > 0);
 
-	// PlayerSpecialArtTable 持失
+	// PlayerSpecialArtTable
 	static ConstructorHelpers::FObjectFinder<UDataTable> PlayerSpecialArtTableRef(TEXT("/Script/Engine.DataTable'/Game/GameData/DT_NTPlayerSpecialArt.DT_NTPlayerSpecialArt'"));
 	if (nullptr != PlayerSpecialArtTableRef.Object)
 	{
@@ -53,7 +53,7 @@ UNTGameDataSingleton::UNTGameDataSingleton()
 
 	ensure(PlayerSpecialArtTable.Num() > 0);
 
-	// PlayerSpecialArtStepTable 持失
+	// PlayerSpecialArtStepTable
 	static ConstructorHelpers::FObjectFinder<UDataTable> PlayerSpecialArtStepTableRef(TEXT("/Script/Engine.DataTable'/Game/GameData/DT_NTPlayerSpecialArtStep.DT_NTPlayerSpecialArtStep'"));
 	if (nullptr != PlayerSpecialArtStepTableRef.Object)
 	{
@@ -67,6 +67,21 @@ UNTGameDataSingleton::UNTGameDataSingleton()
 	}
 
 	ensure(PlayerSpecialArtStepTable.Num() > 0);
+}
+
+TArray<FNTNPCAttackPatternData> UNTGameDataSingleton::FindNPCAttackPatternsByUser(FName InPatternUser) const
+{
+	TArray<FNTNPCAttackPatternData> Result;
+
+	for (const auto& RowPair : NPCAttackPatternTable)
+	{
+		if (RowPair.Value.PatternUser == InPatternUser)
+		{
+			Result.Add(RowPair.Value);
+		}
+	}
+
+	return Result;
 }
 
 UNTGameDataSingleton& UNTGameDataSingleton::Get()

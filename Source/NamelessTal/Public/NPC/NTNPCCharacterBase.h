@@ -11,6 +11,18 @@
 class ATalBase;
 class UNTTalComponent;
 
+struct FNPCCurrentAttackData
+{
+	FName NextStepID;
+	int32 DamageHP;
+	int32 DamageSoul;
+	float GuardBack;
+	uint8 bCriticalEnable;
+	int32 HitStun;
+	float RecoveryTime;
+	FName AnimationClip;
+};
+
 UCLASS()
 class NAMELESSTAL_API ANTNPCCharacterBase : public ACharacter, public INTNPCCharacterBaseInterface, public INTWeaponCollisionInterface
 {
@@ -30,11 +42,6 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-
-	//UFUNCTION()
-	//virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
-
-protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 
@@ -44,6 +51,7 @@ protected:
 //
 protected:
 	TObjectPtr<class UBehaviorTreeComponent> BTComponent;
+	TObjectPtr<class UBlackboardComponent> BBComponent;
 
 	// Weapon
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
@@ -96,35 +104,13 @@ protected:
 //
 protected:	// BlueprintEditable
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	TObjectPtr<class UAnimMontage> ShortAttackMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	TObjectPtr<class UAnimMontage> MiddleAttackMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	TObjectPtr<class UAnimMontage> LongAttackMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	float AttackDamage = 10.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	float AttackDrain;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	float GuardDrain;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	float AttackRangeShort = 200.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	float AttackRangeMiddle = 450.0f;
+	TMap<FName, TObjectPtr<class UAnimMontage>> AttackMontages;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	TMap<EAttackDistance, uint8> AttackDirections;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	TMap<EAttackDistance, bool> AttackParryables;
-
+	FName PatternUserID;
 
 protected:	// BlueprintReadOnly
 	FAICharacterAttackFinished OnAICharacterAttackFinished;
@@ -134,8 +120,6 @@ protected:	// BlueprintReadOnly
 	TArray<AActor*> HitActors;
 
 	EAttackDistance CurrentAttack = EAttackDistance::AttackNone;
-
-	TMap<EAttackDistance, TObjectPtr<class UAnimMontage>> AttackMontages;
 
 	uint8 bIsAttacking : 1 = false;
 
@@ -149,6 +133,8 @@ protected:	// BlueprintReadOnly
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	float JumpMontageSpeedRate = 2.0f;
 
+	FNPCCurrentAttackData CurrentAttackData;
+
 
 // INTWeaponCollisionInterface override
 public:
@@ -157,10 +143,10 @@ public:
 
 // Attack
 protected:
-	void BeginAttack(const EAttackDistance InAttackType);
+	void MoveToAttackPoint();
+	void BeginAttack();
 	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void EndAttack();
-	void MoveToAttackPoint(const EAttackDistance InAttackType);
 	void OnJumpMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 
