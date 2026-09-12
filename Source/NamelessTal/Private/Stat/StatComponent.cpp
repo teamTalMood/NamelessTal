@@ -19,6 +19,9 @@ void UStatComponent::BeginPlay()
 
 	CurrentHP = MaxHP;
 	CurrentSoul = MaxSoul;
+
+	OnHPChanged.Broadcast(CurrentHP, MaxHP);
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
 
 void UStatComponent::ApplyDamage(float HitDamage)
@@ -184,4 +187,3 @@ void UStatComponent::EndGroggy()
 
 	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
-

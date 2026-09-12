@@ -24,6 +24,14 @@ enum class EAttackDistance : uint8
 	AttackLong = 30
 };
 
+struct FNPCApplyDamageData
+{
+	uint32 HPDamage = 0;
+	uint32 SoulDamage = 0;
+	uint32 StaggerDamage = 0.0f;
+	uint8 bIsParry : 1 = false;
+};
+
 /**
  *
  */
@@ -40,7 +48,8 @@ public:
 	virtual void AttackByAI() = 0;
 	virtual void SetAIAttackDelegate(const FAICharacterAttackFinished& InOnAttackFinished) = 0;
 
-	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) = 0;
+	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) = 0; // Legacy
+	virtual float ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData) = 0;
 
 	// 0 : 애니메이션 없음 | 1 : 시계방향 스윙 | 2 : 반시계방향 스윙 | 3 : 정면방향 스윙
 	virtual uint8 GetAttackDirection() = 0;
