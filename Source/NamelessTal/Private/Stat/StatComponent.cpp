@@ -119,6 +119,11 @@ void UStatComponent::SetSoulRegenBlocked(bool bBlocked)
 	bSoulRegenBlocked = bBlocked;
 }
 
+bool UStatComponent::IsInCombat() const
+{
+	return GetWorld()->GetTimeSeconds() - LastSoulDrainTime < CombatCooldown;
+}
+
 void UStatComponent::NotifyHitDuringGroggy()
 {
 	if (bIsGroggy)

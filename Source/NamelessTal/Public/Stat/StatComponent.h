@@ -101,6 +101,9 @@ public: //넋 관련 설정
 
 	bool IsGroggy() const { return bIsGroggy; }
 	
+	// 전투중인지 확인하기
+	bool IsInCombat() const;
+
 	// 그로기 중 피격 시 호출 -> 그로기 조기 해제
 	void NotifyHitDuringGroggy();
 
@@ -114,6 +117,10 @@ public: //넋 관련 설정
 	// 그로기 해제(피격 또는 시간경과) 시 즉시 회복 되는 넋
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	float GroggyRecoverSoul = 20.0f;
+
+	// 마지막 전투 행동 후 비전투로 바뀌는 시간
+	UPROPERTY(EditAnywhere, Category = "Stat")
+	float CombatCooldown = 5.0f;
 
 protected:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,

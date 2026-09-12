@@ -6,20 +6,29 @@
 #include "GameFramework/Actor.h"
 #include "DdokaebiFire.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBonfireRested);
+
 // 전방선언
 class USphereComponent;
 class UStaticMeshComponent;
 class UInputMappingContext;
 class UInputAction;
 
+
 UCLASS()
 class NAMELESSTAL_API ADdokaebiFire : public AActor
 {
 	GENERATED_BODY()
 	
+
 public:	
 	// Sets default values for this actor's properties
 	ADdokaebiFire();
+
+	UPROPERTY(BlueprintAssignable, Category= "Bonfire")
+	FOnBonfireRested OnBonfireRested;
+
+	void TriggerRest(AActor* User);
 
 protected:
 	// Called when the game starts or when spawned
