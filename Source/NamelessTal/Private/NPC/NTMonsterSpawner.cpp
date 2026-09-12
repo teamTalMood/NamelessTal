@@ -2,6 +2,10 @@
 
 
 #include "NPC/NTMonsterSpawner.h"
+#include "NPC/NTNPCCharacterBase.h"
+#include "DdoKaebiFire/DdokaebiFire.h"
+#include "Kismet/GameplayStatics.h"
+
 
 // Sets default values
 ANTMonsterSpawner::ANTMonsterSpawner()
@@ -15,15 +19,43 @@ ANTMonsterSpawner::ANTMonsterSpawner()
 void ANTMonsterSpawner::BeginPlay()
 {
 	Super::BeginPlay();
+
+	TArray<AActor*> Fires;
+
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ADdokaebiFire::StaticClass(), Fires);
+
+	for (AActor* Fire : Fires)
+	{
+		if (ADdokaebiFire* Bonfire = Cast<ADdokaebiFire>(Fire))
+		{
+			Bonfire->OnBonfireRested.AddDynamic(this, &ANTMonsterSpawner::RespawnMissing);
+		}
+	}
+
+	SpawnAll();
 	
 }
 
 void ANTMonsterSpawner::SpawnAll()
 {
+	for (FMonsterSpawnEntry& Entry : SpawnEntries)
+	{
+		Entry.SpawnedMonster = GetWorld()->SpawnActor<ANTNPCCharacterBase>(Entry.MonsterClass,
+			Entry.SpawnTransform);
+	}
 }
 
 void ANTMonsterSpawner::RespawnMissing()
 {
+	for (FMonsterSpawnEntry& Entry : SpawnEntries)
+	{
+		if (Entry.SpawnedMonster.IsValid())
+		{
+			Entry.SpawnedMonster->Destroy();
+		}
+		Entry.SpawnedMonster = GetWorld()->SpawnActor<ANTNPCCharacterBase>(Entry.MonsterClass,
+			Entry.SpawnTransform);
+	}
 }
 
 // Called every frame
