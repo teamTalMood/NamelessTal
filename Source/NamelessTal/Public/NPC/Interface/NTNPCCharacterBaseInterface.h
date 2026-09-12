@@ -24,12 +24,27 @@ enum class EAttackDistance : uint8
 	AttackLong = 30
 };
 
+USTRUCT()
 struct FNPCApplyDamageData
 {
+	GENERATED_BODY()
+
 	uint32 HPDamage = 0;
 	uint32 SoulDamage = 0;
 	uint32 StaggerDamage = 0.0f;
 	uint8 bIsParry : 1 = false;
+};
+
+USTRUCT()
+struct FNPCAttackPatternSelectData
+{
+	GENERATED_BODY()
+
+	FName FirstStepID;
+	float CoolDown;
+	float PatternRange;
+	int32 PatternWeight;
+	float CurrentCoolDown;
 };
 
 /**
@@ -53,4 +68,8 @@ public:
 
 	// 0 : 애니메이션 없음 | 1 : 시계방향 스윙 | 2 : 반시계방향 스윙 | 3 : 정면방향 스윙
 	virtual uint8 GetAttackDirection() = 0;
+
+
+	//AttackPatternDatas 받아오기
+	virtual TArray<FNPCAttackPatternSelectData>& GetAttackPatternDatas() = 0;
 };

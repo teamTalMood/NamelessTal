@@ -10,24 +10,21 @@
 
 ANTAIController::ANTAIController()
 {
-	static ConstructorHelpers::FObjectFinder<UBlackboardData> BBAssetRef(TEXT("/Script/AIModule.BlackboardData'/Game/NPC/Mon/AI/BB_NTMon.BB_NTMon'"));
-	if (nullptr != BBAssetRef.Object)
-	{
-		BBAsset = BBAssetRef.Object;
-	}
-
-	static ConstructorHelpers::FObjectFinder<UBehaviorTree> BTAssetRef(TEXT("/Script/AIModule.BehaviorTree'/Game/NPC/Mon/AI/BT_NTMon.BT_NTMon'"));
-	if (nullptr != BTAssetRef.Object)
-	{
-		BTAsset = BTAssetRef.Object;
-	}
 }
 
 void ANTAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
 
-	RunAI();
+	if (BBAsset != nullptr && BTAsset != nullptr)
+	{
+		RunAI();
+	}
+	else
+	{
+		MC_LOG(LogMC, Error, TEXT("No BBAsset or BTAsset!!"));
+	}
+
 }
 
 void ANTAIController::RunAI()

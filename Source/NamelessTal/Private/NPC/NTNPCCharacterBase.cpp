@@ -105,6 +105,14 @@ void ANTNPCCharacterBase::BeginPlay()
 	{
 		StatComponent->OnDeath.AddUniqueDynamic(this, &ANTNPCCharacterBase::HandleDeath);
 	}
+
+	// TEST : 데이터테이블 대신 더미 패턴 데이터로 채움 (패턴 선택 로직 테스트용)
+	AttackPatternDatas = {
+		{ TEXT("Step_ShortAttack"),  2.0f, 200.0f, 50, 0.0f },
+		{ TEXT("Step_MiddleAttack"), 4.0f, 450.0f, 30, 0.0f },
+		{ TEXT("Step_LongAttack"),   6.0f, 700.0f, 15, 0.0f },
+		{ TEXT("Step_ComboAttack"), 10.0f, 300.0f,  5, 0.0f },
+	};
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -229,7 +237,20 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	////MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	////////////////////////////////
+	// 패턴 선택 테스트 코드
+
+	AAIController* AICon = GetController<AAIController>();
+	if (UBlackboardComponent* BB = AICon->GetBlackboardComponent())
+	{
+		BB->SetValueAsName(BBKEY_SELECTATTACKPATTERN, BB_ATTACKPATTERN_PARAM_NONE);
+	}
+
+
+	////////////////////////////////
+	//  공격 레거시 코드
 
 	// 거리 계산
 	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
@@ -296,6 +317,12 @@ void ANTNPCCharacterBase::AttackByAI()
 		return;
 	}
 
+	if (JumpMontageSpeedRate == 0)
+	{
+		MC_LOG(LogMC, Error, TEXT("JumpMontageSpeedRate is 0!!"));
+		return;
+	}
+
 	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
 	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
 	AttackMoving = (JumpMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation() - 100) / JumpMontageDuration : FVector::ZeroVector;
@@ -304,13 +331,18 @@ void ANTNPCCharacterBase::AttackByAI()
 	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
 #endif
 
+
 	if (Dist > AttackRangeShort)
 	{
-		MoveToAttackPoint(CurrentAttack);
+		//MoveToAttackPoint(CurrentAttack);
+		OnAICharacterAttackFinished.Execute();
+		return;
 	}
 	else
 	{
 		BeginAttack(ResultAttckType);
+		//OnAICharacterAttackFinished.Execute();
+		return;
 	}
 }
 
@@ -446,6 +478,11 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 uint8 ANTNPCCharacterBase::GetAttackDirection()
 {
 	return AttackDirections[CurrentAttack];
+}
+
+TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBase::GetAttackPatternDatas()
+{
+	return AttackPatternDatas;
 }
 
 void ANTNPCCharacterBase::EnableWeaponCollision()
