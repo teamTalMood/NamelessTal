@@ -438,6 +438,11 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 	return InDamage;
 }
 
+float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData)
+{
+	return ApplyDamage(DamageCauser, InDamageData.HPDamage, InDamageData.SoulDamage, InDamageData.bIsParry);
+}
+
 uint8 ANTNPCCharacterBase::GetAttackDirection()
 {
 	return AttackDirections[CurrentAttack];
