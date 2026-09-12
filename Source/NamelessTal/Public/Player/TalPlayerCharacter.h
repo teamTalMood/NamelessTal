@@ -492,4 +492,49 @@ private :
 	bool bWasRealFallingThisAirtime = false;
 	bool bIsLandingRecovering = false;
 	FTimerHandle LandingRecoveryTimeHandle;
+
+
+///////////////////////////////////////////////
+////////	호리병
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Item")
+	TObjectPtr<UAnimMontage> FlaskMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Item")
+	TObjectPtr<UInputAction> FlaskAction;
+
+	UPROPERTY(EditAnywhere, Category = "Item")
+	int32 FlaskInitialCount = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Item")
+	float FlaskHealPercent = 0.4f;
+
+	UPROPERTY(EditAnywhere, Category = "Item")
+	int32 FlaskMaxCount = 4;
+
+	//  호리병 사용 중 이동 속도 배율
+	UPROPERTY(EditAnywhere, Category = "Item")
+	float FlaskMoveSpeedMultiplier = 0.333f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Item")
+	int32 FlaskCount = 0;
+
+
+	UPROPERTY(BlueprintReadOnly, Category = "Item")
+	bool bIsUsingFlask = false;
+
+	void UseFlaskItem(const FInputActionValue& Value);
+	void CancelFlaskUse();
+	void OnFlaskMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+public:
+	// Montage의 노티파이 호출 - 실제 회복 적용 시점은 여기입니다
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void ApplyFlaskHeal();
+
+	// 도깨비불(모닥불)에서 호출 - 최대치로 충전시키기
+	void RechargeFlask();
+
+
 };

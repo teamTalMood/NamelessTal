@@ -183,6 +183,11 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	float TargetSpeed = GuardComponent->IsGuarding() ? GuardComponent->GetGuardWalkSpeed()
 		: (bIsSprinting ? SprintSpeed : WalkSpeed);
 
+	if (bIsUsingFlask)
+	{
+		TargetSpeed *= FlaskMoveSpeedMultiplier;
+	}
+
 	if (StatComponent->IsSoulExhausted())
 	{
 		TargetSpeed *= StatComponent->SoulExhaustedMoveSpeedMultiplier;
@@ -209,8 +214,11 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 
 
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
-		|| bIsLandingRecovering) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() ||
+		bIsLandingRecovering || bIsUsingFlask)
+	{
+		return;
+	}
 
 
 	bUseControllerRotationYaw = false;//Disable rotation during dodge
@@ -369,6 +377,9 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 			this, &ATalPlayerCharacter::ToggleLockOn);
 		EnhancedInputComponent->BindAction(SwitchLockOnTargetAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::SwitchLockOnTarget);
+
+		EnhancedInputComponent->BindAction(FlaskAction, ETriggerEvent::Started,
+			this, &ATalPlayerCharacter::UseFlaskItem);
 	}
 }
 
@@ -380,6 +391,11 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	if (bIsInvincible)
 	{
 		return 0.0f;
+	}
+
+	if (bIsUsingFlask)
+	{
+		CancelFlaskUse();
 	}
 
 	StatComponent->NotifyHitDuringGroggy();
@@ -462,6 +478,11 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	if (bIsInvincible)
 	{
 		return 0.0f;
+	}
+
+	if (bIsUsingFlask)
+	{
+		CancelFlaskUse();
 	}
 
 	//그로기 중 아니면 아무일도 안한다!
@@ -602,7 +623,7 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
-		|| bIsLandingRecovering) return;
+		|| bIsLandingRecovering || bIsUsingFlask) return;
 
 	bIsSprinting = true;
 
@@ -618,7 +639,8 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 
 
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || bIsLandingRecovering) return;
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() 
+		|| bIsLandingRecovering || bIsUsingFlask) return;
 
 	if (bIsDodging || AttackMontage == nullptr)
 	{
@@ -746,6 +768,8 @@ ATalBase* ATalPlayerCharacter::GetCurrentTal() const
 void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 {
 	Super::BeginPlay();
+	
+	FlaskCount = FlaskInitialCount;
 
 	//기본 탈 장착
 	if (TalComponent && DefaultTalClass)
@@ -976,7 +1000,11 @@ void ATalPlayerCharacter::RecoverSoul(float Amount)
 // 패링 / 가드 시스템 연동
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
-	if (StatComponent->IsSoulExhausted()) return; //고갈중 가드 불가
+	//고갈중 가드 불가
+	if (StatComponent->IsSoulExhausted() || bIsUsingFlask)
+	{
+		return;
+	}
 	GuardComponent->StartGuard();
 	StatComponent->SetSoulRegenBlocked(true);
 	//PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_Start"));
@@ -1465,6 +1493,61 @@ void ATalPlayerCharacter::UpdateRealFalling()
 void ATalPlayerCharacter::EndLandingRecovery()
 {
 	bIsLandingRecovering = false;
+}
+
+void ATalPlayerCharacter::UseFlaskItem(const FInputActionValue& Value)
+{
+	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || StatComponent->IsSoulExhausted() ||
+		bIsLandingRecovering || bIsDodging || bIsUsingFlask || FlaskCount <= 0
+		|| FlaskMontage == nullptr)
+	{
+		return;
+	}
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	
+	if (AnimInstance == nullptr) return;
+
+	bIsUsingFlask = true;
+
+	PlayAnimMontage(FlaskMontage);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnFlaskMontageEnded);
+
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, FlaskMontage);
+}
+
+void ATalPlayerCharacter::CancelFlaskUse()
+{
+	if (!bIsUsingFlask) return;
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		AnimInstance->Montage_Stop(0.2f, FlaskMontage);
+	}
+	// bIsUsingFlask는 OnFlaskMontageEnded가 블렌드아웃 끝나고 false로 바꿔줌
+}
+
+void ATalPlayerCharacter::OnFlaskMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	bIsUsingFlask = false;
+}
+
+void ATalPlayerCharacter::ApplyFlaskHeal()
+{
+	if (!bIsUsingFlask || FlaskCount <= 0)
+	{
+		return;
+	}
+
+	FlaskCount--;
+
+	StatComponent->HealHp(StatComponent->MaxHP * FlaskHealPercent);
+}
+
+void ATalPlayerCharacter::RechargeFlask()
+{
+	FlaskCount = FlaskMaxCount;;
 }
 
 void ATalPlayerCharacter::StartVictimTalchiMontage()
