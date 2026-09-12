@@ -40,10 +40,21 @@ protected:
 
 /////////////////////////////////////////
 //
-// INTNPCCharacterBaseInterface override
+// Basic Components
 //
 protected:
 	TObjectPtr<class UBehaviorTreeComponent> BTComponent;
+
+	// Weapon
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr <class UStaticMeshComponent> WeaponMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr <class UCapsuleComponent> WeaponCollision;
+
+	// 무기 콜리전이 겹칠 때 호출
+	UFUNCTION()
+	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 
 /////////////////////////////////////////
@@ -60,6 +71,7 @@ public:
 	virtual float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry) override; //Legacy
 	virtual float ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData) override;
 	virtual uint8 GetAttackDirection() override;
+	virtual TArray<FNPCAttackPatternSelectData>& GetAttackPatternDatas() override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
@@ -74,6 +86,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	float AITurnSpeed;
 
+	TArray<FNPCAttackPatternSelectData> AttackPatternDatas;
 
 
 
@@ -112,12 +125,6 @@ protected:	// BlueprintEditable
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	TMap<EAttackDistance, bool> AttackParryables;
 
-	// Weapon
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr <class UStaticMeshComponent> WeaponMesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	TObjectPtr <class UCapsuleComponent> WeaponCollision;
 
 protected:	// BlueprintReadOnly
 	FAICharacterAttackFinished OnAICharacterAttackFinished;
@@ -143,8 +150,6 @@ protected:	// BlueprintReadOnly
 	float JumpMontageSpeedRate = 2.0f;
 
 
-
-
 // INTWeaponCollisionInterface override
 public:
 	virtual void EnableWeaponCollision() override;
@@ -158,9 +163,9 @@ protected:
 	void MoveToAttackPoint(const EAttackDistance InAttackType);
 	void OnJumpMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
-	// 무기 콜리전이 겹칠 때 호출
-	UFUNCTION()
-	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+
+
 
 ////////////////////////////////////////
 //
@@ -169,9 +174,6 @@ protected:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> DamageMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	TObjectPtr<class UAnimMontage> DeathMontage;//사망 애니메이션
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	float DamageSpeedRate = 1.0f;
@@ -213,12 +215,18 @@ protected:
 	TSubclassOf<ATalBase> DefaultTalClass;
 
 
-/////////////////////////////////////////////////////////////////
-// 캐릭터 상태
+////////////////////////////////////////
+//
+//   Dead
+//
 protected:
-	UFUNCTION()
-	void HandleDeath();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> DeathMontage;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsDead = false;
+
+protected:
+	UFUNCTION()
+	void HandleDeath();
 };

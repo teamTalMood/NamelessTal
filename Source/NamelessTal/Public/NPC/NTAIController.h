@@ -7,13 +7,13 @@
 #include "NTAIController.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class NAMELESSTAL_API ANTAIController : public AAIController
 {
 	GENERATED_BODY()
-	
+
 public:
 	ANTAIController();
 
@@ -25,9 +25,9 @@ public:
 	void StopAI();
 
 protected:
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TObjectPtr<class UBlackboardData> BBAsset;
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TObjectPtr<class UBehaviorTree> BTAsset;
 };
