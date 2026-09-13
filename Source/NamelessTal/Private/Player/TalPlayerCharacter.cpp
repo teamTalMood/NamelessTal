@@ -701,6 +701,17 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 			AttackMontage
 		);
 	}
+	//4타 연결
+	else if (ComboIndex == 3)
+	{
+		ComboIndex = 4;
+		bCanCombo = false;
+
+		AnimInstance->Montage_JumpToSection(
+			TEXT("Attack4"),
+			AttackMontage
+		);
+	}
 }
 
 void ATalPlayerCharacter::EnableWeaponCollision()
@@ -1204,6 +1215,32 @@ void ATalPlayerCharacter::UpdateLockOn(float DeltaTime)
 	if (DirectionToTarget.IsNearlyZero()) return;
 
 	FRotator TargetControlRotation = DirectionToTarget.Rotation();
+
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+
+	if (IsValid(PlayerController) && IsValid(FollowCamera))
+	{
+		PlayerController->GetViewportSize(ViewportWidth, ViewportHeight);
+
+		if (ViewportWidth > 0 && ViewportHeight > 0)
+		{
+			const float ScreenYRatio = FMath::Clamp(LockOnTargetScreenYRatio, 0.0f, 1.0f);
+
+			const float AspectRatio = static_cast<float>(ViewportWidth) / static_cast<float>(ViewportHeight);
+
+			const float HorizontalHalfFOV = FMath::DegreesToRadians(FollowCamera->FieldOfView * 0.5f);
+			const float VerticalHalfFOV = FMath::Atan(FMath::Tan(HorizontalHalfFOV) / AspectRatio);
+
+			const float TargetNDCY = 1.0f - (ScreenYRatio * 2.0f);
+
+			const float PitchOffset = FMath::RadiansToDegrees(FMath::Atan(TargetNDCY * FMath::Tan(VerticalHalfFOV)));
+
+			TargetControlRotation.Pitch -= PitchOffset;
+		}
+	}
 
 	const float SafePitchMin = FMath::Clamp(
 		FMath::Min(MinCameraPitch, MaxCameraPitch),
