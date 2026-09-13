@@ -207,69 +207,14 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BTComponent->PauseLogic(TEXT("BeginAttack"));
 
-	//  공격 레거시 코드
-	/*
-	// 거리 계산
-	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	float Dist = FVector::Dist(GetActorLocation(), LocalPlayerCharacter->GetActorLocation());
-
-	EAttackDistance ResultAttckType = EAttackDistance::AttackNone;
-
-	// 근거리
-	if (Dist <= AttackRangeShort) // 2.0m
+	if (bIsDead)
 	{
-		//MC_LOG(LogMC, Log, TEXT("근거리 공격 수행"));
-
-		float Rand = FMath::FRandRange(0.f, 100.f);
-
-		if (Rand < 50.f)       ResultAttckType = EAttackDistance::AttackShort;
-		else if (Rand < 90.f)  ResultAttckType = EAttackDistance::AttackMiddle;
-		else                   ResultAttckType = EAttackDistance::AttackLong;
-
-#if ENABLE_DRAW_DEBUG
-		FVector Center = GetActorLocation();
-		UWorld* World = GetWorld();
-		DrawDebugSphere(World, Center, AttackRangeShort, 16, FColor::Yellow, false, 2.0f);
-#endif
+		return;
 	}
-
-	// 중거리
-	if (Dist > AttackRangeShort && Dist <= AttackRangeMiddle) // 2.0m ~ 4.5m
-	{
-		//MC_LOG(LogMC, Log, TEXT("중거리 공격 수행"));
-
-		float Rand = FMath::FRandRange(0.f, 100.f);
-
-		if (Rand < 20.f)       ResultAttckType = EAttackDistance::AttackShort;
-		else if (Rand < 30.f)  ResultAttckType = EAttackDistance::AttackMiddle;
-		else                   ResultAttckType = EAttackDistance::AttackLong;
-
-#if ENABLE_DRAW_DEBUG
-		FVector Center = GetActorLocation();
-		UWorld* World = GetWorld();
-		DrawDebugSphere(World, Center, AttackRangeMiddle, 16, FColor::Purple, false, 2.0f);
-#endif
-	}
-
-	// 원거리
-	if (Dist > AttackRangeMiddle) // 4.5m ~ 7m
-	{
-		//MC_LOG(LogMC, Log, TEXT("원거리 공격 수행"));
-		ResultAttckType = EAttackDistance::AttackLong;
-
-#if ENABLE_DRAW_DEBUG
-		FVector Center = GetActorLocation();
-		UWorld* World = GetWorld();
-		DrawDebugSphere(World, Center, AIAttackRange, 16, FColor::Blue, false, 2.0f);
-#endif
-	}
-
-	CurrentAttack = ResultAttckType;
-	*/
 
 	// 타겟 방향으로 바라보기
 	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
@@ -333,7 +278,11 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
 
 		// 만약 피해받고 죽었으면 피격 처리 중단
-		if (bIsDead) return -InDamageData.HPDamage;
+		if (bIsDead)
+		{
+			//MC_LOG(LogMC, Log, TEXT("Get Deaded"));
+			return -InDamageData.HPDamage;
+		}
 
 		// 공격중단 판단 : 스턴 이거나 그로기 진입
 		if (bIsAttacking)
@@ -455,6 +404,11 @@ void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsP
 void ANTNPCCharacterBase::BeginAttack()
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	if (bIsDead)
+	{
+		return;
+	}
 
 	// 현재 공격 스텝 데이터 갖고오기
 	FName CurrentAttackStep = BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK);
@@ -603,14 +557,14 @@ void ANTNPCCharacterBase::StartStun()
 
 void ANTNPCCharacterBase::ReleaseStun()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BTComponent->ResumeLogic(TEXT("Stun End"));
 }
 
 void ANTNPCCharacterBase::EndExhausted()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
 	Anim->SetAnimIsExhausted(false);
@@ -671,7 +625,13 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::HandleDeath()
 {
-	if (bIsDead) return;
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	if (bIsDead)
+	{
+		MC_LOG(LogMC, Error, TEXT("bIsDead is Already"));
+		return;
+	}
 
 	bIsDead = true;
 
@@ -690,16 +650,53 @@ void ANTNPCCharacterBase::HandleDeath()
 	//DisableWeaponCollision();//콜리전해제
 	OnAICharacterAttackFinished.Unbind();//바인드해제
 
+	//재생중인 몽타주 종료 + 바인딩된 종료 델리게이트 해제 (사망 중 콤보 재호출 방지)
+	if (UAnimInstance* CurrentAnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (UAnimMontage* CurrentMontage = CurrentAnimInstance->GetCurrentActiveMontage())
+		{
+			FOnMontageEnded EmptyEndDelegate;
+			CurrentAnimInstance->Montage_SetEndDelegate(EmptyEndDelegate, CurrentMontage);
+			CurrentAnimInstance->Montage_Stop(0.0f, CurrentMontage);
+		}
+	}
+
 	if (BTComponent)
 	{
 		BTComponent->StopLogic(TEXT("NPC Dead"));
 	}
 
-	//이동정지
+	//이동정지 + 죽는 순간 바닥 노멀 계산
+	FVector GroundNormal = FVector::UpVector;
 	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
 	{
+		if (MovementComponent->CurrentFloor.bWalkableFloor)
+		{
+			GroundNormal = MovementComponent->CurrentFloor.HitResult.ImpactNormal;
+		}
+		else
+		{
+			FHitResult HitResult;
+			FCollisionQueryParams QueryParams;
+			QueryParams.AddIgnoredActor(this);
+			const FVector TraceStart = GetActorLocation();
+			const FVector TraceEnd = TraceStart - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 200.f);
+			if (GetWorld()->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
+			{
+				GroundNormal = HitResult.ImpactNormal;
+			}
+		}
+
 		MovementComponent->StopMovementImmediately();
 		MovementComponent->DisableMovement();
+	}
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance))
+		{
+			NPCAnim->SetAnimDeaded(GroundNormal, GetActorForwardVector());
+		}
 	}
 
 	if (DeathMontage)

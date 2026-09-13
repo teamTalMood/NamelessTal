@@ -2,6 +2,7 @@
 
 
 #include "NPC/Animations/NTNPCAnimInstance.h"
+#include "MCLOG.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
@@ -14,6 +15,16 @@ UNTNPCAnimInstance::UNTNPCAnimInstance()
 void UNTNPCAnimInstance::SetAnimIsExhausted(const uint8 InIsExhausted)
 {
 	bIsExhausted = InIsExhausted;
+}
+
+void UNTNPCAnimInstance::SetAnimDeaded(const FVector& InGroundNormal, const FVector& InForwardVector)
+{
+	DeathGroundNormal = InGroundNormal;
+	DeathForwardVector = InForwardVector;
+
+	bIsDead = true;
+
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 }
 
 void UNTNPCAnimInstance::NativeInitializeAnimation()
