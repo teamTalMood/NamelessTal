@@ -10,10 +10,12 @@
 #include "Player/NTPlayerSpecialArtStepData.h"
 #include "NTGameDataSingleton.generated.h"
 
+class UDataTable;
+
 /**
  *
  */
-UCLASS()
+UCLASS(Blueprintable)
 class NAMELESSTAL_API UNTGameDataSingleton : public UObject
 {
 	GENERATED_BODY()
@@ -31,6 +33,22 @@ public:
 	FORCEINLINE const FNTPlayerSpecialArtStepData* GetPlayerSpecialArtStep(FName InStepID) const { return PlayerSpecialArtStepTable.Find(InStepID); }
 
 private:
+	void LoadGameDataTables();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Data")
+	TSoftObjectPtr<UDataTable> NPCAttackPatternTableAsset;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Data")
+	TSoftObjectPtr<UDataTable> NPCAttackPatternStepTableAsset;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Data")
+	TSoftObjectPtr<UDataTable> PlayerSpecialArtTableAsset;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Data")
+	TSoftObjectPtr<UDataTable> PlayerSpecialArtStepTableAsset;
+
+	bool bTablesLoaded = false;
+
 	TMap<FName, FNTNPCAttackPatternData> NPCAttackPatternTable;
 
 	TMap<FName, FNTNPCAttackPatternStepData> NPCAttackPatternStepTable;
