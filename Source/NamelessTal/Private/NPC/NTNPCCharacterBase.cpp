@@ -462,23 +462,29 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 	//점프 거리 계산
 	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
 	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
-	AttackMoving = (JumpMontageDuration > 0.f) ? (TargetAttackPos - GetActorLocation() - 100) / JumpMontageDuration : FVector::ZeroVector;
 
 #if ENABLE_DRAW_DEBUG
 	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
 #endif
 
-	//MC_LOG(LogMC, Log, TEXT("JumpMontageDuration : %f"), JumpMontageDuration);
-	//MC_LOG(LogMC, Log, TEXT("TargetAttackPos : %f, %f, %f"), TargetAttackPos.X, TargetAttackPos.Y, TargetAttackPos.Z);
-	//MC_LOG(LogMC, Log, TEXT("AttackMoving : %f, %f, %f"), AttackMoving.X, AttackMoving.Y, AttackMoving.Z);
+	const FVector ToTarget = TargetAttackPos - GetActorLocation();
+	const float DistanceToTarget = ToTarget.Length();
+	const FVector DirectionToTarget = ToTarget.GetSafeNormal();
 
-	float LenSq = AttackMoving.SquaredLength();
+	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DirectionToTarget);
 
-	if (LenSq <= 1)
+	if (DistanceToTarget <= AttackDistance || ForwardDot <= 0.f)
 	{
 		OnJumpMontageEnd(nullptr, false);
 		return;
 	}
+
+	const float MoveDistance = DistanceToTarget - AttackDistance;
+	AttackMoving = (JumpMontageDuration > 0.f) ? (DirectionToTarget * MoveDistance) / JumpMontageDuration : FVector::ZeroVector;
+
+	//MC_LOG(LogMC, Log, TEXT("JumpMontageDuration : %f"), JumpMontageDuration);
+	//MC_LOG(LogMC, Log, TEXT("TargetAttackPos : %f, %f, %f"), TargetAttackPos.X, TargetAttackPos.Y, TargetAttackPos.Z);
+	//MC_LOG(LogMC, Log, TEXT("AttackMoving : %f, %f, %f"), AttackMoving.X, AttackMoving.Y, AttackMoving.Z);
 
 	bISAttackMoving = true;
 

@@ -112,6 +112,9 @@ protected:	// BlueprintEditable
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	FName PatternUserID;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
+	float AttackDistance = 150.f;
+
 protected:	// BlueprintReadOnly
 	FAICharacterAttackFinished OnAICharacterAttackFinished;
 
