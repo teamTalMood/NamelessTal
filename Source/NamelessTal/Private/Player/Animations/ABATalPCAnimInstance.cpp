@@ -72,6 +72,11 @@ void UABATalPCAnimInstance::UpdateFootIK(float DeltaSeconds)
 	TraceFoot(TEXT("foot_l"), RawL, RotL);
 	TraceFoot(TEXT("foot_r"), RawR, RotR);
 
+	// 절벽 모서리에서 트레이스 윗면 아랫면 프레임마다 번갈아 잡기
+	const float MaxStep = MaxFootOffsetSpeed * DeltaSeconds;
+	RawL = FMath::Clamp(RawL, SmoothedFootZ_L - MaxStep, SmoothedFootZ_L + MaxStep);
+	RawR = FMath::Clamp(RawR, SmoothedFootZ_R - MaxStep, SmoothedFootZ_R + MaxStep);
+
 	// 더 낮은 발 기준으로 골반을 내리되, 비율과 상한을 적용
 	const float RawPelvis = FMath::Min(0.0f, FMath::Min(RawL, RawR)) * PelvisWeight;
 	const float TargetPelvis = FMath::Max(RawPelvis, -MaxPelvisDrop);
