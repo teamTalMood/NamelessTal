@@ -18,7 +18,7 @@ public:
 	UNTNPCAnimInstance();
 
 	void SetAnimIsExhausted(const uint8 InIsExhausted);
-	void SetAnimDeaded(const FVector& InGroundNormal, const FVector& InForwardVector);
+	void SetAnimDeaded(const FVector& InGroundNormal, const FVector& InForwardVector, const bool bInInvertPitchSign, const float InCapsuleHalfHeight);
 
 protected:
 	virtual void NativeInitializeAnimation() override;
@@ -63,4 +63,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
 	FVector DeathForwardVector = FVector::ForwardVector;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	uint8 bInvertPitchSign : 1 = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	float DeathCapsuleHalfHeight = 0.0f;
 };

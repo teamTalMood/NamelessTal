@@ -695,7 +695,8 @@ void ANTNPCCharacterBase::HandleDeath()
 	{
 		if (UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance))
 		{
-			NPCAnim->SetAnimDeaded(GroundNormal, GetActorForwardVector());
+			const bool bInvertPitchSign = FVector::DotProduct(GetActorForwardVector(), GroundNormal) < 0.0f;
+			NPCAnim->SetAnimDeaded(GroundNormal, GetActorForwardVector(), bInvertPitchSign, GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 0.2f);
 		}
 	}
 

@@ -17,10 +17,12 @@ void UNTNPCAnimInstance::SetAnimIsExhausted(const uint8 InIsExhausted)
 	bIsExhausted = InIsExhausted;
 }
 
-void UNTNPCAnimInstance::SetAnimDeaded(const FVector& InGroundNormal, const FVector& InForwardVector)
+void UNTNPCAnimInstance::SetAnimDeaded(const FVector& InGroundNormal, const FVector& InForwardVector, const bool bInInvertPitchSign, const float InCapsuleHalfHeight)
 {
 	DeathGroundNormal = InGroundNormal;
 	DeathForwardVector = InForwardVector;
+	bInvertPitchSign = bInInvertPitchSign;
+	DeathCapsuleHalfHeight = InCapsuleHalfHeight;
 
 	bIsDead = true;
 
