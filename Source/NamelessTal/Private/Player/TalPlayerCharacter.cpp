@@ -58,6 +58,9 @@
 // 모션워핑
 #include "MotionWarpingComponent.h"
 
+//Revive Setting
+#include "DdoKaebiFire/DdokaebiFire.h"
+
 
 
 ATalPlayerCharacter::ATalPlayerCharacter()
@@ -776,6 +779,8 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 {
 	Super::BeginPlay();
 	
+	InitialSpawnTransform = GetActorTransform();
+
 	FlaskCount = FlaskInitialCount;
 
 	//기본 탈 장착
@@ -1362,15 +1367,15 @@ void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
 			? HorizontalDelta < 0.0f
 			: HorizontalDelta > 0.0f;
 
-		if (!bCorrectDirection) continue;
+			if (!bCorrectDirection) continue;
 
-		const float HorizontalDistance = FMath::Abs(HorizontalDelta);
+			const float HorizontalDistance = FMath::Abs(HorizontalDelta);
 
-		if (HorizontalDistance < BestHorizontalDistance)
-		{
-			BestHorizontalDistance = HorizontalDistance;
-			BestTarget = Candidate;
-		}
+			if (HorizontalDistance < BestHorizontalDistance)
+			{
+				BestHorizontalDistance = HorizontalDistance;
+				BestTarget = Candidate;
+			}
 	}
 
 	if (!IsValid(BestTarget)) return;
@@ -1413,7 +1418,7 @@ void ATalPlayerCharacter::HandleDeath()
 	ClearLockOnTarget(); //락온 해제
 	SetActorEnableCollision(false); //갖고있는 콜리전 다 해제
 	//isableWeaponCollision(); //공격 판정 해제
-	
+
 
 	//이동중단
 	if (UCharacterMovementComponent* MovementComponent = GetCharacterMovement())
@@ -1437,6 +1442,39 @@ void ATalPlayerCharacter::HandleDeath()
 	}
 
 	MC_LOG(LogSY, Warning, TEXT("Player Dead!"));
+
+	GetWorldTimerManager().SetTimer(RespawnTimerHandle, this,
+		&ATalPlayerCharacter::RespawnAtBonfire, RespawnDelay, false);
+}
+
+void ATalPlayerCharacter::RespawnAtBonfire()
+{
+	bIsDead = false;
+
+	const FTransform TargetTransform = LastBonfire.IsValid()
+		? LastBonfire->GetActorTransform() : InitialSpawnTransform;
+
+	SetActorLocation(TargetTransform.GetLocation());
+
+	SetActorRotation(TargetTransform.GetRotation());
+
+	SetActorEnableCollision(true);
+
+	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+	{
+		Movement->SetMovementMode(MOVE_Walking);
+	}
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		EnableInput(PlayerController);
+	}
+	
+	if (LastBonfire.IsValid())
+	{
+		LastBonfire->TriggerRest(this);
+	} else {
+		StatComponent->RestoreFull();
+	}
 }
 
 void ATalPlayerCharacter::Landed(const FHitResult& Hit)

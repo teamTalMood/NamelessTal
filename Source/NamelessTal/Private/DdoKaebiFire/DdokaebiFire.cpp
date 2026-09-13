@@ -8,6 +8,8 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 
+#include "Player/TalPlayerCharacter.h"
+
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "EnhancedInputComponent.h"
@@ -60,6 +62,11 @@ void ADdokaebiFire::TriggerRest(AActor* User)
 	Stat->RestoreFull();
 	UE_LOG(LogTemp, Warning, TEXT("화톳불 사용! HP / 넋 회복 완료 : %s"), 
 		*GetNameSafe(User));
+
+	if (ATalPlayerCharacter* PlayerCharacter = Cast<ATalPlayerCharacter>(User))
+	{
+		PlayerCharacter->SetLastBonfire(this);
+	}
 
 	OnBonfireRested.Broadcast();
 }

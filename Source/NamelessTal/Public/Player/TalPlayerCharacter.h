@@ -23,7 +23,7 @@ class UStatComponent; //스탯 전방선언
 class UGuardComponent; // 가드/패링 클래스 전방선언
 class UNTLockOnTargetComponent; //락온 전방선언
 class UMotionWarpingComponent; //모션워핑 전방선언
-
+class ADdokaebiFire; // 화톳불 전방선언
 
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface, public INTPlayerApplyDamageInterface
@@ -471,6 +471,20 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsDead = false;
 
+	// 사망 후 리스폰까지 대기 시간 (나중에 연출넣을자리)
+	UPROPERTY(EditAnywhere, Category = "State")
+	float RespawnDelay = 0.1f;
+
+	FTimerHandle RespawnTimerHandle;
+
+	// 리스폰 시 시작 위치 ( 화톳불 아닐 시 맨 처음 화면)
+	FTransform InitialSpawnTransform;
+
+	// 마지막으로 사용한 화톳불 위치
+	TWeakObjectPtr<ADdokaebiFire> LastBonfire;
+
+	void RespawnAtBonfire();
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
 
@@ -483,6 +497,7 @@ protected:
 public :
 	bool IsRealFalling() const { return bIsRealFalling; }
 
+	void SetLastBonfire(ADdokaebiFire* Bonfire) { LastBonfire = Bonfire; }
 protected : 
 	// 낙하 높이 설정하기 
 	UPROPERTY(EditAnywhere, Category = "Movement")
