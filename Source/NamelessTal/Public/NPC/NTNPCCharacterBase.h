@@ -115,14 +115,20 @@ protected:	// BlueprintEditable
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
 	float AttackDistance = 150.f;
 
-protected:	// BlueprintReadOnly
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> JumpMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	float JumpMontageSpeedRate = 2.0f;
+
+protected:
 	FAICharacterAttackFinished OnAICharacterAttackFinished;
 
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
 
-	EAttackDistance CurrentAttack = EAttackDistance::AttackNone;
+	//EAttackDistance CurrentAttack = EAttackDistance::AttackNone;
 
 	uint8 bIsAttacking : 1 = false;
 
@@ -130,13 +136,9 @@ protected:	// BlueprintReadOnly
 
 	uint8 bISAttackMoving : 1 = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	TObjectPtr<class UAnimMontage> JumpMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
-	float JumpMontageSpeedRate = 2.0f;
-
 	FNPCCurrentAttackData CurrentAttackData;
+
+	float CurrentStunRate = 0.0f;
 
 
 // INTWeaponCollisionInterface override
@@ -169,7 +171,11 @@ protected:
 
 
 protected:
+	void StartStun();
+	void StartDamaged();
 	void OnDamageMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void ReleaseStun();
+	void EndExhausted();
 
 
 ////////////////////////////////////////
