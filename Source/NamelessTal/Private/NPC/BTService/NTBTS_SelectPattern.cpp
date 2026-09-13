@@ -18,6 +18,11 @@ void UNTBTS_SelectPattern::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 {
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);
 
+	if (OwnerComp.IsPaused())
+	{
+		return;
+	}
+
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	APawn* ControllingPawn = OwnerComp.GetAIOwner()->GetPawn();

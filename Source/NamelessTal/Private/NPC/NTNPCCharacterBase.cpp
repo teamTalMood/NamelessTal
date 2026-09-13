@@ -207,7 +207,7 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BTComponent->PauseLogic(TEXT("BeginAttack"));
 
@@ -500,7 +500,7 @@ void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsP
 
 void ANTNPCCharacterBase::BeginAttack()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	// 현재 공격 스텝 데이터 갖고오기
 	FName CurrentAttackStep = BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK);
@@ -595,9 +595,9 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	if (CurrentAttackData.NextStepID == FName(TEXT("")))
+	if (CurrentAttackData.NextStepID == BB_ATTACKSTEP_NONE)
 	{
 		// 연계공격이 없으면
 		EndAttack();
@@ -605,11 +605,12 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 	}
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, CurrentAttackData.NextStepID);
+	BeginAttack();
 }
 
 void ANTNPCCharacterBase::EndAttack()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 
