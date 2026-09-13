@@ -207,7 +207,7 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BTComponent->PauseLogic(TEXT("BeginAttack"));
 
@@ -289,9 +289,14 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 
 float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
+	FNPCApplyDamageData ApplyDamageData = { InDamage, 100, 5.0f, bIsParry };
+
+	return ApplyDamage(DamageCauser, ApplyDamageData);
+}
+
+float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData)
+{
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
-
-
 
 	////////////////////////////////
 	// 데미지 적용 전 처리
@@ -301,119 +306,62 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamag
 		return 0.0f;
 	}
 
-	if (bIsAttacking)
-	{
-		// 공격 로직 초기화
-		//bIsAttacking = false;
-		//CurrentAttack = EAttackDistance::AttackNone;
-		//OnAICharacterAttackFinished.ExecuteIfBound();
-		EndAttack();
-	}
-
-	// 현재 실행중인 몽타주강 있다면 EndDelegate 해제하고 멈추기
-	BTComponent->PauseLogic(TEXT("Damaged"));
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance == nullptr)
-	{
-		return 0.0f;
-	}
-
-	static FOnMontageEnded EmptyDelegate;
-	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
-	if (CurrentMontage)
-	{
-		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
-	}
-	AnimInstance->Montage_Stop(0.1f);
-
-
 
 	////////////////////////////////
-	// 데미지 스텟 처리
-
-	if (bIsParry)
+	// 패링일 때 처리
+	if (InDamageData.bIsParry)
 	{
 		// 패링일때는 HP뎀 없고 넋뎀은 현재 공격중인 넋뎀의 50퍼
-		//StatComponent->DrainSoul(InDrain);
-	}
-	else
-	{
-		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
-		StatComponent->DrainSoul(InDrain);
-		StatComponent->ApplyDamage(InDamage);
-		if (bIsDead) return -InDamage; //만약 피해받고 죽었으면 피격 처리 중단
-	}
+		StatComponent->DrainSoul(CurrentAttackData.DamageSoul * 0.7f);
 
+		if (bIsAttacking)
+		{
+			// 공격 로직 초기화
+			StartStun();
+		}
+
+		StartDamaged();
+	}
 
 
 	////////////////////////////////
-	// 데미지 사후 처리
-
-	bool bIsSoulExhausted = StatComponent->IsSoulExhausted();
-
-	// 그로기 처리
-	if(bIsSoulExhausted && !bIsExhausting)
+	// 피격일 때 처리
+	if (!InDamageData.bIsParry)
 	{
-		//MC_LOG(LogMC, Log, TEXT("Exhausted"));
+		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
+		StatComponent->DrainSoul(InDamageData.SoulDamage);
+		StatComponent->ApplyDamage(InDamageData.HPDamage);
 
-		bIsExhausting = true;
+		// 만약 피해받고 죽었으면 피격 처리 중단
+		if (bIsDead) return -InDamageData.HPDamage;
 
-		UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance);
-		if (NPCAnim == nullptr)
+		// 공격중단 판단 : 스턴 이거나 그로기 진입
+		if (bIsAttacking)
 		{
-			return 0.0f;
-		}
-
-		NPCAnim->SetAnimIsExhausted(true);
-
-		FTimerHandle Handle;
-		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]
+			CurrentStunRate += InDamageData.StaggerDamage;
+			if (CurrentStunRate >= CurrentAttackData.HitStun || StatComponent->IsSoulExhausted())
 			{
-				//MC_LOG(LogMC, Log, TEXT("Soul Restored Begin"));
-
-				UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
-				Anim->SetAnimIsExhausted(false);
-				BTComponent->ResumeLogic(TEXT("Exhausted End"));
-				StatComponent->RestoreSoul();
-				bIsExhausting = false;
-
-				//MC_LOG(LogMC, Log, TEXT("Soul Restored End"));
+				StartStun();
+				StartDamaged();
 			}
-		), ExhaustedDuration, false);
-	}
-
-	// Damaged처리
-	if (!bIsSoulExhausted)
-	{
-		//MC_LOG(LogMC, Log, TEXT("Damaged"));
-
-		if (DamageMontage == nullptr)
-		{
-			return 0.0f;
 		}
 
-		// 피격 애니메이션 실행
-
-		AnimInstance->Montage_Play(DamageMontage, DamageSpeedRate);
-
-		FOnMontageEnded EndDelegate;
-		EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnDamageMontageEnd);
-		AnimInstance->Montage_SetEndDelegate(EndDelegate, DamageMontage);
+		// 그냥 피격체크 - 그로기가 아닐때만 데미지 애니메이션 적용
+		if (!bIsExhausting)
+		{
+			StartStun();
+			StartDamaged();
+		}
 	}
 
 	//MC_LOG(LogMC, Log, TEXT("End"));
 
-	return InDamage;
-}
-
-float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData)
-{
-	return ApplyDamage(DamageCauser, InDamageData.HPDamage, InDamageData.SoulDamage, InDamageData.bIsParry);
+	return InDamageData.HPDamage;
 }
 
 uint8 ANTNPCCharacterBase::GetAttackDirection()
 {
-	return AttackDirections[CurrentAttack];
+	return 2;
 }
 
 TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBase::GetAttackPatternDatas()
@@ -549,6 +497,7 @@ void ANTNPCCharacterBase::BeginAttack()
 	}
 
 	bIsAttacking = true;
+	CurrentStunRate = 0.0f;
 
 	AnimInstance->Montage_Play(AttackMontage, AttackSpeedRate);
 
@@ -601,7 +550,7 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CurrentAttackData.NextStepID == BB_ATTACKSTEP_NONE)
 	{
@@ -616,20 +565,108 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::EndAttack()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 
 	bIsAttacking = false;
-	CurrentAttack = EAttackDistance::AttackNone;
+	//CurrentAttack = EAttackDistance::AttackNone;
 	BTComponent->ResumeLogic(TEXT("Attack End"));
 	OnAICharacterAttackFinished.ExecuteIfBound();
 	return;
 }
 
+void ANTNPCCharacterBase::StartStun()
+{
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
+	bIsAttacking = false;
+	OnAICharacterAttackFinished.ExecuteIfBound();
+	BTComponent->PauseLogic(TEXT("Start Stun"));
+
+	// 현재 실행중인 몽타주강 있다면 EndDelegate 해제하고 멈추기
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr)
+	{
+		return;
+	}
+
+	static FOnMontageEnded EmptyDelegate;
+	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+	if (CurrentMontage)
+	{
+		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
+	}
+	AnimInstance->Montage_Stop(0.1f);
+}
+
+void ANTNPCCharacterBase::ReleaseStun()
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	BTComponent->ResumeLogic(TEXT("Stun End"));
+}
+
+void ANTNPCCharacterBase::EndExhausted()
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
+	Anim->SetAnimIsExhausted(false);
+	StatComponent->RestoreSoul();
+	bIsExhausting = false;
+
+	FTimerHandle Handle;
+	GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::ReleaseStun, 1.0f, false);
+}
+
+void ANTNPCCharacterBase::StartDamaged()
+{
+	if (DamageMontage == nullptr)
+	{
+		return;
+	}
+
+	// 피격 애니메이션 실행
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(DamageMontage, DamageSpeedRate);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnDamageMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, DamageMontage);
+}
+
 void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	BTComponent->ResumeLogic(TEXT("Damage End"));
+	////////////////////////////////
+	// 데미지 사후 처리
+
+	bool bIsSoulExhausted = StatComponent->IsSoulExhausted();
+
+	// 그로기 체크
+	if (bIsSoulExhausted && !bIsExhausting)
+	{
+		//MC_LOG(LogMC, Log, TEXT("Exhausted"));
+
+		bIsExhausting = true;
+
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance);
+		if (NPCAnim == nullptr)
+		{
+			return;
+		}
+
+		NPCAnim->SetAnimIsExhausted(true);
+
+		FTimerHandle Handle;
+		GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::EndExhausted, ExhaustedDuration, false);
+	}
+	else
+	{
+		ReleaseStun();
+	}
 }
 
 void ANTNPCCharacterBase::HandleDeath()
@@ -648,7 +685,7 @@ void ANTNPCCharacterBase::HandleDeath()
 
 	//공격 상태 종료
 	bIsAttacking = false;
-	CurrentAttack = EAttackDistance::AttackNone;//상태변환
+	//CurrentAttack = EAttackDistance::AttackNone;//상태변환
 	SetActorEnableCollision(false);//갖고있는 콜리전 다 해제
 	//DisableWeaponCollision();//콜리전해제
 	OnAICharacterAttackFinished.Unbind();//바인드해제
