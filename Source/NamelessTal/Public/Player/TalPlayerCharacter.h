@@ -25,6 +25,27 @@ class UNTLockOnTargetComponent; //락온 전방선언
 class UMotionWarpingComponent; //모션워핑 전방선언
 class ADdokaebiFire; // 화톳불 전방선언
 
+//플레이어 공격 규칙 타입
+UENUM(BlueprintType)
+enum class EPlayerAttackPhase : uint8
+{
+	None,
+	Startup,
+	Active,
+	Recovery,
+	Grace //유예구간
+};
+UENUM(BlueprintType)
+enum class EBufferedCombatAction : uint8
+{
+	None,
+	Attack,
+	Dodge,
+	Guard,
+	Move
+};
+
+
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface, public INTPlayerApplyDamageInterface
 {
@@ -312,6 +333,16 @@ protected:
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
+	
+	void StartAttackStep(int32 Step);//공격의 시작
+	void StartNextCombo();//현재 공격의 다음 콤보를 시작
+
+	void StartComboGrace();
+	void EndComboGrace();
+
+	void ClearAttackBuffer();//입력 초기화
+
+	static constexpr int32 MaxBasicAttackCombo = 4;//최대 콤보 횟수
 
 	////////////////////////////////////////////////////////////////////////////////weapon 신버전
 	/*
@@ -347,6 +378,18 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	int32 ComboIndex = 0;
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
+	EPlayerAttackPhase AttackPhase = EPlayerAttackPhase::None;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
+	EBufferedCombatAction BufferedAction = EBufferedCombatAction::None;
+
+	FVector2D BufferedMoveInput = FVector2D::ZeroVector;
+
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	float ComboGraceDuration = 0.15f;
+
+	FTimerHandle ComboGraceTimer;
 
 	////////////////////////////////////////////////////////////////////////////
 ///////		스탯
@@ -434,6 +477,9 @@ public:
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
 	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", ClampMax = "1.0", UTMin = "0.0", UIMax = "1.0"))
+	float LockOnTargetScreenYRatio = 0.25f; //카메라 높이 비율(위에서 3/4지점)
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "LockOn")
 	bool bIsLockOnActive = false;//락온 활성화 여부
