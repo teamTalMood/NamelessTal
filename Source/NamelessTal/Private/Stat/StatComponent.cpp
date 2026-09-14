@@ -183,7 +183,7 @@ float UStatComponent::GetSoulRegenRateForCurrentHP() const
 
 float UStatComponent::GetSoulRegenRate() const
 {
-	return 0.0f;
+	return GetSoulRegenRateForCurrentHP();
 }
 
 void UStatComponent::EndGroggy()
