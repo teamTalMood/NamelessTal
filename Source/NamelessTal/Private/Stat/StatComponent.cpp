@@ -61,6 +61,9 @@ void UStatComponent::RestoreFull()
 	bIsSoulExhausted = false; // 고갈 패널티 제거 
 	bDeathBroadcasted = false; // 사망 플래그 초기화
 
+	bIsGroggy = false; // 그로기 해제
+	SetSoulRegenBlocked(false); // 넋 회복 차단 해제
+
 	OnHPChanged.Broadcast(CurrentHP, MaxHP);
 	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
