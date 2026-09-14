@@ -33,6 +33,13 @@ public:
 	ETalStyle	  GetTalStyle	  () const;
 	UAnimMontage* GetAttackMontage() const;
 
+public:
+	UFUNCTION(BlueprintPure, Category = "Tal|SpecialArt")
+	FName GetSpecialArtID() const
+	{
+		return SpecialArtID;
+	}
+
 protected:
 	//탈 루트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal")
@@ -49,4 +56,7 @@ protected:
 	//기본 공격 애니메이션
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|Animation")
 	TObjectPtr<UAnimMontage> AttackMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|SpecialArt")
+	FName SpecialArtID = NAME_None;
 };

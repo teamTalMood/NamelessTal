@@ -1145,18 +1145,26 @@ void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
 	}
 
 	ATalBase* MyTal = GetCurrentTal();
-	if (MyTal == nullptr) { return; }
+	if (MyTal == nullptr) return;
 
-	const TArray<FName> Candidates = UNTGameDataSingleton::Get().FindPlayerSpecialArtIDsByWeapon(MyTal->GetTalStyle());
-	const FName SpecialArtID = Candidates.Num() > 0 ? Candidates[0] : TEXT("SA_M001_Slash");
+
+	//const TArray<FName> Candidates = UNTGameDataSingleton::Get().FindPlayerSpecialArtIDsByWeapon(MyTal->GetTalStyle());
+	//const FName SpecialArtID = Candidates.Num() > 0 ? Candidates[0] : TEXT("SA_M001_Slash");
+
+	//const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
+
+	//if (ArtData == nullptr)
+	//{
+	//	MC_LOG(LogDG, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
+	//	return;
+	//}
+
+	const FName SpecialArtID = MyTal->GetSpecialArtID();
+	if (SpecialArtID.IsNone()) { MC_LOG(LogSY, Warning, TEXT("%s에 SpecialArtID 없음"), *GetNameSafe(MyTal));  return; }
 
 	const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
+	if (ArtData == nullptr) { MC_LOG(LogSY, Warning, TEXT("SpecialArt 자체가 없음 : %s"), *SpecialArtID.ToString()); return; }
 
-	if (ArtData == nullptr)
-	{
-		MC_LOG(LogDG, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
-		return;
-	}
 
 	if (SpecialArtUseCount >= ArtData->UseLimit)
 	{
@@ -1214,6 +1222,7 @@ void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
 	if (FoundMontage == nullptr || *FoundMontage == nullptr)
 	{
 		MC_LOG(LogMC, Warning, TEXT("No SpecialArtMontage! : %s"), *CurrentSpecialArtData.MontageName.ToString());
+		bIsUsingSpecialArt = false;
 		return;
 	}
 
