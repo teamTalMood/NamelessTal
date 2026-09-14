@@ -111,6 +111,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "FootIK")
 	float MaxFootLift = 45.0f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "FootIK")
+	float MaxFootOffsetSpeed = 120.0f;
+
 	void UpdateFootIK(float DeltaSeconds);
 	bool TraceFoot(const FName BoneName, float& OutOffset, FRotator& OutRotation) const;
 

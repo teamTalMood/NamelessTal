@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Interface/NTWeaponCollisionInterface.h"
 #include "Player/Interface/NTPlayerApplyDamageInterface.h"
+#include "DdoKaebiFire/DdokaebiFire.h"
 #include "TalPlayerCharacter.generated.h"
 
 
