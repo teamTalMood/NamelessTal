@@ -9,6 +9,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "NPC/Components/NTLockOnTargetComponent.h"
+#include "NPC/Components/NTTalChiTargetComponent.h"
 
 //Engine
 #include "Kismet/GameplayStatics.h"
@@ -64,6 +66,12 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	// Stat
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 	StatComponent->SetSoulRegenBlocked(true);
+
+	// Lock On
+	LockOnTargetComponent = CreateDefaultSubobject<UNTLockOnTargetComponent>(TEXT("LockOnTargetCom"));
+
+	// TalChi Target
+	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
 
 	// Attack Direction Set
 	AttackDirections.Add(EAttackDistance::AttackNone, 0);
@@ -318,6 +326,34 @@ TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBase::GetAttackPatternDatas(
 	return AttackPatternDatas;
 }
 
+const uint8 ANTNPCCharacterBase::GetIsExhausting()
+{
+	return bIsExhausting;
+}
+
+void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
+{
+	WeaponMesh->SetVisibility(false);
+	
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr)
+	{
+		return;
+	}
+
+	static FOnMontageEnded EmptyDelegate;
+	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+	if (CurrentMontage)
+	{
+		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
+	}
+	AnimInstance->Montage_Stop(0.1f);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
+}
+
 void ANTNPCCharacterBase::EnableWeaponCollision()
 {
 	if (WeaponCollision == nullptr)
@@ -566,6 +602,11 @@ void ANTNPCCharacterBase::EndExhausted()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
+	if (bIsDead)
+	{
+		return;
+	}
+
 	UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
 	Anim->SetAnimIsExhausted(false);
 	StatComponent->RestoreSoul();
@@ -620,6 +661,16 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 	else
 	{
 		ReleaseStun();
+	}
+}
+
+void ANTNPCCharacterBase::OnTalChiMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	StatComponent->ApplyDamage(StatComponent->MaxHP * 0.5f);
+
+	if (!bIsDead)
+	{
+		EndExhausted();
 	}
 }
 
