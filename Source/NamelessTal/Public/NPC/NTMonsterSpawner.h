@@ -7,23 +7,6 @@
 #include "NTMonsterSpawner.generated.h"
 
 class ANTNPCCharacterBase;
-class ADdokaebiFire;
-
-USTRUCT()
-struct FMonsterSpawnEntry
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<ANTNPCCharacterBase> MonsterClass;
-
-	UPROPERTY(EditAnywhere, meta = (MakeEditWidget = true))
-	FTransform SpawnTransform;
-
-	TWeakObjectPtr<ANTNPCCharacterBase> SpawnedMonster;
-
-};
-
 
 UCLASS()
 class NAMELESSTAL_API ANTMonsterSpawner : public AActor
@@ -39,12 +22,16 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(EditAnywhere)
-	TArray<FMonsterSpawnEntry> SpawnEntries;
+	TSubclassOf<class ANTNPCCharacterBase> MonsterClass;
 
-	void SpawnAll();
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+	FVector SpawnOffset;
+
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+	int32 StagePoint;
 
 	UFUNCTION()
-	void RespawnMissing();
+	void SpawnNPC(int32 InSavePoint);
 
 public:	
 	// Called every frame

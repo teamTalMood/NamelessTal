@@ -113,7 +113,7 @@ void ANTNPCCharacterBase::BeginPlay()
 	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
 	if (FindedPatternDatas.IsEmpty())
 	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternData!"));
+		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
 
 		AttackPatternDatas = {
 			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
@@ -453,7 +453,7 @@ void ANTNPCCharacterBase::BeginAttack()
 
 	if (PatternStepData == nullptr)
 	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternStepData!"));
+		MC_LOG(LogMC, Error, TEXT("No PatternStepData! %s"), *CurrentAttackStep.ToString());
 
 		CurrentAttackData.NextStepID = FName(TEXT(""));
 		CurrentAttackData.DamageHP = 10.0f;
@@ -479,14 +479,14 @@ void ANTNPCCharacterBase::BeginAttack()
 	// Animation Setting
 	const float AttackSpeedRate = 1.0f;
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	UAnimMontage* AttackMontage = AttackMontages[CurrentAttackData.AnimationClip];
 
-	if (AttackMontage == nullptr)
+	TObjectPtr<UAnimMontage>* FoundMontage = AttackMontages.Find(CurrentAttackData.AnimationClip);
+	if (!FoundMontage || !*FoundMontage)
 	{
-		MC_LOG(LogMC, Error, TEXT("No AttackMontage!"));
+		MC_LOG(LogMC, Error, TEXT("No AttackMontage!!"));
 		return;
 	}
-
+	UAnimMontage* AttackMontage = *FoundMontage;
 	bIsAttacking = true;
 	CurrentStunRate = 0.0f;
 
