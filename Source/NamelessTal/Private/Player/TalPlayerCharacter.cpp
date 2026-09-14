@@ -61,7 +61,7 @@
 //Revive Setting
 #include "DdoKaebiFire/DdokaebiFire.h"
 
-
+#include "Game/NTGameDataSingleton.h"
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -218,7 +218,7 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() ||
-		bIsLandingRecovering || bIsUsingFlask)
+		bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt)
 	{
 		return;
 	}
@@ -394,6 +394,9 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 		EnhancedInputComponent->BindAction(FlaskAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::UseFlaskItem);
+
+		EnhancedInputComponent->BindAction(SpecialArtAction, ETriggerEvent::Started, this,
+			&ATalPlayerCharacter::UseSpecialAttack);
 	}
 }
 
@@ -410,6 +413,10 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	if (bIsUsingFlask)
 	{
 		CancelFlaskUse();
+	}
+	if (bIsUsingSpecialArt)
+	{
+		CancelSpecialArt();
 	}
 
 	StatComponent->NotifyHitDuringGroggy();
@@ -497,6 +504,11 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	if (bIsUsingFlask)
 	{
 		CancelFlaskUse();
+	}
+
+	if (bIsUsingSpecialArt)
+	{
+		CancelSpecialArt();
 	}
 
 	//그로기 중 아니면 아무일도 안한다!
@@ -644,7 +656,7 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
-		|| bIsLandingRecovering || bIsUsingFlask) return;
+		|| bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt) return;
 
 	bIsSprinting = true;
 
@@ -663,6 +675,7 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 		|| bIsLandingRecovering
 		|| bIsUsingFlask
 		|| bIsDodging
+		|| bIsUsingSpecialArt
 		|| !IsValid(AttackMontage)
 		) return;
 
@@ -1105,6 +1118,119 @@ void ATalPlayerCharacter::EndComboGrace()
 }
 
 
+void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
+{
+	if (GuardComponent->IsStaggered() || 
+		StatComponent->IsGroggy() || 
+		bIsLandingRecovering|| 
+		bIsUsingFlask || 
+		bIsDodging ||
+		bIsUsingSpecialArt)
+	{
+		return;
+	}
+
+	ATalBase* MyTal = GetCurrentTal();
+	if (MyTal == nullptr) { return; }
+
+	const TArray<FName> Candidates = UNTGameDataSingleton::Get().FindPlayerSpecialArtIDsByWeapon(MyTal->GetTalStyle());
+	const FName SpecialArtID = Candidates.Num() > 0 ? Candidates[0] : TEXT("SA_M001_Slash");
+
+	const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
+
+	if (ArtData == nullptr)
+	{
+		MC_LOG(LogMC, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
+		return;
+	}
+	if (!StatComponent->HasEnoughSoul(static_cast<float>(ArtData->SoulCost)))
+	{
+		return;
+	}
+	StatComponent->DrainSoul(static_cast<float>(ArtData->SoulCost));
+
+	bIsUsingSpecialArt = true;
+
+	CurrentSpecialArtID = SpecialArtID;
+	StartSpecialArtStep(ArtData->FirstStepID);
+
+}
+
+void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
+{
+	const FNTPlayerSpecialArtStepData* StepData = 
+		UNTGameDataSingleton::Get().GetPlayerSpecialArtStep(StepID);
+
+
+	if (StepData == nullptr)
+	{
+		MC_LOG(LogMC, Warning, TEXT("No SpecialArtStepData!"));
+
+		CurrentSpecialArtData.NextStepID = FName(TEXT(""));
+		CurrentSpecialArtData.HPDamage = 10;
+		CurrentSpecialArtData.SoulDamage = 10;
+		CurrentSpecialArtData.StaggerDamage = 10;
+		CurrentSpecialArtData.CastTime = 0.4f;
+		CurrentSpecialArtData.RecoveryTime = 0.5f;
+		CurrentSpecialArtData.MoveDistance = 0.0f;
+		CurrentSpecialArtData.MontageName = FName(TEXT("AM_PlayerSpecialArt1"));
+	}
+	else
+	{
+		CurrentSpecialArtData.NextStepID = StepData->NextStepID;
+		CurrentSpecialArtData.HPDamage = StepData->HPDamage;
+		CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
+		CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
+		CurrentSpecialArtData.CastTime = StepData->CastTime;
+		CurrentSpecialArtData.RecoveryTime = StepData->RecoveryTime;
+		CurrentSpecialArtData.MoveDistance = StepData->MoveDistance;
+		CurrentSpecialArtData.MontageName = StepData->MontageName;
+	}
+
+	TObjectPtr<UAnimMontage>* FoundMontage = SpecialArtMontages.Find(CurrentSpecialArtData.MontageName);
+	if (FoundMontage == nullptr || *FoundMontage == nullptr)
+	{
+		MC_LOG(LogMC, Warning, TEXT("No SpecialArtMontage! : %s"), *CurrentSpecialArtData.MontageName.ToString());
+		return;
+	}
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr) { return; }
+
+	UAnimMontage* MontageToPlay = *FoundMontage;
+	AnimInstance->Montage_Play(MontageToPlay, 1.0f);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnSpecialArtMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, MontageToPlay);
+}
+
+void ATalPlayerCharacter::OnSpecialArtMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	if (CurrentSpecialArtData.NextStepID.IsNone() || CurrentSpecialArtData.NextStepID == FName(TEXT("")))
+	{
+		bIsUsingSpecialArt = false;
+		// 다음 스텝이 없으면 특수기 종료
+		return;
+	}
+	StartSpecialArtStep(CurrentSpecialArtData.NextStepID);
+}
+
+void ATalPlayerCharacter::CancelSpecialArt()
+{
+	if (!bIsUsingSpecialArt) return;
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (TObjectPtr<UAnimMontage>* FoundMontage =
+			SpecialArtMontages.Find(CurrentSpecialArtData.MontageName))
+		{
+			AnimInstance->Montage_Stop(0.2f, *FoundMontage);
+		}
+	}
+	bIsUsingSpecialArt = false;
+}
+
 void ATalPlayerCharacter::RecoverSoul(float Amount)
 {
 	StatComponent->RecoverSoul(Amount);
@@ -1116,7 +1242,7 @@ void ATalPlayerCharacter::RecoverSoul(float Amount)
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
 	//고갈중 가드 불가
-	if (StatComponent->IsSoulExhausted() || bIsUsingFlask)
+	if (StatComponent->IsSoulExhausted() || bIsUsingFlask || bIsUsingSpecialArt)
 	{
 		return;
 	}
@@ -1672,7 +1798,7 @@ void ATalPlayerCharacter::EndLandingRecovery()
 void ATalPlayerCharacter::UseFlaskItem(const FInputActionValue& Value)
 {
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || StatComponent->IsSoulExhausted() ||
-		bIsLandingRecovering || bIsDodging || bIsUsingFlask || FlaskCount <= 0
+		bIsLandingRecovering || bIsDodging || bIsUsingFlask || bIsUsingSpecialArt || FlaskCount <= 0
 		|| FlaskMontage == nullptr)
 	{
 		return;

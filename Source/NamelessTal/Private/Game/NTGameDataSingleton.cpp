@@ -10,6 +10,21 @@ UNTGameDataSingleton::UNTGameDataSingleton()
 
 }
 
+TArray<FName> UNTGameDataSingleton::FindPlayerSpecialArtIDsByWeapon(ETalStyle InWeaponStyle) const
+{
+	TArray<FName> Result;
+
+	for (const auto& RowPair : PlayerSpecialArtTable)
+	{
+		if (RowPair.Value.WeaponID == InWeaponStyle)
+		{
+			Result.Add(RowPair.Key);
+		}
+	}
+
+	return Result;
+}
+
 void UNTGameDataSingleton::LoadGameDataTables()
 {
 	if (bTablesLoaded)

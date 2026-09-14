@@ -46,6 +46,19 @@ enum class EBufferedCombatAction : uint8
 	Move
 };
 
+// 
+struct FPlayerCurrentSpecialArtData
+{
+	FName NextStepID;
+	int32 HPDamage;
+	int32 SoulDamage;
+	int32 StaggerDamage;
+	float CastTime;
+	float RecoveryTime;
+	float MoveDistance;
+	FName MontageName;
+};
+
 
 UCLASS()
 class NAMELESSTAL_API ATalPlayerCharacter : public ACharacter, public INTWeaponCollisionInterface, public INTPlayerApplyDamageInterface
@@ -391,6 +404,38 @@ protected:
 	float ComboGraceDuration = 0.15f;
 
 	FTimerHandle ComboGraceTimer;
+
+
+	///////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////
+	////////////////////		특수기
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack")
+	TObjectPtr<UInputAction> SpecialArtAction;
+
+	// 특수기 이름표 -> 에셋 매핑
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialAttack")
+	TMap<FName, TObjectPtr<UAnimMontage>> SpecialArtMontages;
+
+	// 지금 실행중인 특수기 ID
+	FName CurrentSpecialArtID;
+
+	// 지금 특수기 사용중인가?
+	bool bIsUsingSpecialArt = false;
+
+	// 지금 실행 중인 스텝의 데이터
+	FPlayerCurrentSpecialArtData CurrentSpecialArtData;
+
+	void UseSpecialAttack(const FInputActionValue& Value);
+
+	void StartSpecialArtStep(FName StepID);
+
+	// 몽타주 종료 콜백 함수
+	void OnSpecialArtMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void CancelSpecialArt();
+
+
 
 	////////////////////////////////////////////////////////////////////////////
 ///////		스탯
