@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 
 #include "Player/TalPlayerController.h"
@@ -8,6 +8,8 @@
 #include "Player/UI/NTPlayerHUDWidget.h"
 #include "Player/TalPlayerCharacter.h"
 #include "Stat/StatComponent.h"
+#include "Player/UI/NTMessageWidget.h"
+#include "MCLOG.h"
 
 
 void ATalPlayerController::BeginPlay()
@@ -15,6 +17,26 @@ void ATalPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	if (!IsLocalController()) return;
+
+	// 메시지 위젯은 숨긴채로 미리 만들어두기!
+	if (NoticeWidgetClass)
+	{
+		NoticeWidget = CreateWidget<UNTMessageWidget>(this, NoticeWidgetClass);
+		if (IsValid(NoticeWidget))
+		{
+			NoticeWidget->AddToViewport();
+		}
+	}
+
+	if (TutorialWidgetClass) {
+		TutorialWidget = CreateWidget<UNTMessageWidget>(this,
+			TutorialWidgetClass);
+		if (IsValid(TutorialWidget))
+		{
+			TutorialWidget->AddToViewport();
+		}
+	}
+
 	if (!PlayerHUDClass) return;
 
 	ATalPlayerCharacter* TalCharacter = Cast<ATalPlayerCharacter>(GetPawn());
@@ -48,5 +70,19 @@ void ATalPlayerController::SetupInputComponent()
 		}
 	}
 	
+}
+
+void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
+{
+	UNTMessageWidget* Target = (Style == ENTMessageStyle::Tutorial ? TutorialWidget : NoticeWidget);
+
+	if (!IsValid(Target))
+	{
+		MC_LOG( LogDG, Warning, TEXT("MessageWidget이 없습니다. BP_TalPlayercontroller에서 위젯 클래스 지정하세요"));
+		return;
+		
+	}
+	Target->Show(Title, Body, Duration);
+
 }
 
