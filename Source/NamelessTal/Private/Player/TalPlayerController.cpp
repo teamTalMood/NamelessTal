@@ -74,20 +74,16 @@ void ATalPlayerController::SetupInputComponent()
 			Subsystem->AddMappingContext(CurrentContext, 0);
 		}
 	}
-	
+
 }
 
 void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
 {
-	UNTMessageWidget* Target = (Style == ENTMessageStyle::Tutorial ? TutorialWidget : NoticeWidget);
-
-	if (!IsValid(Target))
+	if (PlayerHUD == nullptr)
 	{
-		MC_LOG( LogDG, Warning, TEXT("MessageWidget이 없습니다. BP_TalPlayercontroller에서 위젯 클래스 지정하세요"));
 		return;
-		
 	}
-	Target->Show(Title, Body, Duration);
 
+	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
 }
 

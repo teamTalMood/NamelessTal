@@ -17,8 +17,7 @@ ANTMessageTrigger::ANTMessageTrigger()
 	TriggerBox->SetBoxExtent(FVector(100.0f, 100.0f, 100.0f));
 	TriggerBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	TriggerBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
-	TriggerBox->OnComponentBeginOverlap.AddDynamic(
-		this,&ANTMessageTrigger::OnTriggerBeginOverlap);
+	TriggerBox->OnComponentBeginOverlap.AddDynamic(this, &ANTMessageTrigger::OnTriggerBeginOverlap);
 }
 
 void ANTMessageTrigger::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -28,8 +27,8 @@ void ANTMessageTrigger::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedCom
 	{
 		return;
 	}
-	ATalPlayerController* PlayerController = 
-		Cast<ATalPlayerController>(Player->GetController());
+
+	ATalPlayerController* PlayerController = Cast<ATalPlayerController>(Player->GetController());
 	if (PlayerController == nullptr)
 	{
 		return;
