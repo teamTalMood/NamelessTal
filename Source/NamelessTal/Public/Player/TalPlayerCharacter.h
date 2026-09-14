@@ -424,6 +424,21 @@ protected:
 	// 지금 특수기 사용중인가?
 	bool bIsUsingSpecialArt = false;
 
+	// 지금 장착한 탈로 특수기 몇번 썼는지
+	int32 SpecialArtUseCount = 0;
+
+	// 특수기 후딜 타이머
+	FTimerHandle SpecialArtRecoveryTimer;
+
+	// 특수기 돌진 중인지
+	bool bIsSpecialArtMoving = false;
+
+	// 특수기 돌진 속도 (초당 이동량)
+	FVector SpecialArtMoveVelocity = FVector::ZeroVector;
+
+	//특수기 돌진 종료 타이머
+	FTimerHandle SpecialArtMoveTimer;
+
 	// 지금 실행 중인 스텝의 데이터
 	FPlayerCurrentSpecialArtData CurrentSpecialArtData;
 
@@ -434,7 +449,11 @@ protected:
 	// 몽타주 종료 콜백 함수
 	void OnSpecialArtMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void CancelSpecialArt();
+	
+	void EndSpecialArtRecovery();
 
+	// 돌진기 관련 함수
+	void EndSpecialArtMove();
 
 
 	////////////////////////////////////////////////////////////////////////////
