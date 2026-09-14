@@ -2,9 +2,10 @@
 
 
 #include "NPC/NTMonsterSpawner.h"
+#include "MCLOG.h"
 #include "NPC/NTNPCCharacterBase.h"
-#include "DdoKaebiFire/DdokaebiFire.h"
 #include "Kismet/GameplayStatics.h"
+#include "NamelessTalGameMode.h"
 
 
 // Sets default values
@@ -20,42 +21,27 @@ void ANTMonsterSpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TArray<AActor*> Fires;
-
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ADdokaebiFire::StaticClass(), Fires);
-
-	for (AActor* Fire : Fires)
+	//게임모드에 플레이어 리스폰 델리게이트 연결
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{
-		if (ADdokaebiFire* Bonfire = Cast<ADdokaebiFire>(Fire))
-		{
-			Bonfire->OnBonfireRested.AddDynamic(this, &ANTMonsterSpawner::RespawnMissing);
-		}
+		GameMode->OnMonsterRespawn.AddDynamic(this, &ANTMonsterSpawner::SpawnNPC);
 	}
 
-	SpawnAll();
-	
+	SpawnNPC(StagePoint);
 }
 
-void ANTMonsterSpawner::SpawnAll()
+void ANTMonsterSpawner::SpawnNPC(int32 InSavePoint)
 {
-	for (FMonsterSpawnEntry& Entry : SpawnEntries)
-	{
-		Entry.SpawnedMonster = GetWorld()->SpawnActor<ANTNPCCharacterBase>(Entry.MonsterClass,
-			Entry.SpawnTransform);
-	}
-}
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-void ANTMonsterSpawner::RespawnMissing()
-{
-	for (FMonsterSpawnEntry& Entry : SpawnEntries)
+	if (MonsterClass == nullptr)
 	{
-		if (Entry.SpawnedMonster.IsValid())
-		{
-			Entry.SpawnedMonster->Destroy();
-		}
-		Entry.SpawnedMonster = GetWorld()->SpawnActor<ANTNPCCharacterBase>(Entry.MonsterClass,
-			Entry.SpawnTransform);
+		MC_LOG(LogMC, Error, TEXT("No MonsterClass!"));
+		return;
 	}
+
+	FVector SpawnLocation = GetActorLocation() + SpawnOffset;
+	GetWorld()->SpawnActor<ANTNPCCharacterBase>(MonsterClass, SpawnLocation, GetActorRotation());
 }
 
 // Called every frame
