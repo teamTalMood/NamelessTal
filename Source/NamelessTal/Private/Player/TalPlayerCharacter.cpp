@@ -198,6 +198,11 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
+
+	if (bIsSpecialArtMoving)
+	{
+		AddActorWorldOffset(SpecialArtMoveVelocity * DeltaTime, true);
+	}
 }
 
 UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
@@ -808,10 +813,18 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	StatComponent->NotifyCombatAction();
 
 
+	float DamageToApply = AttackDamage;
+	float DrainToApply = 10.0f;
+
+		if (bIsUsingSpecialArt)
+		{
+			DamageToApply = static_cast<float>(CurrentSpecialArtData.HPDamage);
+			DrainToApply = static_cast<float>(CurrentSpecialArtData.SoulDamage);
+		}
 
 	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 	//드레인 수치는 임의값, 나중에 수정할것
-	float bNPCDead = NPCCharacter->ApplyDamage(this, AttackDamage, 10.0f, false);
+	float bNPCDead = NPCCharacter->ApplyDamage(this, DamageToApply, DrainToApply, false);
 
 	if (bNPCDead < 0)
 	{
@@ -826,6 +839,7 @@ void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 	{
 		TalComponent->EquipTal(NewTal);
 	}
+	SpecialArtUseCount = 0;
 }
 
 ATalBase* ATalPlayerCharacter::GetCurrentTal() const
@@ -1140,14 +1154,23 @@ void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
 
 	if (ArtData == nullptr)
 	{
-		MC_LOG(LogMC, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
+		MC_LOG(LogDG, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
 		return;
 	}
+
+	if (SpecialArtUseCount >= ArtData->UseLimit)
+	{
+		MC_LOG(LogDG, Warning, TEXT("특수기 사용 횟수 초과!"));
+		return;
+	}
+
 	if (!StatComponent->HasEnoughSoul(static_cast<float>(ArtData->SoulCost)))
 	{
 		return;
 	}
 	StatComponent->DrainSoul(static_cast<float>(ArtData->SoulCost));
+
+	SpecialArtUseCount++;
 
 	bIsUsingSpecialArt = true;
 
@@ -1203,14 +1226,27 @@ void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
 	FOnMontageEnded EndDelegate;
 	EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnSpecialArtMontageEnd);
 	AnimInstance->Montage_SetEndDelegate(EndDelegate, MontageToPlay);
+
+	// 돌진 시작
+	if (CurrentSpecialArtData.MoveDistance != 0.0f && CurrentSpecialArtData.CastTime > 0.0f)
+	{
+		SpecialArtMoveVelocity = GetActorForwardVector() * (CurrentSpecialArtData.MoveDistance / CurrentSpecialArtData.CastTime);
+		bIsSpecialArtMoving = true;
+
+		GetWorldTimerManager().SetTimer(SpecialArtMoveTimer, this,
+			&ATalPlayerCharacter::EndSpecialArtMove, CurrentSpecialArtData.CastTime, false);
+	}
 }
 
 void ATalPlayerCharacter::OnSpecialArtMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
 	if (CurrentSpecialArtData.NextStepID.IsNone() || CurrentSpecialArtData.NextStepID == FName(TEXT("")))
 	{
-		bIsUsingSpecialArt = false;
-		// 다음 스텝이 없으면 특수기 종료
+		// 다음 스텝이 없으면 후딜 시작, 후딜 끝나면 특수기 종료
+		
+		GetWorldTimerManager().SetTimer(SpecialArtRecoveryTimer, this,
+			&ATalPlayerCharacter::EndSpecialArtRecovery, CurrentSpecialArtData.RecoveryTime, false);
+		
 		return;
 	}
 	StartSpecialArtStep(CurrentSpecialArtData.NextStepID);
@@ -1219,6 +1255,11 @@ void ATalPlayerCharacter::OnSpecialArtMontageEnd(UAnimMontage* TargetMontage, bo
 void ATalPlayerCharacter::CancelSpecialArt()
 {
 	if (!bIsUsingSpecialArt) return;
+
+	GetWorldTimerManager().ClearTimer(SpecialArtRecoveryTimer);
+	GetWorldTimerManager().ClearTimer(SpecialArtMoveTimer);
+
+	bIsSpecialArtMoving = false;
 
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
@@ -1229,6 +1270,17 @@ void ATalPlayerCharacter::CancelSpecialArt()
 		}
 	}
 	bIsUsingSpecialArt = false;
+}
+
+void ATalPlayerCharacter::EndSpecialArtRecovery()
+{
+	bIsUsingSpecialArt = false;
+}
+
+void ATalPlayerCharacter::EndSpecialArtMove()
+{
+	bIsSpecialArtMoving = false;
+	SpecialArtMoveVelocity = FVector::ZeroVector;
 }
 
 void ATalPlayerCharacter::RecoverSoul(float Amount)
