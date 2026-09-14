@@ -80,6 +80,7 @@ public:
 	virtual float ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData) override;
 	virtual uint8 GetAttackDirection() override;
 	virtual TArray<FNPCAttackPatternSelectData>& GetAttackPatternDatas() override;
+	virtual const uint8 GetIsExhausting() override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")

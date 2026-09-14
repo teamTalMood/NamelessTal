@@ -318,6 +318,11 @@ TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBase::GetAttackPatternDatas(
 	return AttackPatternDatas;
 }
 
+const uint8 ANTNPCCharacterBase::GetIsExhausting()
+{
+	return bIsExhausting;
+}
+
 void ANTNPCCharacterBase::EnableWeaponCollision()
 {
 	if (WeaponCollision == nullptr)
