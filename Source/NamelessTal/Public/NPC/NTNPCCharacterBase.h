@@ -60,6 +60,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr <class UCapsuleComponent> WeaponCollision;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn")
+	TObjectPtr <class UNTLockOnTargetComponent> LockOnTargetComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn")
+	TObjectPtr <class UNTTalChiTargetComponent> TalChiTargetComponent;
+
+protected:
 	// 무기 콜리전이 겹칠 때 호출
 	UFUNCTION()
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -81,6 +88,7 @@ public:
 	virtual uint8 GetAttackDirection() override;
 	virtual TArray<FNPCAttackPatternSelectData>& GetAttackPatternDatas() override;
 	virtual const uint8 GetIsExhausting() override;
+	virtual void TalChiNPC(FNPCTalchiData InTalchiData) override;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
@@ -209,6 +217,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	TSubclassOf<ATalBase> DefaultTalClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<class UAnimMontage> TalChiMontage;
+
+protected:
+	void OnTalChiMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 
 ////////////////////////////////////////

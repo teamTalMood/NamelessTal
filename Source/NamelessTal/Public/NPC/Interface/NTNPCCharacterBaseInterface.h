@@ -47,6 +47,13 @@ struct FNPCAttackPatternSelectData
 	float CurrentCoolDown;
 };
 
+USTRUCT()
+struct FNPCTalchiData
+{
+	GENERATED_BODY()
+};
+
+
 /**
  *
  */
@@ -72,6 +79,9 @@ public:
 	// AttackPatternDatas 받아오기
 	virtual TArray<FNPCAttackPatternSelectData>& GetAttackPatternDatas() = 0;
 
+	////////////////////////////////
+	// 탈취 코드
 	// 그로기 상태인지 확인
 	virtual const uint8 GetIsExhausting() = 0;
+	virtual void TalChiNPC(FNPCTalchiData InTalchiData) = 0;
 };
