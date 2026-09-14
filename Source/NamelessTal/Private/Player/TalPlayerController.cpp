@@ -25,8 +25,11 @@ void ATalPlayerController::BeginPlay()
 		if (IsValid(NoticeWidget))
 		{
 			NoticeWidget->AddToViewport();
+
+			NoticeWidget->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
+
 
 	if (TutorialWidgetClass) {
 		TutorialWidget = CreateWidget<UNTMessageWidget>(this,
@@ -34,6 +37,8 @@ void ATalPlayerController::BeginPlay()
 		if (IsValid(TutorialWidget))
 		{
 			TutorialWidget->AddToViewport();
+
+			TutorialWidget->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 
