@@ -68,10 +68,10 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	StatComponent->SetSoulRegenBlocked(true);
 
 	// Lock On
-	LockOnTargetComponent = CreateDefaultSubobject<UNTLockOnTargetComponent>(TEXT("LockOnTarget"));
+	LockOnTargetComponent = CreateDefaultSubobject<UNTLockOnTargetComponent>(TEXT("LockOnTargetCom"));
 
 	// TalChi Target
-	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("LockOnTarget"));
+	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
 
 	// Attack Direction Set
 	AttackDirections.Add(EAttackDistance::AttackNone, 0);
