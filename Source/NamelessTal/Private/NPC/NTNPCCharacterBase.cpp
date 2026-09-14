@@ -72,6 +72,7 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 
 	// TalChi Target
 	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
+	TalChiTargetComponent->SetupAttachment(GetCapsuleComponent());
 
 	// Attack Direction Set
 	AttackDirections.Add(EAttackDistance::AttackNone, 0);

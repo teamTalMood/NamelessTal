@@ -7,6 +7,8 @@
 #include "Components/SceneComponent.h"
 #include "MCLOG.h"
 
+#include "Interface/NTGateInteractInterface.h"
+
 // Sets default values
 ANTGate::ANTGate()
 {
@@ -30,6 +32,9 @@ ANTGate::ANTGate()
 
 	GateMeshRComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GateMeshR"));
 	GateMeshRComponent->SetupAttachment(GateHingeRComponent);
+
+	PlayerInteractPointComponent = CreateDefaultSubobject<USceneComponent>(TEXT("PlayerInteractPoint"));
+	PlayerInteractPointComponent->SetupAttachment(GateFrameMeshComponent, TEXT("Socket_PlayerInteract"));
 
 	BoxCollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionBeginOverlap);
 	BoxCollisionComponent->OnComponentEndOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionEndOverlap);
@@ -76,6 +81,8 @@ void ANTGate::OnBoxCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponen
 		return;
 	}
 
+	RequestOpen(OtherActor);
+
 	bIsDoorMoving = true;
 	DoorOpenElapsedTime = 0.0f;
 
@@ -119,5 +126,22 @@ void ANTGate::OnBoxCollisionEndOverlap(UPrimitiveComponent* OverlappedComponent,
 		GateMeshLTargetRotation = GateMeshLStartRotation + FRotator(0.0f, 90.0f, 0.0f);
 		GateMeshRTargetRotation = GateMeshRStartRotation + FRotator(0.0f, -90.0f, 0.0f);
 	}
+}
+
+void ANTGate::RequestOpen(AActor* Player)
+{
+	if (!IsValid(Player) || !PlayerInteractPointComponent)
+	{
+		return;
+	}
+
+	INTGateInteractInterface* Interactable = Cast<INTGateInteractInterface>(Player);
+	if (!Interactable)
+	{
+		MC_LOG(LogMC, Warning, TEXT("플레이어가 NTGateInteractInterface를 구현하지 않음"));
+		return;
+	}
+
+	Interactable->PlayGateOpenMontage(PlayerInteractPointComponent->GetComponentTransform(), GateOpenMontage);
 }
 
