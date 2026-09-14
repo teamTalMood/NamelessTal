@@ -61,7 +61,10 @@
 //Revive Setting
 #include "DdoKaebiFire/DdokaebiFire.h"
 
+#include "Game/NTGameDataSingleton.h"
 
+// 화롯불 안쓰고 죽을때를 대비해 처음으로 돌아갈때를 대비하기 위해 사용
+#include "NamelessTalGameMode.h" 
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -136,6 +139,19 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		bParrySlowMoActive = false;
 	}
 
+	if (bParrySlowMoActive && LastParriedTarget.IsValid())
+	{
+		const FVector ToTarget = (LastParriedTarget->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+		if (!ToTarget.IsNearlyZero())
+		{
+			const FRotator TargetRotation = ToTarget.Rotation();
+
+			SetActorRotation(FMath::RInterpTo(GetActorRotation(), TargetRotation,
+				DeltaTime, ParryFaceRotationSpeed / 90.0f));
+
+		}
+	}
+
 	//카메라 거리보간
 	const float SafeCameraDistance = FMath::Max(0.0f, CameraDistance);
 	const float SafeInterpSpeed = FMath::Max(0.0f, CameraDistanceInterpSpeed);
@@ -198,6 +214,11 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
+
+	if (bIsSpecialArtMoving)
+	{
+		AddActorWorldOffset(SpecialArtMoveVelocity * DeltaTime, true);
+	}
 }
 
 UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
@@ -218,7 +239,7 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() ||
-		bIsLandingRecovering || bIsUsingFlask)
+		bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt)
 	{
 		return;
 	}
@@ -248,6 +269,17 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	bIsDodging = true;
 	bIsInvincible = true;
 
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (AnimInstance->Montage_IsPlaying(AttackMontage))
+		{
+			AnimInstance->Montage_Stop(0.1f, AttackMontage);
+		}
+	}
+	ComboIndex = 0;
+	bCanCombo = false;
+	AttackPhase = EPlayerAttackPhase::None;
+	BufferedAction = EBufferedCombatAction::None;
 	PlayAnimMontage(SelectedMontage);
 
 	const float MontageDuration = SelectedMontage->GetPlayLength() - 0.3f;
@@ -383,6 +415,9 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 		EnhancedInputComponent->BindAction(FlaskAction, ETriggerEvent::Started,
 			this, &ATalPlayerCharacter::UseFlaskItem);
+
+		EnhancedInputComponent->BindAction(SpecialArtAction, ETriggerEvent::Started, this,
+			&ATalPlayerCharacter::UseSpecialAttack);
 	}
 }
 
@@ -400,6 +435,10 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	{
 		CancelFlaskUse();
 	}
+	if (bIsUsingSpecialArt)
+	{
+		CancelSpecialArt();
+	}
 
 	StatComponent->NotifyHitDuringGroggy();
 
@@ -407,6 +446,11 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
 		const bool bParried = GuardComponent->TryParry();
+
+		if (bParried)
+		{
+			LastParriedTarget = DamageCauser;
+		}
 
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
@@ -488,12 +532,22 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 		CancelFlaskUse();
 	}
 
+	if (bIsUsingSpecialArt)
+	{
+		CancelSpecialArt();
+	}
+
 	//그로기 중 아니면 아무일도 안한다!
 	StatComponent->NotifyHitDuringGroggy();
 
 	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
 		const bool bParried = GuardComponent->TryParry();
+		
+		if (bParried)
+		{
+			LastParriedTarget = DamageCauser;
+		}
 
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
@@ -633,7 +687,7 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
-		|| bIsLandingRecovering || bIsUsingFlask) return;
+		|| bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt) return;
 
 	bIsSprinting = true;
 
@@ -647,11 +701,12 @@ void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() 
-		|| StatComponent->IsGroggy() 
-		|| bIsLandingRecovering 
+	if (GuardComponent->IsStaggered()
+		|| StatComponent->IsGroggy()
+		|| bIsLandingRecovering
 		|| bIsUsingFlask
 		|| bIsDodging
+		|| bIsUsingSpecialArt
 		|| !IsValid(AttackMontage)
 		) return;
 
@@ -784,10 +839,18 @@ void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 	StatComponent->NotifyCombatAction();
 
 
+	float DamageToApply = AttackDamage;
+	float DrainToApply = 10.0f;
+
+		if (bIsUsingSpecialArt)
+		{
+			DamageToApply = static_cast<float>(CurrentSpecialArtData.HPDamage);
+			DrainToApply = static_cast<float>(CurrentSpecialArtData.SoulDamage);
+		}
 
 	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
 	//드레인 수치는 임의값, 나중에 수정할것
-	float bNPCDead = NPCCharacter->ApplyDamage(this, AttackDamage, 10.0f, false);
+	float bNPCDead = NPCCharacter->ApplyDamage(this, DamageToApply, DrainToApply, false);
 
 	if (bNPCDead < 0)
 	{
@@ -802,6 +865,7 @@ void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 	{
 		TalComponent->EquipTal(NewTal);
 	}
+	SpecialArtUseCount = 0;
 }
 
 ATalBase* ATalPlayerCharacter::GetCurrentTal() const
@@ -1094,6 +1158,166 @@ void ATalPlayerCharacter::EndComboGrace()
 }
 
 
+void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
+{
+	if (GuardComponent->IsStaggered() || 
+		StatComponent->IsGroggy() || 
+		bIsLandingRecovering|| 
+		bIsUsingFlask || 
+		bIsDodging ||
+		bIsUsingSpecialArt)
+	{
+		return;
+	}
+
+	ATalBase* MyTal = GetCurrentTal();
+	if (MyTal == nullptr) return;
+
+
+	//const TArray<FName> Candidates = UNTGameDataSingleton::Get().FindPlayerSpecialArtIDsByWeapon(MyTal->GetTalStyle());
+	//const FName SpecialArtID = Candidates.Num() > 0 ? Candidates[0] : TEXT("SA_M001_Slash");
+
+	//const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
+
+	//if (ArtData == nullptr)
+	//{
+	//	MC_LOG(LogDG, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
+	//	return;
+	//}
+
+	const FName SpecialArtID = MyTal->GetSpecialArtID();
+	if (SpecialArtID.IsNone()) { MC_LOG(LogSY, Warning, TEXT("%s에 SpecialArtID 없음"), *GetNameSafe(MyTal));  return; }
+
+	const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
+	if (ArtData == nullptr) { MC_LOG(LogSY, Warning, TEXT("SpecialArt 자체가 없음 : %s"), *SpecialArtID.ToString()); return; }
+
+
+	if (SpecialArtUseCount >= ArtData->UseLimit)
+	{
+		MC_LOG(LogDG, Warning, TEXT("특수기 사용 횟수 초과!"));
+		return;
+	}
+
+	if (!StatComponent->HasEnoughSoul(static_cast<float>(ArtData->SoulCost)))
+	{
+		return;
+	}
+	StatComponent->DrainSoul(static_cast<float>(ArtData->SoulCost));
+
+	SpecialArtUseCount++;
+
+	bIsUsingSpecialArt = true;
+
+	CurrentSpecialArtID = SpecialArtID;
+	StartSpecialArtStep(ArtData->FirstStepID);
+
+}
+
+void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
+{
+	const FNTPlayerSpecialArtStepData* StepData = 
+		UNTGameDataSingleton::Get().GetPlayerSpecialArtStep(StepID);
+
+
+	if (StepData == nullptr)
+	{
+		MC_LOG(LogMC, Warning, TEXT("No SpecialArtStepData!"));
+
+		CurrentSpecialArtData.NextStepID = FName(TEXT(""));
+		CurrentSpecialArtData.HPDamage = 10;
+		CurrentSpecialArtData.SoulDamage = 10;
+		CurrentSpecialArtData.StaggerDamage = 10;
+		CurrentSpecialArtData.CastTime = 0.4f;
+		CurrentSpecialArtData.RecoveryTime = 0.5f;
+		CurrentSpecialArtData.MoveDistance = 0.0f;
+		CurrentSpecialArtData.MontageName = FName(TEXT("AM_PlayerSpecialArt1"));
+	}
+	else
+	{
+		CurrentSpecialArtData.NextStepID = StepData->NextStepID;
+		CurrentSpecialArtData.HPDamage = StepData->HPDamage;
+		CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
+		CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
+		CurrentSpecialArtData.CastTime = StepData->CastTime;
+		CurrentSpecialArtData.RecoveryTime = StepData->RecoveryTime;
+		CurrentSpecialArtData.MoveDistance = StepData->MoveDistance;
+		CurrentSpecialArtData.MontageName = StepData->MontageName;
+	}
+
+	TObjectPtr<UAnimMontage>* FoundMontage = SpecialArtMontages.Find(CurrentSpecialArtData.MontageName);
+	if (FoundMontage == nullptr || *FoundMontage == nullptr)
+	{
+		MC_LOG(LogMC, Warning, TEXT("No SpecialArtMontage! : %s"), *CurrentSpecialArtData.MontageName.ToString());
+		bIsUsingSpecialArt = false;
+		return;
+	}
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr) { return; }
+
+	UAnimMontage* MontageToPlay = *FoundMontage;
+	AnimInstance->Montage_Play(MontageToPlay, 1.0f);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnSpecialArtMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, MontageToPlay);
+
+	// 돌진 시작
+	if (CurrentSpecialArtData.MoveDistance != 0.0f && CurrentSpecialArtData.CastTime > 0.0f)
+	{
+		SpecialArtMoveVelocity = GetActorForwardVector() * (CurrentSpecialArtData.MoveDistance / CurrentSpecialArtData.CastTime);
+		bIsSpecialArtMoving = true;
+
+		GetWorldTimerManager().SetTimer(SpecialArtMoveTimer, this,
+			&ATalPlayerCharacter::EndSpecialArtMove, CurrentSpecialArtData.CastTime, false);
+	}
+}
+
+void ATalPlayerCharacter::OnSpecialArtMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	if (CurrentSpecialArtData.NextStepID.IsNone() || CurrentSpecialArtData.NextStepID == FName(TEXT("")))
+	{
+		// 다음 스텝이 없으면 후딜 시작, 후딜 끝나면 특수기 종료
+		
+		GetWorldTimerManager().SetTimer(SpecialArtRecoveryTimer, this,
+			&ATalPlayerCharacter::EndSpecialArtRecovery, CurrentSpecialArtData.RecoveryTime, false);
+		
+		return;
+	}
+	StartSpecialArtStep(CurrentSpecialArtData.NextStepID);
+}
+
+void ATalPlayerCharacter::CancelSpecialArt()
+{
+	if (!bIsUsingSpecialArt) return;
+
+	GetWorldTimerManager().ClearTimer(SpecialArtRecoveryTimer);
+	GetWorldTimerManager().ClearTimer(SpecialArtMoveTimer);
+
+	bIsSpecialArtMoving = false;
+
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (TObjectPtr<UAnimMontage>* FoundMontage =
+			SpecialArtMontages.Find(CurrentSpecialArtData.MontageName))
+		{
+			AnimInstance->Montage_Stop(0.2f, *FoundMontage);
+		}
+	}
+	bIsUsingSpecialArt = false;
+}
+
+void ATalPlayerCharacter::EndSpecialArtRecovery()
+{
+	bIsUsingSpecialArt = false;
+}
+
+void ATalPlayerCharacter::EndSpecialArtMove()
+{
+	bIsSpecialArtMoving = false;
+	SpecialArtMoveVelocity = FVector::ZeroVector;
+}
+
 void ATalPlayerCharacter::RecoverSoul(float Amount)
 {
 	StatComponent->RecoverSoul(Amount);
@@ -1105,7 +1329,7 @@ void ATalPlayerCharacter::RecoverSoul(float Amount)
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
 	//고갈중 가드 불가
-	if (StatComponent->IsSoulExhausted() || bIsUsingFlask)
+	if (StatComponent->IsSoulExhausted() || bIsUsingFlask || bIsUsingSpecialArt)
 	{
 		return;
 	}
@@ -1569,6 +1793,14 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 {
 	bIsDead = false;
 
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	// 사망 몽타주는 AutoBlendOut이 꺼져있어 직접 안멈추면 사망 포즈로 굳음
+	if (AnimInstance)
+	{
+		AnimInstance->Montage_Stop(0.0f, DeathMontage);
+	}
+
 	const FTransform TargetTransform = LastBonfire.IsValid()
 		? LastBonfire->GetActorTransform() : InitialSpawnTransform;
 
@@ -1582,16 +1814,37 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 	{
 		Movement->SetMovementMode(MOVE_Walking);
 	}
+
+	// TriggerRest는 전투중이면 막히므로 부활X
+	StatComponent->RestoreFull();
+	RechargeFlask();
+
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->RespawnAllMonsters();
+	}
+
+	if (LastBonfire.IsValid())
+	{
+		LastBonfire->OnBonfireRested.Broadcast();
+	}
+
+	if (AnimInstance && ReviveAnim) {
+
+		AnimInstance->PlaySlotAnimationAsDynamicMontage(ReviveAnim, TEXT("DefaultSlot"));
+
+		GetWorldTimerManager().SetTimer(ReviveTimerHandle, this,
+			&ATalPlayerCharacter::EndRevive, ReviveAnim->GetPlayLength(), false);
+	} else {
+		EndRevive();
+	}
+}
+
+void ATalPlayerCharacter::EndRevive()
+{
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
 	{
 		EnableInput(PlayerController);
-	}
-	
-	if (LastBonfire.IsValid())
-	{
-		LastBonfire->TriggerRest(this);
-	} else {
-		StatComponent->RestoreFull();
 	}
 }
 
@@ -1604,7 +1857,7 @@ void ATalPlayerCharacter::Landed(const FHitResult& Hit)
 		Movement->Velocity *= LandingSpeedMultiplier;
 	}
 
-	if (bWasRealFallingThisAirtime)
+	if (bWasRealFallingThisAirtime && !bIsDodging && !bIsLandingRecovering)
 	{
 		bIsLandingRecovering = true;
 		GetWorldTimerManager().SetTimer(LandingRecoveryTimeHandle, this,
@@ -1661,7 +1914,7 @@ void ATalPlayerCharacter::EndLandingRecovery()
 void ATalPlayerCharacter::UseFlaskItem(const FInputActionValue& Value)
 {
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || StatComponent->IsSoulExhausted() ||
-		bIsLandingRecovering || bIsDodging || bIsUsingFlask || FlaskCount <= 0
+		bIsLandingRecovering || bIsDodging || bIsUsingFlask || bIsUsingSpecialArt || FlaskCount <= 0
 		|| FlaskMontage == nullptr)
 	{
 		return;

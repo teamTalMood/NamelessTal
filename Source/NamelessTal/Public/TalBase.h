@@ -10,8 +10,10 @@ class USceneComponent;
 class UStaticMeshComponent;
 class UAnimMontage;//몽타주
 
+
+//나중에 강공격을 위해 남겨두었음 ( 새 공격 추가시 여기서)
 UENUM(BlueprintType)
-enum class ETalStyle :uint8//나중에 강공격을 위해 남겨두었음
+enum class ETalStyle :uint8
 {
 	Default		UMETA(DisplayName = "Default"),
 	SWORD		UMETA(DisplayName = "SWORD"),
@@ -24,11 +26,19 @@ class NAMELESSTAL_API ATalBase : public AActor
 {
 	GENERATED_BODY()
 	
+
 public:	
 	ATalBase();
 
 	ETalStyle	  GetTalStyle	  () const;
 	UAnimMontage* GetAttackMontage() const;
+
+public:
+	UFUNCTION(BlueprintPure, Category = "Tal|SpecialArt")
+	FName GetSpecialArtID() const
+	{
+		return SpecialArtID;
+	}
 
 protected:
 	//탈 루트
@@ -46,4 +56,7 @@ protected:
 	//기본 공격 애니메이션
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|Animation")
 	TObjectPtr<UAnimMontage> AttackMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|SpecialArt")
+	FName SpecialArtID = NAME_None;
 };

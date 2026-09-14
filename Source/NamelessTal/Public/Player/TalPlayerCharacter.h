@@ -25,6 +25,7 @@ class UGuardComponent; // 가드/패링 클래스 전방선언
 class UNTLockOnTargetComponent; //락온 전방선언
 class UMotionWarpingComponent; //모션워핑 전방선언
 class ADdokaebiFire; // 화톳불 전방선언
+class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -44,6 +45,19 @@ enum class EBufferedCombatAction : uint8
 	Dodge,
 	Guard,
 	Move
+};
+
+// 
+struct FPlayerCurrentSpecialArtData
+{
+	FName NextStepID;
+	int32 HPDamage;
+	int32 SoulDamage;
+	int32 StaggerDamage;
+	float CastTime;
+	float RecoveryTime;
+	float MoveDistance;
+	FName MontageName;
 };
 
 
@@ -392,6 +406,57 @@ protected:
 
 	FTimerHandle ComboGraceTimer;
 
+
+	///////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////
+	////////////////////		특수기
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack")
+	TObjectPtr<UInputAction> SpecialArtAction;
+
+	// 특수기 이름표 -> 에셋 매핑
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialAttack")
+	TMap<FName, TObjectPtr<UAnimMontage>> SpecialArtMontages;
+
+	// 지금 실행중인 특수기 ID
+	FName CurrentSpecialArtID;
+
+	// 지금 특수기 사용중인가?
+	bool bIsUsingSpecialArt = false;
+
+	// 지금 장착한 탈로 특수기 몇번 썼는지
+	int32 SpecialArtUseCount = 0;
+
+	// 특수기 후딜 타이머
+	FTimerHandle SpecialArtRecoveryTimer;
+
+	// 특수기 돌진 중인지
+	bool bIsSpecialArtMoving = false;
+
+	// 특수기 돌진 속도 (초당 이동량)
+	FVector SpecialArtMoveVelocity = FVector::ZeroVector;
+
+	//특수기 돌진 종료 타이머
+	FTimerHandle SpecialArtMoveTimer;
+
+	// 지금 실행 중인 스텝의 데이터
+	FPlayerCurrentSpecialArtData CurrentSpecialArtData;
+
+	void UseSpecialAttack(const FInputActionValue& Value);
+
+	void StartSpecialArtStep(FName StepID);
+
+	// 몽타주 종료 콜백 함수
+	void OnSpecialArtMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void CancelSpecialArt();
+	
+	void EndSpecialArtRecovery();
+
+	// 돌진기 관련 함수
+	void EndSpecialArtMove();
+
+
 	////////////////////////////////////////////////////////////////////////////
 ///////		스탯
 protected:
@@ -429,6 +494,13 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParrySlowMoTimeDilation = 0.15f;
+
+	// 패링 성공 시 바라볼 대상
+	TWeakObjectPtr<AActor> LastParriedTarget;
+
+	//패링 후 대상 바라보는 회전 속도(도/초)
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParryFaceRotationSpeed = 720.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParrySlowMoRealDuration = 1.0f;
@@ -520,7 +592,7 @@ protected:
 
 	// 사망 후 리스폰까지 대기 시간 (나중에 연출넣을자리)
 	UPROPERTY(EditAnywhere, Category = "State")
-	float RespawnDelay = 0.1f;
+	float RespawnDelay = 3.0f;
 
 	FTimerHandle RespawnTimerHandle;
 
@@ -533,7 +605,16 @@ protected:
 	void RespawnAtBonfire();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+
 	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<UAnimSequenceBase> ReviveAnim;
+
+	FTimerHandle ReviveTimerHandle;
+
+	void EndRevive();
+
 
 	virtual void Landed(const FHitResult& Hit) override;
 

@@ -47,6 +47,13 @@ struct FNPCAttackPatternSelectData
 	float CurrentCoolDown;
 };
 
+USTRUCT()
+struct FNPCTalchiData
+{
+	GENERATED_BODY()
+};
+
+
 /**
  *
  */
@@ -69,7 +76,12 @@ public:
 	// 0 : 애니메이션 없음 | 1 : 시계방향 스윙 | 2 : 반시계방향 스윙 | 3 : 정면방향 스윙
 	virtual uint8 GetAttackDirection() = 0;
 
-
-	//AttackPatternDatas 받아오기
+	// AttackPatternDatas 받아오기
 	virtual TArray<FNPCAttackPatternSelectData>& GetAttackPatternDatas() = 0;
+
+	////////////////////////////////
+	// 탈취 코드
+	// 그로기 상태인지 확인
+	virtual const uint8 GetIsExhausting() = 0;
+	virtual void TalChiNPC(FNPCTalchiData InTalchiData) = 0;
 };

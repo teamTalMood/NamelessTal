@@ -31,7 +31,9 @@ public:
 	FORCEINLINE const FNTNPCAttackPatternStepData* GetNPCAttackPatternStep(FName InStepID) const { return NPCAttackPatternStepTable.Find(InStepID); }
 	FORCEINLINE const FNTPlayerSpecialArtData* GetPlayerSpecialArt(FName InSpecialArtID) const { return PlayerSpecialArtTable.Find(InSpecialArtID); }
 	FORCEINLINE const FNTPlayerSpecialArtStepData* GetPlayerSpecialArtStep(FName InStepID) const { return PlayerSpecialArtStepTable.Find(InStepID); }
-
+	
+	TArray<FName> FindPlayerSpecialArtIDsByWeapon(ETalStyle InWeaponStyle) const;
+	
 private:
 	void LoadGameDataTables();
 

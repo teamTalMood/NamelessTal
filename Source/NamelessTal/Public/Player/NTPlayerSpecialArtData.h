@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataTable.h"
+#include "TalBase.h"
 #include "NTPlayerSpecialArtData.generated.h"
 
 USTRUCT(BlueprintType)
@@ -21,11 +22,11 @@ public:
 	// 기술 설명. 문자열 테이블을 사용한다면 해당 키값으로 대체
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArt")
 	FString Description;
-
+	
 	// 이 스페셜아츠를 사용할 때 플레이어가 사용할 무기 ID
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArt")
-	FName WeaponID;
-
+	ETalStyle WeaponID;
+	
 	// 사용 시 최초로 실행할 타격 데이터의 ID. SpecialArtStepTable을 참조
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArt")
 	FName FirstStepID;

@@ -2,7 +2,9 @@
 
 
 #include "DdoKaebiFire/DdokaebiFire.h"
+#include "MCLOG.h"
 
+#include "NamelessTalGameMode.h"
 #include "Stat/StatComponent.h"
 
 #include "Components/SphereComponent.h"
@@ -48,24 +50,30 @@ void ADdokaebiFire::TriggerRest(AActor* User)
 
 	if (Stat == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("화톳불 사용에 실패하셨습니다 : %s"), 
-			*GetNameSafe(User));
+		UE_LOG(LogTemp, Warning, TEXT("화톳불 사용에 실패하셨습니다 : %s"), *GetNameSafe(User));
+		//MC_LOG(LogMC, Warning, TEXT("화톳불 사용에 실패하셨습니다 : %s"), *GetNameSafe(User));
 		return;
 	}
 	if (Stat->IsInCombat())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("전투 중엔 화톳불을 사용할 수 없습니다 : %s"), 
-			*GetNameSafe(User));
+		UE_LOG(LogTemp, Warning, TEXT("전투 중엔 화톳불을 사용할 수 없습니다 : %s"), *GetNameSafe(User));
+		//MC_LOG(LogMC, Warning, TEXT("전투 중엔 화톳불을 사용할 수 없습니다 : %s"), *GetNameSafe(User));
 		return;
 	}
 
 	Stat->RestoreFull();
-	UE_LOG(LogTemp, Warning, TEXT("화톳불 사용! HP / 넋 회복 완료 : %s"), 
-		*GetNameSafe(User));
+	UE_LOG(LogTemp, Warning, TEXT("화톳불 사용! HP / 넋 회복 완료 : %s"), *GetNameSafe(User));
+	//MC_LOG(LogMC, Warning, TEXT("화톳불 사용! HP / 넋 회복 완료 : %s"), *GetNameSafe(User));
 
 	if (ATalPlayerCharacter* PlayerCharacter = Cast<ATalPlayerCharacter>(User))
 	{
 		PlayerCharacter->SetLastBonfire(this);
+		PlayerCharacter->RechargeFlask();
+	}
+
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->RespawnAllMonsters();
 	}
 
 	OnBonfireRested.Broadcast();

@@ -9,6 +9,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "NPC/Components/NTLockOnTargetComponent.h"
+#include "NPC/Components/NTTalChiTargetComponent.h"
 
 //Engine
 #include "Kismet/GameplayStatics.h"
@@ -65,6 +67,13 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
 	StatComponent->SetSoulRegenBlocked(true);
 
+	// Lock On
+	LockOnTargetComponent = CreateDefaultSubobject<UNTLockOnTargetComponent>(TEXT("LockOnTargetCom"));
+
+	// TalChi Target
+	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
+	TalChiTargetComponent->SetupAttachment(GetCapsuleComponent());
+
 	// Attack Direction Set
 	AttackDirections.Add(EAttackDistance::AttackNone, 0);
 	AttackDirections.Add(EAttackDistance::AttackShort, 0);
@@ -104,7 +113,7 @@ void ANTNPCCharacterBase::BeginPlay()
 	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
 	if (FindedPatternDatas.IsEmpty())
 	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternData!"));
+		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
 
 		AttackPatternDatas = {
 			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
@@ -318,6 +327,34 @@ TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBase::GetAttackPatternDatas(
 	return AttackPatternDatas;
 }
 
+const uint8 ANTNPCCharacterBase::GetIsExhausting()
+{
+	return bIsExhausting;
+}
+
+void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
+{
+	WeaponMesh->SetVisibility(false);
+	
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr)
+	{
+		return;
+	}
+
+	static FOnMontageEnded EmptyDelegate;
+	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+	if (CurrentMontage)
+	{
+		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
+	}
+	AnimInstance->Montage_Stop(0.1f);
+
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
+}
+
 void ANTNPCCharacterBase::EnableWeaponCollision()
 {
 	if (WeaponCollision == nullptr)
@@ -416,7 +453,7 @@ void ANTNPCCharacterBase::BeginAttack()
 
 	if (PatternStepData == nullptr)
 	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternStepData!"));
+		MC_LOG(LogMC, Error, TEXT("No PatternStepData! %s"), *CurrentAttackStep.ToString());
 
 		CurrentAttackData.NextStepID = FName(TEXT(""));
 		CurrentAttackData.DamageHP = 10.0f;
@@ -442,14 +479,14 @@ void ANTNPCCharacterBase::BeginAttack()
 	// Animation Setting
 	const float AttackSpeedRate = 1.0f;
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	UAnimMontage* AttackMontage = AttackMontages[CurrentAttackData.AnimationClip];
 
-	if (AttackMontage == nullptr)
+	TObjectPtr<UAnimMontage>* FoundMontage = AttackMontages.Find(CurrentAttackData.AnimationClip);
+	if (!FoundMontage || !*FoundMontage)
 	{
-		MC_LOG(LogMC, Error, TEXT("No AttackMontage!"));
+		MC_LOG(LogMC, Error, TEXT("No AttackMontage!!"));
 		return;
 	}
-
+	UAnimMontage* AttackMontage = *FoundMontage;
 	bIsAttacking = true;
 	CurrentStunRate = 0.0f;
 
@@ -566,6 +603,11 @@ void ANTNPCCharacterBase::EndExhausted()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
+	if (bIsDead)
+	{
+		return;
+	}
+
 	UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
 	Anim->SetAnimIsExhausted(false);
 	StatComponent->RestoreSoul();
@@ -620,6 +662,16 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 	else
 	{
 		ReleaseStun();
+	}
+}
+
+void ANTNPCCharacterBase::OnTalChiMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	StatComponent->ApplyDamage(StatComponent->MaxHP * 0.5f);
+
+	if (!bIsDead)
+	{
+		EndExhausted();
 	}
 }
 
