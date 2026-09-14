@@ -96,6 +96,7 @@ void UNTBTS_SelectPattern::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 	BB->SetValueAsName(BBKEY_SELECTEDATTACK, SelectedPattern->FirstStepID);
 	BB->SetValueAsVector(BBKEY_ATTACKPOS, Target->GetActorLocation());
 
+	MC_LOG(LogMC, Log, TEXT("Selected Pattern : %s"), *SelectedPattern->FirstStepID.ToString());
 	//MC_LOG(LogMC, Log, TEXT("Distance=%.1f | Selected=%s"), DistanceToTarget, *SelectedPattern->FirstStepID.ToString());
 }
 
