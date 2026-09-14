@@ -2,6 +2,13 @@
 
 #include "Components/ProgressBar.h"
 #include "Stat/StatComponent.h"
+#include "Player/UI/NTMessageWidget.h"
+
+void UNTPlayerHUDWidget::NativeConstruct()
+{
+	WDG_Message = Cast<UNTMessageWidget>(GetWidgetFromName(TEXT("WBP_Notice")));
+	ensure(WDG_Message);
+}
 
 void UNTPlayerHUDWidget::InitializeWithStatComponent(UStatComponent* InStatComponent)
 {
@@ -33,6 +40,16 @@ void UNTPlayerHUDWidget::InitializeWithStatComponent(UStatComponent* InStatCompo
 	);
 
 	RefreshAll();
+}
+
+void UNTPlayerHUDWidget::ShowWidgetMessage(const FText& Title, const FText& Body, float Duration)
+{
+	if (WDG_Message == nullptr)
+	{
+		return;
+	}
+
+	WDG_Message->Show(Title, Body, Duration);
 }
 
 void UNTPlayerHUDWidget::HandleHPChanged(float NewHP, float MaxHP)

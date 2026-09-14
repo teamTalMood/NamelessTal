@@ -9,7 +9,7 @@
 class UTextBlock;
 
 /**
- * 
+ *
  */
 UCLASS()
 class NAMELESSTAL_API UNTMessageWidget : public UUserWidget
@@ -22,6 +22,9 @@ public:
 	void Show(const FText& Title, const FText& Body, float Duration);
 
 protected:
+	virtual void NativeConstruct() override;
+
+protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> Txt_Title;
 
@@ -32,5 +35,5 @@ private :
 	void Hide();
 
 	FTimerHandle HideTimer;
-	
+
 };
