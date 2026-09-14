@@ -68,6 +68,7 @@ void ADdokaebiFire::TriggerRest(AActor* User)
 	if (ATalPlayerCharacter* PlayerCharacter = Cast<ATalPlayerCharacter>(User))
 	{
 		PlayerCharacter->SetLastBonfire(this);
+		PlayerCharacter->RechargeFlask();
 	}
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
