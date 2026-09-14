@@ -248,6 +248,17 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	bIsDodging = true;
 	bIsInvincible = true;
 
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
+	{
+		if (AnimInstance->Montage_IsPlaying(AttackMontage))
+		{
+			AnimInstance->Montage_Stop(0.1f, AttackMontage);
+		}
+	}
+	ComboIndex = 0;
+	bCanCombo = false;
+	AttackPhase = EPlayerAttackPhase::None;
+	BufferedAction = EBufferedCombatAction::None;
 	PlayAnimMontage(SelectedMontage);
 
 	const float MontageDuration = SelectedMontage->GetPlayLength() - 0.3f;
@@ -647,9 +658,9 @@ void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() 
-		|| StatComponent->IsGroggy() 
-		|| bIsLandingRecovering 
+	if (GuardComponent->IsStaggered()
+		|| StatComponent->IsGroggy()
+		|| bIsLandingRecovering
 		|| bIsUsingFlask
 		|| bIsDodging
 		|| !IsValid(AttackMontage)
@@ -1604,7 +1615,7 @@ void ATalPlayerCharacter::Landed(const FHitResult& Hit)
 		Movement->Velocity *= LandingSpeedMultiplier;
 	}
 
-	if (bWasRealFallingThisAirtime)
+	if (bWasRealFallingThisAirtime && !bIsDodging && !bIsLandingRecovering)
 	{
 		bIsLandingRecovering = true;
 		GetWorldTimerManager().SetTimer(LandingRecoveryTimeHandle, this,
