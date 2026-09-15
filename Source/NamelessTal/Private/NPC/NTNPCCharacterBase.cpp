@@ -11,6 +11,7 @@
 #include "Components/CapsuleComponent.h"
 #include "NPC/Components/NTLockOnTargetComponent.h"
 #include "NPC/Components/NTTalChiTargetComponent.h"
+#include "NPC/Components/NTHPWidgetComponent.h"
 
 //Engine
 #include "Kismet/GameplayStatics.h"
@@ -28,6 +29,7 @@
 #include "NPC/Components/NTLockOnTargetComponent.h"
 #include "Game/NTGameDataSingleton.h"
 #include "NPC/NTNPCAttackPatternStepData.h"
+#include "NPC/Components/NTHPBarWidget.h"
 
 //Interface
 #include "Player/Interface/NTPlayerApplyDamageInterface.h"
@@ -74,6 +76,10 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
 	TalChiTargetComponent->SetupAttachment(GetCapsuleComponent());
 
+	// Hp Component
+	HpBar = CreateDefaultSubobject<UNTHPWidgetComponent>(TEXT("HPWidget"));
+	HpBar->SetupAttachment(RootComponent);
+
 	// Attack Direction Set
 	AttackDirections.Add(EAttackDistance::AttackNone, 0);
 	AttackDirections.Add(EAttackDistance::AttackShort, 0);
@@ -108,6 +114,14 @@ void ANTNPCCharacterBase::BeginPlay()
 	if (StatComponent)
 	{
 		StatComponent->OnDeath.AddUniqueDynamic(this, &ANTNPCCharacterBase::HandleDeath);
+	}
+
+	if (HpBar)
+	{
+		if (UNTHPBarWidget* HpBarWidget = Cast<UNTHPBarWidget>(HpBar->GetUserWidgetObject()))
+		{
+			SetupCharacterWidget(HpBarWidget);
+		}
 	}
 
 	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
@@ -615,6 +629,19 @@ void ANTNPCCharacterBase::EndExhausted()
 
 	FTimerHandle Handle;
 	GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::ReleaseStun, 1.0f, false);
+}
+
+void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	UNTHPBarWidget* HpBarWidget = Cast<UNTHPBarWidget>(InUserWidget);
+	if (HpBarWidget)
+	{
+		HpBarWidget->SetMaxHp(StatComponent->MaxHP);
+		HpBarWidget->UpdateHpBar(StatComponent->CurrentHP, StatComponent->MaxHP);
+		StatComponent->OnHPChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateHpBar);
+	}
 }
 
 void ANTNPCCharacterBase::StartDamaged()

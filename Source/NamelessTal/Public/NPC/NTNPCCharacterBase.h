@@ -196,6 +196,19 @@ protected:
 	TObjectPtr <class UStatComponent> StatComponent;
 
 
+/////////////////////////////////////////
+//
+//   HP Component
+//
+public:
+	virtual void SetupCharacterWidget(class UNTHPBarWidget* InUserWidget);
+
+protected:
+	UPROPERTY(VisibleAnyWhere, BlueprintReadOnly, Category = Widget, Meta = (AllowPrivateAcess = "True"))
+	TObjectPtr<class UNTHPWidgetComponent> HpBar;
+
+
+
 ////////////////////////////////////////
 //
 //   Exhausted
