@@ -185,6 +185,7 @@ protected:
 	void OnDamageMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void ReleaseStun();
 	void EndExhausted();
+	void StopCurrentPlayMontage();
 
 
 ////////////////////////////////////////

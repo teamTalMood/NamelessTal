@@ -257,7 +257,7 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 
 float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
-	FNPCApplyDamageData ApplyDamageData = { InDamage, 100, 5.0f, bIsParry };
+	FNPCApplyDamageData ApplyDamageData = { InDamage, InDrain, 5.0f, bIsParry };
 
 	return ApplyDamage(DamageCauser, ApplyDamageData);
 }
@@ -297,7 +297,10 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 	if (!InDamageData.bIsParry)
 	{
 		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
-		StatComponent->DrainSoul(InDamageData.SoulDamage);
+		if (!bIsExhausting)
+		{
+			StatComponent->DrainSoul(InDamageData.SoulDamage);
+		}
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
 
 		// 만약 피해받고 죽었으면 피격 처리 중단
@@ -350,20 +353,9 @@ void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
 {
 	WeaponMesh->SetVisibility(false);
 	
+	StopCurrentPlayMontage();
+
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance == nullptr)
-	{
-		return;
-	}
-
-	static FOnMontageEnded EmptyDelegate;
-	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
-	if (CurrentMontage)
-	{
-		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
-	}
-	AnimInstance->Montage_Stop(0.1f);
-
 	FOnMontageEnded EndDelegate;
 	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
 	AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
@@ -597,13 +589,7 @@ void ANTNPCCharacterBase::StartStun()
 		return;
 	}
 
-	static FOnMontageEnded EmptyDelegate;
-	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
-	if (CurrentMontage)
-	{
-		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
-	}
-	AnimInstance->Montage_Stop(0.1f);
+	StopCurrentPlayMontage();
 }
 
 void ANTNPCCharacterBase::ReleaseStun()
@@ -629,6 +615,26 @@ void ANTNPCCharacterBase::EndExhausted()
 
 	FTimerHandle Handle;
 	GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::ReleaseStun, 1.0f, false);
+}
+
+void ANTNPCCharacterBase::StopCurrentPlayMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr)
+	{
+		return;
+	}
+
+	static FOnMontageEnded EmptyDelegate;
+	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+	if (CurrentMontage)
+	{
+		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
+	}
+	AnimInstance->Montage_Stop(0.1f);
+
+	FRotator CurrentRot = GetActorRotation();
+	SetActorRotation(FRotator(0.f, CurrentRot.Yaw, 0.f));
 }
 
 void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
@@ -730,15 +736,7 @@ void ANTNPCCharacterBase::HandleDeath()
 	OnAICharacterAttackFinished.Unbind();//바인드해제
 
 	//재생중인 몽타주 종료 + 바인딩된 종료 델리게이트 해제 (사망 중 콤보 재호출 방지)
-	if (UAnimInstance* CurrentAnimInstance = GetMesh()->GetAnimInstance())
-	{
-		if (UAnimMontage* CurrentMontage = CurrentAnimInstance->GetCurrentActiveMontage())
-		{
-			FOnMontageEnded EmptyEndDelegate;
-			CurrentAnimInstance->Montage_SetEndDelegate(EmptyEndDelegate, CurrentMontage);
-			CurrentAnimInstance->Montage_Stop(0.0f, CurrentMontage);
-		}
-	}
+	StopCurrentPlayMontage();
 
 	if (BTComponent)
 	{
