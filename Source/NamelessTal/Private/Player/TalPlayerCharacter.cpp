@@ -1200,16 +1200,16 @@ void ATalPlayerCharacter::Interact()
 	);
 
 	//디버깅용 지울것
-	DrawDebugLine(
-		GetWorld(),
-		Start,
-		bHit ? HitResult.ImpactPoint : End,
-		bHit ? FColor::Green : FColor::Red,
-		false,
-		2.0f,
-		0,
-		1.5f
-	);
+	//DrawDebugLine(
+	//	GetWorld(),
+	//	Start,
+	//	bHit ? HitResult.ImpactPoint : End,
+	//	bHit ? FColor::Green : FColor::Red,
+	//	false,
+	//	2.0f,
+	//	0,
+	//	1.5f
+	//);
 
 	if (!bHit)
 	{
