@@ -49,6 +49,8 @@ bool UNTTalComponent::EquipTal(ATalBase* NewTal)
 	NewTal->SetOwner(GetOwner());
 	CurrentTal = NewTal;
 
+	OnTalChanged.Broadcast(CurrentTal);
+
 	return true;
 }
 
@@ -63,6 +65,8 @@ ATalBase* UNTTalComponent::UnequipTal()
 		FDetachmentTransformRules::KeepWorldTransform
 	);
 	OldTal->SetOwner(nullptr);
+
+	OnTalChanged.Broadcast(nullptr);
 
 	return OldTal;
 }

@@ -298,6 +298,9 @@ public:
 	void GrabSelectedTalToHand();
 	void EquipHeldTalToFace();
 
+	UFUNCTION(BlueprintPure, Category = "Tal")
+	UNTTalComponent* GetTalComponent() const { return TalComponent; }
+
 protected:
 	void Interact();//탈바꿈
 

@@ -3,6 +3,8 @@
 #include "Components/ProgressBar.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
+#include "Player/UI/NTTalIconWidget.h"
+
 
 void UNTPlayerHUDWidget::NativeConstruct()
 {
@@ -40,6 +42,13 @@ void UNTPlayerHUDWidget::InitializeWithStatComponent(UStatComponent* InStatCompo
 	);
 
 	RefreshAll();
+}
+
+void UNTPlayerHUDWidget::InitializeWithTalComponent(UNTTalComponent* InTalComponent)
+{
+	if (!IsValid(TalIconWidget)) return;
+
+	TalIconWidget->InitializeWithTalComponent(InTalComponent);
 }
 
 void UNTPlayerHUDWidget::ShowWidgetMessage(const FText& Title, const FText& Body, float Duration)

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -8,6 +8,8 @@
 
 class UProgressBar;
 class UStatComponent;
+class UNTTalComponent;
+class UNTTalIconWidget;
 
 UCLASS()
 class NAMELESSTAL_API UNTPlayerHUDWidget : public UUserWidget
@@ -16,6 +18,8 @@ class NAMELESSTAL_API UNTPlayerHUDWidget : public UUserWidget
 
 public:
 	void InitializeWithStatComponent(UStatComponent* InStatComponent);
+
+	void InitializeWithTalComponent(UNTTalComponent* InTalComponent);
 
 	void ShowWidgetMessage(const FText& Title, const FText& Body, float Duration);
 
@@ -33,6 +37,10 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<class UNTMessageWidget> WDG_Message;
+
+	// 탈 갈아 끼우기 용
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UNTTalIconWidget> TalIconWidget;
 
 private:
 	UPROPERTY()
