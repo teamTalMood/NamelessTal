@@ -9,6 +9,7 @@
 class USceneComponent;
 class UStaticMeshComponent;
 class UAnimMontage;//몽타주
+class UTexture2D; // 탈 << 
 
 
 //나중에 강공격을 위해 남겨두었음 ( 새 공격 추가시 여기서)
@@ -32,6 +33,9 @@ public:
 
 	ETalStyle	  GetTalStyle	  () const;
 	UAnimMontage* GetAttackMontage() const;
+
+	UFUNCTION(BlueprintPure, Category= "Tal|UI")
+	UTexture2D* GetTalIcon() const;
 
 public:
 	UFUNCTION(BlueprintPure, Category = "Tal|SpecialArt")
@@ -59,4 +63,7 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|SpecialArt")
 	FName SpecialArtID = NAME_None;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Tal|UI")
+	TObjectPtr<UTexture2D> TalIcon;
 };

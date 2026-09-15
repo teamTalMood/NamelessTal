@@ -59,6 +59,7 @@ void ATalPlayerController::BeginPlay()
 
 	PlayerHUD->AddToViewport();
 	PlayerHUD->InitializeWithStatComponent(StatComponent);
+	PlayerHUD->InitializeWithTalComponent(TalCharacter->GetTalComponent());
 
 }
 
@@ -86,4 +87,3 @@ void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title
 
 	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
 }
-

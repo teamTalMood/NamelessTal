@@ -3,9 +3,13 @@
 #include "Components/ProgressBar.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
+#include "Player/UI/NTTalIconWidget.h"
+
 
 void UNTPlayerHUDWidget::NativeConstruct()
 {
+	Super::NativeConstruct();
+
 	WDG_Message = Cast<UNTMessageWidget>(GetWidgetFromName(TEXT("WBP_Notice")));
 	ensure(WDG_Message);
 }
@@ -40,6 +44,13 @@ void UNTPlayerHUDWidget::InitializeWithStatComponent(UStatComponent* InStatCompo
 	);
 
 	RefreshAll();
+}
+
+void UNTPlayerHUDWidget::InitializeWithTalComponent(UNTTalComponent* InTalComponent)
+{
+	if (!IsValid(TalIconWidget)) return;
+
+	TalIconWidget->InitializeWithTalComponent(InTalComponent);
 }
 
 void UNTPlayerHUDWidget::ShowWidgetMessage(const FText& Title, const FText& Body, float Duration)
@@ -100,6 +111,7 @@ void UNTPlayerHUDWidget::NativeDestruct()
 		);
 
 		StatComponent = nullptr;
-		Super::NativeDestruct();
+	
 	}
+	Super::NativeDestruct();
 }

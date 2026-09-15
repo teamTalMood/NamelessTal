@@ -6,7 +6,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Animation/AnimMontage.h"
-
+#include "Engine/Texture2D.h"
 
 
 // Sets default values
@@ -33,4 +33,9 @@ ETalStyle ATalBase::GetTalStyle() const
 UAnimMontage* ATalBase::GetAttackMontage() const
 {
 	return AttackMontage;
+}
+
+UTexture2D* ATalBase::GetTalIcon() const
+{
+	return TalIcon.Get();
 }
