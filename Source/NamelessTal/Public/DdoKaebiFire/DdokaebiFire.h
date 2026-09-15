@@ -35,11 +35,6 @@ protected:
 	virtual void BeginPlay() override;
 
 protected:
-	//불모양 Mesh 넣을 부분
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", 
-		meta = (AllowPrivateAccess = "true"))
-	UStaticMeshComponent* FireMesh;
-
 	// Collision 겹침 감지 용도 (상호 작용 가능 거리)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components",
 		meta = (AllowPrivateAccess = "true"))

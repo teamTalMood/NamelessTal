@@ -28,20 +28,15 @@ ADdokaebiFire::ADdokaebiFire()
 	//틱사용 안함
 	PrimaryActorTick.bCanEverTick = false;
 
-	//Root Mesh = FireMesh로 
-	FireMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FireMesh"));
-	RootComponent = FireMesh;
-
 	FireInteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("FireInteractionRange"));
+	RootComponent = FireInteractionRange;
 	FireInteractionRange->SetupAttachment(RootComponent);
 	FireInteractionRange->SetSphereRadius(200.0f);
 	FireInteractionRange->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	FireInteractionRange->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 
-	FireInteractionRange->OnComponentBeginOverlap.AddDynamic(this,
-		&ADdokaebiFire::OnRangeBeginOverlap);
-	FireInteractionRange->OnComponentEndOverlap.AddDynamic(this,
-		&ADdokaebiFire::OnRangeEndOverlap);
+	FireInteractionRange->OnComponentBeginOverlap.AddDynamic(this, &ADdokaebiFire::OnRangeBeginOverlap);
+	FireInteractionRange->OnComponentEndOverlap.AddDynamic(this, &ADdokaebiFire::OnRangeEndOverlap);
 }
 
 void ADdokaebiFire::TriggerRest(AActor* User)
