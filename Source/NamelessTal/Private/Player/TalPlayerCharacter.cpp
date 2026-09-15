@@ -63,6 +63,9 @@
 
 #include "Game/NTGameDataSingleton.h"
 
+// 화롯불 안쓰고 죽을때를 대비해 처음으로 돌아갈때를 대비하기 위해 사용
+#include "NamelessTalGameMode.h" 
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -134,6 +137,19 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	{
 		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
 		bParrySlowMoActive = false;
+	}
+
+	if (bParrySlowMoActive && LastParriedTarget.IsValid())
+	{
+		const FVector ToTarget = (LastParriedTarget->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+		if (!ToTarget.IsNearlyZero())
+		{
+			const FRotator TargetRotation = ToTarget.Rotation();
+
+			SetActorRotation(FMath::RInterpTo(GetActorRotation(), TargetRotation,
+				DeltaTime, ParryFaceRotationSpeed / 90.0f));
+
+		}
 	}
 
 	//카메라 거리보간
@@ -431,6 +447,11 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	{
 		const bool bParried = GuardComponent->TryParry();
 
+		if (bParried)
+		{
+			LastParriedTarget = DamageCauser;
+		}
+
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
 			if (bParried)
@@ -522,6 +543,11 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
 		const bool bParried = GuardComponent->TryParry();
+		
+		if (bParried)
+		{
+			LastParriedTarget = DamageCauser;
+		}
 
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
@@ -1767,6 +1793,14 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 {
 	bIsDead = false;
 
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	// 사망 몽타주는 AutoBlendOut이 꺼져있어 직접 안멈추면 사망 포즈로 굳음
+	if (AnimInstance)
+	{
+		AnimInstance->Montage_Stop(0.0f, DeathMontage);
+	}
+
 	const FTransform TargetTransform = LastBonfire.IsValid()
 		? LastBonfire->GetActorTransform() : InitialSpawnTransform;
 
@@ -1780,16 +1814,37 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 	{
 		Movement->SetMovementMode(MOVE_Walking);
 	}
+
+	// TriggerRest는 전투중이면 막히므로 부활X
+	StatComponent->RestoreFull();
+	RechargeFlask();
+
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->RespawnAllMonsters();
+	}
+
+	if (LastBonfire.IsValid())
+	{
+		LastBonfire->OnBonfireRested.Broadcast();
+	}
+
+	if (AnimInstance && ReviveAnim) {
+
+		AnimInstance->PlaySlotAnimationAsDynamicMontage(ReviveAnim, TEXT("DefaultSlot"));
+
+		GetWorldTimerManager().SetTimer(ReviveTimerHandle, this,
+			&ATalPlayerCharacter::EndRevive, ReviveAnim->GetPlayLength(), false);
+	} else {
+		EndRevive();
+	}
+}
+
+void ATalPlayerCharacter::EndRevive()
+{
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
 	{
 		EnableInput(PlayerController);
-	}
-	
-	if (LastBonfire.IsValid())
-	{
-		LastBonfire->TriggerRest(this);
-	} else {
-		StatComponent->RestoreFull();
 	}
 }
 

@@ -13,9 +13,14 @@ UCLASS()
 class NAMELESSTAL_API UNTPlayerHUDWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
+
 public:
 	void InitializeWithStatComponent(UStatComponent* InStatComponent);
+
+	void ShowWidgetMessage(const FText& Title, const FText& Body, float Duration);
+
+protected:
+	virtual void NativeConstruct() override;
 
 protected:
 	virtual void NativeDestruct() override;
@@ -25,6 +30,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<class UProgressBar> PB_Soul;
+
+	UPROPERTY()
+	TObjectPtr<class UNTMessageWidget> WDG_Message;
 
 private:
 	UPROPERTY()

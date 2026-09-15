@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 
 #include "Player/TalPlayerController.h"
@@ -8,6 +8,8 @@
 #include "Player/UI/NTPlayerHUDWidget.h"
 #include "Player/TalPlayerCharacter.h"
 #include "Stat/StatComponent.h"
+#include "Player/UI/NTMessageWidget.h"
+#include "MCLOG.h"
 
 
 void ATalPlayerController::BeginPlay()
@@ -15,6 +17,31 @@ void ATalPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	if (!IsLocalController()) return;
+
+	// 메시지 위젯은 숨긴채로 미리 만들어두기!
+	if (NoticeWidgetClass)
+	{
+		NoticeWidget = CreateWidget<UNTMessageWidget>(this, NoticeWidgetClass);
+		if (IsValid(NoticeWidget))
+		{
+			NoticeWidget->AddToViewport();
+
+			NoticeWidget->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+
+	if (TutorialWidgetClass) {
+		TutorialWidget = CreateWidget<UNTMessageWidget>(this,
+			TutorialWidgetClass);
+		if (IsValid(TutorialWidget))
+		{
+			TutorialWidget->AddToViewport();
+
+			TutorialWidget->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
 	if (!PlayerHUDClass) return;
 
 	ATalPlayerCharacter* TalCharacter = Cast<ATalPlayerCharacter>(GetPawn());
@@ -47,6 +74,16 @@ void ATalPlayerController::SetupInputComponent()
 			Subsystem->AddMappingContext(CurrentContext, 0);
 		}
 	}
-	
+
+}
+
+void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
+{
+	if (PlayerHUD == nullptr)
+	{
+		return;
+	}
+
+	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
 }
 

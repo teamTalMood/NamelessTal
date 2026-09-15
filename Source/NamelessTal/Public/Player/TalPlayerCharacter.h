@@ -25,6 +25,7 @@ class UGuardComponent; // 가드/패링 클래스 전방선언
 class UNTLockOnTargetComponent; //락온 전방선언
 class UMotionWarpingComponent; //모션워핑 전방선언
 class ADdokaebiFire; // 화톳불 전방선언
+class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -494,6 +495,13 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParrySlowMoTimeDilation = 0.15f;
 
+	// 패링 성공 시 바라볼 대상
+	TWeakObjectPtr<AActor> LastParriedTarget;
+
+	//패링 후 대상 바라보는 회전 속도(도/초)
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParryFaceRotationSpeed = 720.0f;
+
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParrySlowMoRealDuration = 1.0f;
 
@@ -584,7 +592,7 @@ protected:
 
 	// 사망 후 리스폰까지 대기 시간 (나중에 연출넣을자리)
 	UPROPERTY(EditAnywhere, Category = "State")
-	float RespawnDelay = 0.1f;
+	float RespawnDelay = 3.0f;
 
 	FTimerHandle RespawnTimerHandle;
 
@@ -597,7 +605,16 @@ protected:
 	void RespawnAtBonfire();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+
 	TObjectPtr<UAnimMontage> DeathMontage;//사망 애니메이션
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
+	TObjectPtr<UAnimSequenceBase> ReviveAnim;
+
+	FTimerHandle ReviveTimerHandle;
+
+	void EndRevive();
+
 
 	virtual void Landed(const FHitResult& Hit) override;
 
