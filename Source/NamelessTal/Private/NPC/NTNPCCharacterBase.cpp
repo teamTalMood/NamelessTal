@@ -412,7 +412,7 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
 
 #if ENABLE_DRAW_DEBUG
-	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
+	//DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
 #endif
 
 	const FVector ToTarget = TargetAttackPos - GetActorLocation();
