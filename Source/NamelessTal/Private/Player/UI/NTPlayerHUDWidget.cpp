@@ -8,6 +8,8 @@
 
 void UNTPlayerHUDWidget::NativeConstruct()
 {
+	Super::NativeConstruct();
+
 	WDG_Message = Cast<UNTMessageWidget>(GetWidgetFromName(TEXT("WBP_Notice")));
 	ensure(WDG_Message);
 }
@@ -109,6 +111,7 @@ void UNTPlayerHUDWidget::NativeDestruct()
 		);
 
 		StatComponent = nullptr;
-		Super::NativeDestruct();
+	
 	}
+	Super::NativeDestruct();
 }
