@@ -565,6 +565,8 @@ public:
 	// 가드 중인지 ( 내부접근하기 Guardcomponent) 
 	bool IsGuarding() const;
 
+	// 누르고 있는중인가요
+	bool IsGuardInputHeld() const; 
 
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템

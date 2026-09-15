@@ -1602,7 +1602,10 @@ bool ATalPlayerCharacter::IsGuarding() const
 	return GuardComponent->IsGuarding();
 }
 
-
+bool ATalPlayerCharacter::IsGuardInputHeld() const
+{
+	return GuardComponent->IsGuardInputHeld();
+}
 
 //락온 시스템
 void ATalPlayerCharacter::BeginLockOn()
