@@ -38,6 +38,13 @@ enum class EPlayerAttackPhase : uint8
 	Grace //유예구간
 };
 UENUM(BlueprintType)
+enum class EComboInputPhase : uint8
+{
+	Closed,
+	BufferOnly,
+	Executable
+};
+UENUM(BlueprintType)
 enum class EBufferedCombatAction : uint8
 {
 	None,
@@ -385,7 +392,12 @@ protected:
 	void OpenComboWindow();
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void CloseComboWindow();
+	void BeginComboExecution(int32 ExpectedStep);
+
+	void ExecuteBufferedMove(const FVector2D& MovementVector);
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void CloseComboWindow(int32 ExpectedStep);
 
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bCanCombo = false;
@@ -395,6 +407,12 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
 	EPlayerAttackPhase AttackPhase = EPlayerAttackPhase::None;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
+	EComboInputPhase ComboInputPhase = EComboInputPhase::Closed;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
+	bool bBasicAttackActionLocked = false;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
 	EBufferedCombatAction BufferedAction = EBufferedCombatAction::None;

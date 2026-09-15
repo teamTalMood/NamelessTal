@@ -235,40 +235,70 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
-
-
-	// 패링,가드 성공 시(시간 초만큼 실행불가능)
-	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() ||
-		bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt)
+	// 구르기 자체가 불가능한 상태
+	if (bIsDead
+		|| GuardComponent->IsStaggered()
+		|| StatComponent->IsGroggy()
+		|| bIsLandingRecovering
+		|| bIsUsingFlask
+		|| bIsUsingSpecialArt
+		|| bIsDodging)
 	{
 		return;
 	}
 
-
-	bUseControllerRotationYaw = false;//Disable rotation during dodge
-
-	if (bIsDodging) // Already Dodging or No RollMontage
+	if (bBasicAttackActionLocked)
 	{
-		return;
+		// 저장 구간: 첫 입력일 때만 구르기 예약
+		if (ComboInputPhase == EComboInputPhase::BufferOnly)
+		{
+			if (BufferedAction == EBufferedCombatAction::None)
+			{
+				BufferedAction = EBufferedCombatAction::Dodge;
+			}
+
+			return;
+		}
+
+		// 실행 구간이 아니면 구르기 금지
+		if (ComboInputPhase != EComboInputPhase::Executable)
+		{
+			return;
+		}
 	}
 
+	// 실제 실행 시점의 이동 방향으로 구르기
+	DodgeDir = bIsMoving
+		? LastMoveInputWorldDir
+		: GetActorForwardVector();
 
-	DodgeDir = bIsMoving ? LastMoveInputWorldDir : GetActorForwardVector();
+	const float ForwardDot =
+		FVector::DotProduct(GetActorForwardVector(), DodgeDir);
 
-	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DodgeDir);
-	const float RightDot = FVector::DotProduct(GetActorRightVector(), DodgeDir);
-	const float Angle = FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot));
+	const float RightDot =
+		FVector::DotProduct(GetActorRightVector(), DodgeDir);
+
+	const float Angle =
+		FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot));
 
 	UAnimMontage* SelectedMontage = SelectRollMontage(Angle);
 
-	if (SelectedMontage == nullptr)
+	if (!IsValid(SelectedMontage))
 	{
 		return;
 	}
 
+	// 구르기가 가능함을 확인한 뒤 현재 공격 정리
+	if (bBasicAttackActionLocked)
+	{
+		CloseComboWindow(ComboIndex);
+	}
+
+	bUseControllerRotationYaw = false;
 	bIsDodging = true;
 	bIsInvincible = true;
 
+	// 남은 공격 애니메이션 중단
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		if (AnimInstance->Montage_IsPlaying(AttackMontage))
@@ -276,17 +306,26 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 			AnimInstance->Montage_Stop(0.1f, AttackMontage);
 		}
 	}
+
 	ComboIndex = 0;
 	bCanCombo = false;
 	AttackPhase = EPlayerAttackPhase::None;
-	BufferedAction = EBufferedCombatAction::None;
+	ComboInputPhase = EComboInputPhase::Closed;
+	bBasicAttackActionLocked = false;
+	ClearAttackBuffer();
+
 	PlayAnimMontage(SelectedMontage);
 
-	const float MontageDuration = SelectedMontage->GetPlayLength() - 0.3f;
-	GetWorldTimerManager().SetTimer(DodgeTimerHandle, this,
-		&ATalPlayerCharacter::EndDodge, MontageDuration, false);
+	const float MontageDuration =
+		SelectedMontage->GetPlayLength() - 0.3f;
 
-
+	GetWorldTimerManager().SetTimer(
+		DodgeTimerHandle,
+		this,
+		&ATalPlayerCharacter::EndDodge,
+		MontageDuration,
+		false
+	);
 }
 
 void ATalPlayerCharacter::EndDodge()
@@ -359,9 +398,102 @@ void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
+
+		if (bBasicAttackActionLocked)
+		{
+			// 키를 놓은 입력은 행동으로 예약하지 않음
+			if (MovementVector.IsNearlyZero())
+			{
+				return;
+			}
+
+			if (ComboInputPhase == EComboInputPhase::BufferOnly)
+			{
+				// 먼저 예약된 행동이 없을 때만 이동 예약
+				if (BufferedAction == EBufferedCombatAction::None)
+				{
+					BufferedAction = EBufferedCombatAction::Move;
+					BufferedMoveInput = MovementVector;
+				}
+
+				return;
+			}
+
+			if (ComboInputPhase == EComboInputPhase::Executable)
+			{
+				ExecuteBufferedMove(MovementVector);
+			}
+
+			return;
+		}
 	}
 
 
+}
+
+void ATalPlayerCharacter::ExecuteBufferedMove(
+	const FVector2D& MovementVector)
+{
+	if (MovementVector.IsNearlyZero()
+		|| Controller == nullptr
+		|| bIsDead
+		|| bIsDodging
+		|| bIsUsingFlask
+		|| bIsUsingSpecialArt
+		|| bIsLandingRecovering
+		|| GuardComponent->IsStaggered()
+		|| StatComponent->IsGroggy())
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	// 기존 Move()의 가드 피격 중 이동 제한 유지
+	if (GuardComponent->IsGuarding() && AnimInstance)
+	{
+		const FName Section =
+			AnimInstance->Montage_GetCurrentSection(GuardMontage);
+
+		if (Section == TEXT("Guard_hit")
+			|| Section == TEXT("Parry_LDRU")
+			|| Section == TEXT("Parry_RULD"))
+		{
+			return;
+		}
+	}
+
+	// 공격 중 실행 가능한 구간에서만 전환
+	if (!bBasicAttackActionLocked
+		|| ComboInputPhase != EComboInputPhase::Executable)
+	{
+		return;
+	}
+
+	// 무기 판정과 공격 상태를 먼저 정리
+	CloseComboWindow(ComboIndex);
+
+	// 남은 공격 애니메이션 중단
+	if (AnimInstance
+		&& AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		AnimInstance->Montage_Stop(0.1f, AttackMontage);
+	}
+
+	const FRotator YawRotation(
+		0.0f,
+		Controller->GetControlRotation().Yaw,
+		0.0f
+	);
+
+	const FVector ForwardDirection =
+		FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+
+	const FVector RightDirection =
+		FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+	AddMovementInput(ForwardDirection, MovementVector.Y);
+	AddMovementInput(RightDirection, MovementVector.X);
 }
 
 // Player Input Component Setup
@@ -710,28 +842,36 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 		|| !IsValid(AttackMontage)
 		) return;
 
-	switch (AttackPhase)
+	if (AttackPhase == EPlayerAttackPhase::None)
 	{
-	case EPlayerAttackPhase::None:
 		StartAttackStep(1);
-		break;
+		return;
+	}
+	if (AttackPhase == EPlayerAttackPhase::Grace)
+	{
+		StartNextCombo();
+		return;
+	}
+	if (ComboIndex >= MaxBasicAttackCombo) return;
 
-	case EPlayerAttackPhase::Recovery:
-		if (bCanCombo)//후경직 상태일때 입력 저장
+	switch (ComboInputPhase)
+	{
+	case EComboInputPhase::BufferOnly:
+		if (BufferedAction == EBufferedCombatAction::None)
 		{
 			BufferedAction = EBufferedCombatAction::Attack;
 		}
 		break;
 
-	case EPlayerAttackPhase::Grace:
+	case EComboInputPhase::Executable:
 		StartNextCombo();
 		break;
 
-	case EPlayerAttackPhase::Startup:
-	case EPlayerAttackPhase::Active:
+	case EComboInputPhase::Closed:
 	default:
 		break;
 	}
+	
 }
 
 void ATalPlayerCharacter::StartAttackStep(int32 Step)
@@ -750,6 +890,15 @@ void ATalPlayerCharacter::StartAttackStep(int32 Step)
 	AttackPhase = EPlayerAttackPhase::Startup;
 	bCanCombo = false;
 
+	//새 공격이 시작시
+	ComboInputPhase = EComboInputPhase::Closed;
+	bBasicAttackActionLocked = true;
+
+	//기존 일반 이동과 날아있는 이동 입력 정리
+	ConsumeMovementInputVector();
+	GetCharacterMovement()->StopMovementImmediately();
+
+
 	ClearAttackBuffer();
 
 	const FName SectionName(*FString::Printf(TEXT("Attack%d"), ComboIndex));
@@ -766,6 +915,9 @@ void ATalPlayerCharacter::StartAttackStep(int32 Step)
 			AttackPhase = EPlayerAttackPhase::None;
 			ComboIndex = 0;
 			ClearAttackBuffer();
+
+			ComboInputPhase = EComboInputPhase::Closed;
+			bBasicAttackActionLocked = false;
 		}
 	}
 }
@@ -1094,35 +1246,88 @@ void ATalPlayerCharacter::Interact()
 
 void ATalPlayerCharacter::OpenComboWindow()
 {
+	//기본 공격 중이 아니면 무시
+	if (!bBasicAttackActionLocked || ComboIndex <= 0) return;
 	//입력제거
 	ClearAttackBuffer();
 
-	//후경직 상태에서만 입력받기
-	bCanCombo = AttackPhase == EPlayerAttackPhase::Recovery;
+	ComboInputPhase = EComboInputPhase::BufferOnly;
 }
-void ATalPlayerCharacter::CloseComboWindow()
-{
-	bCanCombo = false;
 
-	const bool bHasBufferedAttack = BufferedAction == EBufferedCombatAction::Attack;
-	const bool bCanContinueCombo = ComboIndex > 0 && ComboIndex < MaxBasicAttackCombo;
+void ATalPlayerCharacter::BeginComboExecution(int32 ExpectedStep)
+{
+	if (!bBasicAttackActionLocked || ComboIndex != ExpectedStep)
+	{
+		return;
+	}
+
+	// 4타에서도 구르기는 실행할 수 있어야 함
+	if (ComboIndex <= 0 || ComboIndex > MaxBasicAttackCombo)
+	{
+		return;
+	}
+
+	if (ComboInputPhase != EComboInputPhase::BufferOnly)
+	{
+		return;
+	}
+
+	ComboInputPhase = EComboInputPhase::Executable;
+
+	// 예약 종류를 보관한 뒤 버퍼 비우기
+	const EBufferedCombatAction ActionToExecute = BufferedAction;
+	const FVector2D MoveToExecute = BufferedMoveInput;
 
 	ClearAttackBuffer();
 
-	if (bHasBufferedAttack && bCanContinueCombo)
+	if (bIsDead
+		|| GuardComponent->IsStaggered()
+		|| StatComponent->IsGroggy()
+		|| bIsLandingRecovering
+		|| bIsUsingFlask
+		|| bIsDodging
+		|| bIsUsingSpecialArt)
 	{
-		StartNextCombo();
 		return;
 	}
 
-	if (bCanContinueCombo)
+	switch (ActionToExecute)
 	{
-		StartComboGrace();
-		return;
-	}
+	case EBufferedCombatAction::Attack:
+		if (ComboIndex < MaxBasicAttackCombo)
+		{
+			StartNextCombo();
+		}
+		break;
 
+	case EBufferedCombatAction::Dodge:
+		StartDodge(FInputActionValue(true));
+		break;
+
+	case EBufferedCombatAction::Move:
+		ExecuteBufferedMove(MoveToExecute);
+		break;
+	default:
+		// 예약이 없으면 이후 입력을 기다림
+		break;
+	}
+}
+
+void ATalPlayerCharacter::CloseComboWindow(int32 ExpectedStep)
+{
+	if (!bBasicAttackActionLocked || ComboIndex != ExpectedStep) return;
+
+	GetWorldTimerManager().ClearTimer(ComboGraceTimer);
+
+	ClearAttackBuffer();
+	DisableWeaponCollision();
+
+	bCanCombo = false;
+	ComboInputPhase = EComboInputPhase::Closed;
 	AttackPhase = EPlayerAttackPhase::None;
 	ComboIndex = 0;
+
+	bBasicAttackActionLocked = false;;
 }
 void ATalPlayerCharacter::ClearAttackBuffer()//버퍼 초기화
 {
