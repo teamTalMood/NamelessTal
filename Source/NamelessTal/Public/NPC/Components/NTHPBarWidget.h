@@ -22,7 +22,10 @@ protected:
 
 public:
 	FORCEINLINE void SetMaxHp(float NewMaxHp) { MaxHp = NewMaxHp; }
+
+	UFUNCTION()
 	void UpdateHpBar(float NewCurrentHp, float MaxHP);
+
 	FORCEINLINE void SetOwiningActor(AActor* NewOwner) { OwningActor = NewOwner; }
 
 protected:

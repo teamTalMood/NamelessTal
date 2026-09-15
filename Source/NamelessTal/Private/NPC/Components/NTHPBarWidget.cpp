@@ -29,4 +29,8 @@ void UNTHPBarWidget::UpdateHpBar(float NewCurrentHp, float MaxHP)
 	{
 		HpProgressBar->SetPercent(NewCurrentHp / MaxHp);
 	}
+	else
+	{
+		MC_LOG(LogMC, Error, TEXT("No HpProgressBar!!"));
+	}
 }
