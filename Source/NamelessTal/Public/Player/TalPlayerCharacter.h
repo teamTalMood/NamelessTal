@@ -26,6 +26,8 @@ class UNTLockOnTargetComponent; //락온 전방선언
 class UMotionWarpingComponent; //모션워핑 전방선언
 class ADdokaebiFire; // 화톳불 전방선언
 class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
+class UUserWidget;
+
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -82,6 +84,7 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry);
@@ -305,6 +308,42 @@ public:
 
 protected:
 	void Interact();//탈바꿈
+
+	bool CanTalchiTarget(AActor* TargetActor) const;
+	AActor* FindBestTalchiTarget() const;
+
+	void UpdateTalchiPrompt(float DeltaTime);
+	void HideTalchiPrompt();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Talchi|UI")
+	TSubclassOf<UUserWidget> TalchiPromptWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> TalchiPromptWidget;
+
+	// 화면 안내용 대상입니다. 실제 탈취 대상과 구분합니다.
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AActor> FocusedTalchiTarget;
+
+	// 탈취 몽타주 재생 중에는 안내와 재입력을 막기 위해 사용합니다.
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActiveTalchiMontage;
+	// 회피 무적과 별도로 관리하는 탈취 진행 상태
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi")
+	bool bIsTalchiInProgress = false;
+
+	// 정상 종료와 중단 모두 이 함수로 정리합니다.
+	void FinishTalchi();
+
+	// 탈취 몽타주의 종료 콜백
+	void OnTalchiMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+
+	// 화면 좌표 기준으로 적 중심에서 오른쪽 위에 표시합니다.
+	UPROPERTY(EditDefaultsOnly, Category = "Talchi|UI")
+	FVector2D TalchiPromptScreenOffset = FVector2D(60.0f, -30.0f);
+
+	float TalchiSearchElapsed = 0.1f;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UNTTalChiTargetComponent> SelectedTalChiTarget;

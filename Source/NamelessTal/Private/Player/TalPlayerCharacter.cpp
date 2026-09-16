@@ -51,6 +51,7 @@
 //락온 추가
 #include "NPC/Components/NTLockOnTargetComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "UObject/UObjectIterator.h"
 
 // 적 애니메이션 ( 맞춤 패링 )
@@ -65,6 +66,9 @@
 
 // 화롯불 안쓰고 죽을때를 대비해 처음으로 돌아갈때를 대비하기 위해 사용
 #include "NamelessTalGameMode.h" 
+
+#include "Blueprint/UserWidget.h"
+#include "Blueprint/WidgetLayoutLibrary.h"
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
@@ -222,6 +226,24 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
+
+	if (bIsTalchiInProgress)
+	{
+		UAnimInstance* AnimInstance =
+			GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+
+		const bool bMontageActive =
+			AnimInstance
+			&& IsValid(ActiveTalchiMontage)
+			&& AnimInstance->Montage_IsActive(ActiveTalchiMontage);
+
+		if (!bMontageActive)
+		{
+			FinishTalchi();
+		}
+	}
+
+	UpdateTalchiPrompt(DeltaTime);
 }
 
 UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
@@ -238,6 +260,10 @@ UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
 
 void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress)
+	{
+		return;
+	}
 	// 구르기 자체가 불가능한 상태
 	if (bIsDead
 		|| GuardComponent->IsStaggered()
@@ -358,6 +384,10 @@ void ATalPlayerCharacter::UpdateRotationMode()
 // Player Move
 void ATalPlayerCharacter::Move(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress)
+	{
+		return;
+	}
 	if (StatComponent->IsGroggy() || bIsLandingRecovering)
 	{
 		return;
@@ -558,6 +588,11 @@ void ATalPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	if (bIsTalchiInProgress)
+	{
+		return 0.0f;
+	}
+
 	Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 
 	//회피중이면 무적(데미지 무시)
@@ -657,7 +692,10 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamage,
 	const float InAttackDrain, const float InGuardDrain, const bool bCanParry)
 {
-
+	if (bIsTalchiInProgress)
+	{
+		return 0.0f;
+	}
 	//회피중이면 무적(데미지 무시)
 	if (bIsInvincible)
 	{
@@ -823,6 +861,10 @@ void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress)
+	{
+		return;
+	}
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
 		|| bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt) return;
@@ -838,6 +880,10 @@ void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress)
+	{
+		return;
+	}
 	if (bParryCounterReady && !bIsUsingSpecialArt)
 	{
 		TriggerParryCounter();
@@ -1076,6 +1122,8 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 	{
 		StatComponent->OnDeath.AddUniqueDynamic(this, &ATalPlayerCharacter::HandleDeath);//델리게이트 등록
 	}
+
+
 }
 
 ATalBase* ATalPlayerCharacter::UnequipTal()
@@ -1085,62 +1133,45 @@ ATalBase* ATalPlayerCharacter::UnequipTal()
 
 void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 {
-	SelectedTalChiTarget.Reset();
-
-	if (!IsValid(TargetActor)
-		|| TargetActor == this
-		|| TargetActor->IsActorBeingDestroyed())
+	if (bIsTalchiInProgress
+		|| bIsDead
+		|| bIsDodging
+		|| bIsUsingFlask
+		|| bIsUsingSpecialArt
+		|| bIsLandingRecovering)
 	{
 		return;
 	}
 
-	INTNPCCharacterBaseInterface* TargetNPC = Cast<INTNPCCharacterBaseInterface>(TargetActor);
-
-	if (!TargetNPC || !TargetNPC->GetIsExhausting())
+	if (!IsValid(GuardComponent)
+		|| !IsValid(StatComponent)
+		|| GuardComponent->IsStaggered()
+		|| StatComponent->IsGroggy())
 	{
-		MC_LOG(LogSY, Warning, TEXT("탈취 실패: 그로기상태가 아님"));
 		return;
 	}
 
-	const float MaxDistance = FMath::Max(0.0f, InteractionDistance);
-	const float DistanceSquared = FVector::DistSquared(
-		GetActorLocation(),
-		TargetActor->GetActorLocation()
-	);
-	const float ActualDistance = FMath::Sqrt(DistanceSquared);
+	UAnimInstance* AnimInstance =
+		GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 
-	MC_LOG(
-		LogSY,
-		Warning,
-		TEXT("Target=%s / Distance=%.1f / MaxDistance=%.1f"),
-		*GetNameSafe(TargetActor),
-		ActualDistance,
-		MaxDistance
-	);
-
-	if (DistanceSquared > FMath::Square(MaxDistance))
+	if (!AnimInstance)
 	{
-		MC_LOG(LogSY, Warning, TEXT("탈을 빼앗기에 상대가 너무 멉니다"));
 		return;
 	}
+    // 실행 직전에도 동일한 조건으로 다시 확인합니다.
+    if (!CanTalchiTarget(TargetActor))
+    {
+        MC_LOG(LogSY, Warning,
+            TEXT("탈취 실패: 대상이 탈취 조건을 만족하지 않습니다"));
+        return;
+    }
 
-	UNTTalComponent* TargetTalComponent = TargetActor->FindComponentByClass<UNTTalComponent>();
+    UNTTalChiTargetComponent* TargetPoint =
+        TargetActor->FindComponentByClass<UNTTalChiTargetComponent>();
 
-	if (!IsValid(TargetTalComponent) || !IsValid(TargetTalComponent->GetCurrentTal()))
-	{
-		MC_LOG(LogSY, Warning, TEXT("상대 탈이 없다"));
-		return;
-	}
+    SelectedTalChiTarget = TargetPoint;
 
-	UNTTalChiTargetComponent* TargetPoint = TargetActor->FindComponentByClass<UNTTalChiTargetComponent>();
-
-	if (!IsValid(TargetPoint) || !TargetPoint->IsTalchiAvailable())
-	{
-		MC_LOG(LogSY, Warning, TEXT("타겟이 없습니다"));
-		return;
-	}
-
-	SelectedTalChiTarget = TargetPoint;
+    // 아래부터는 기존 코드를 유지합니다.
 
 	const FTransform TargetTransform = TargetPoint->GetTalchiTransform();
 	const FVector TargetLocation = TargetTransform.GetLocation();
@@ -1201,77 +1232,88 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 		CloseComboWindow(ComboIndex);
 	}
 
+	// 몽타주 재생 전에 상태를 켭니다.
+	bIsTalchiInProgress = true;
+	ActiveTalchiMontage = PlayerTalchiMontage;
+
+	// 기존 이동 입력과 속도를 정리합니다.
+	ConsumeMovementInputVector();
+
+	if (UCharacterMovementComponent* Movement =
+		GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+	}
+
+	bIsMoving = false;
+
+	// 진행 중이던 가드를 해제합니다.
+	StopGuard(FInputActionValue(false));
+
+	HideTalchiPrompt();
+
 	const float MontageLength = PlayAnimMontage(PlayerTalchiMontage);
 
 	if (MontageLength <= 0.0f)
 	{
+		FinishTalchi();
+
 		MC_LOG(LogSY, Warning, TEXT("탈취 몽타주 재생 실패"));
 		return;
 	}
 
+	FOnMontageEnded EndDelegate;
+	EndDelegate.BindUObject(
+		this,
+		&ATalPlayerCharacter::OnTalchiMontageEnded);
+
+	AnimInstance->Montage_SetEndDelegate(
+		EndDelegate,
+		PlayerTalchiMontage);
+
 	MC_LOG(LogSY, Warning, TEXT("탈취 모션 시작"));
 
 }
-
 void ATalPlayerCharacter::Interact()
 {
-	SelectedTalChiTarget.Reset();
-
-	if (!FollowCamera || !GetWorld()) return;
-
-	const FVector Start = FollowCamera->GetComponentLocation();
-
-	const float TraceLength = FVector::Distance(Start, GetActorLocation())
-		+ FMath::Max(0.0f, InteractionDistance);
-
-	const FVector End = Start + FollowCamera->GetForwardVector() * TraceLength;
-
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-
-	//내 탈은 무시
-	if (ATalBase* MyTal = GetCurrentTal())
+	if (bIsTalchiInProgress)
 	{
-		QueryParams.AddIgnoredActor(MyTal);
+		return;
 	}
-
-	FHitResult HitResult;
-
-	const bool bHit = GetWorld()->LineTraceSingleByChannel(
-		HitResult,
-		Start,
-		End,
-		ECC_Visibility,
-		QueryParams
-	);
-
-	//디버깅용 지울것
-	//DrawDebugLine(
-	//	GetWorld(),
-	//	Start,
-	//	bHit ? HitResult.ImpactPoint : End,
-	//	bHit ? FColor::Green : FColor::Red,
-	//	false,
-	//	2.0f,
-	//	0,
-	//	1.5f
-	//);
-
-	if (!bHit)
+	if (bIsDead)
 	{
-		MC_LOG(LogSY, Warning, TEXT("탈취 대상을 찾지 못했습니다"));
 		return;
 	}
 
-	AActor* TargetActor = HitResult.GetActor();
-	if (ATalBase* HitTal = Cast<ATalBase>(TargetActor))
+	UAnimInstance* AnimInstance =
+		GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+
+	// 탈취 몽타주 도중 다시 F를 눌러도 시작하지 않습니다.
+	if (IsValid(ActiveTalchiMontage)
+		&& AnimInstance
+		&& AnimInstance->Montage_IsActive(ActiveTalchiMontage))
 	{
-		TargetActor = HitTal->GetOwner();
+		return;
+	}
+
+	if (!IsValid(TalchiPromptWidget)
+		|| TalchiPromptWidget->GetVisibility()
+		!= ESlateVisibility::HitTestInvisible)
+	{
+		return;
+	}
+
+	AActor* TargetActor = FocusedTalchiTarget.Get();
+
+	// 표시 이후 그로기가 풀리거나 범위를 벗어났을 수 있습니다.
+	if (!CanTalchiTarget(TargetActor))
+	{
+		HideTalchiPrompt();
+		return;
 	}
 
 	TakeTalFrom(TargetActor);
 }
-
 //void ATalPlayerCharacter::EquipWeapon(ATalWeapon* NewWeapon)
 //{
 //	if (NewWeapon == nullptr) return;
@@ -1417,6 +1459,10 @@ void ATalPlayerCharacter::UseSpecialAttack(
 
 bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
 {
+	if (bIsTalchiInProgress)
+	{
+		return false;
+	}
 	if (!GuardComponent || !StatComponent || bIsDead)
 	{
 		return false;
@@ -1745,6 +1791,10 @@ void ATalPlayerCharacter::RecoverSoul(float Amount)
 // 패링 / 가드 시스템 연동
 void ATalPlayerCharacter::StartGuard(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress)
+	{
+		return;
+	}
 	//고갈중 가드 불가
 	if (StatComponent->IsSoulExhausted() || bIsUsingFlask || bIsUsingSpecialArt)
 	{
@@ -2217,8 +2267,11 @@ void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
 	}
 }
 
+
+
 void ATalPlayerCharacter::HandleDeath()
 {
+	FinishTalchi();
 	if (bIsDead) return;
 
 	bIsDead = true;
@@ -2380,6 +2433,10 @@ void ATalPlayerCharacter::EndLandingRecovery()
 
 void ATalPlayerCharacter::UseFlaskItem(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress)
+	{
+		return;
+	}
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy() || StatComponent->IsSoulExhausted() ||
 		bIsLandingRecovering || bIsDodging || bIsUsingFlask || bIsUsingSpecialArt || FlaskCount <= 0
 		|| FlaskMontage == nullptr)
@@ -2435,6 +2492,10 @@ void ATalPlayerCharacter::RechargeFlask()
 
 void ATalPlayerCharacter::StartVictimTalchiMontage()
 {
+	if (!bIsTalchiInProgress)
+	{
+		return;
+	}
 	if (!SelectedTalChiTarget.IsValid())
 	{
 		MC_LOG(LogSY, Warning, TEXT("탈취할 사람이 없다"));
@@ -2457,6 +2518,10 @@ void ATalPlayerCharacter::StartVictimTalchiMontage()
 
 void ATalPlayerCharacter::TransferSelectedTal()
 {
+	if (!bIsTalchiInProgress)
+	{
+		return;
+	}
 	if (!IsValid(TalComponent) || !SelectedTalChiTarget.IsValid()) return;
 
 	AActor* TargetActor = SelectedTalChiTarget->GetOwner();
@@ -2505,6 +2570,10 @@ void ATalPlayerCharacter::TransferSelectedTal()
 
 void ATalPlayerCharacter::GrabSelectedTalToHand()
 {
+	if (!bIsTalchiInProgress)
+	{
+		return;
+	}
 	static const FName TalGrabSocketName(TEXT("TalGrabSocket"));
 
 	if (IsValid(HeldStolenTal)) return;
@@ -2539,6 +2608,10 @@ void ATalPlayerCharacter::GrabSelectedTalToHand()
 
 void ATalPlayerCharacter::EquipHeldTalToFace()
 {
+	if (!bIsTalchiInProgress)
+	{
+		return;
+	}
 	if (!IsValid(TalComponent) || !IsValid(HeldStolenTal)) return;
 
 	ATalBase* TalToEquip = HeldStolenTal.Get();
@@ -2576,4 +2649,354 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 			VictimNPC->TalChiNPC(FNPCTalchiData{});
 		}
 	}
+}
+
+bool ATalPlayerCharacter::CanTalchiTarget(AActor* TargetActor) const
+{
+	if (!GetWorld()
+		|| !IsValid(TargetActor)
+		|| TargetActor == this
+		|| TargetActor->IsActorBeingDestroyed())
+	{
+		return false;
+	}
+
+	// 1. 그로기 상태인지 확인
+	INTNPCCharacterBaseInterface* TargetNPC =
+		Cast<INTNPCCharacterBaseInterface>(TargetActor);
+
+	if (!TargetNPC || !TargetNPC->GetIsExhausting())
+	{
+		return false;
+	}
+
+	// 2. 탈을 가지고 있는지 확인
+	UNTTalComponent* TargetTalComponent =
+		TargetActor->FindComponentByClass<UNTTalComponent>();
+
+	if (!IsValid(TargetTalComponent)
+		|| !IsValid(TargetTalComponent->GetCurrentTal()))
+	{
+		return false;
+	}
+
+	// 3. 탈취 설정과 정면 부채꼴 확인
+	UNTTalChiTargetComponent* TargetPoint =
+		TargetActor->FindComponentByClass<UNTTalChiTargetComponent>();
+
+	if (!IsValid(TargetPoint)
+		|| !TargetPoint->IsTalchiAvailable()
+		|| !TargetPoint->IsInsideTalchiSector(this))
+	{
+		return false;
+	}
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+
+	if (!IsValid(PC) || !PC->IsLocalController())
+	{
+		return false;
+	}
+
+	// 4. 적의 중심이 화면 안에 있는지 확인
+	// 캐릭터 액터의 위치는 보통 캡슐 중심입니다.
+	const FVector TargetLocation = TargetActor->GetActorLocation();
+
+	FVector2D ScreenPosition;
+	if (!PC->ProjectWorldLocationToScreen(
+		TargetLocation, ScreenPosition, false))
+	{
+		return false;
+	}
+
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	PC->GetViewportSize(ViewportWidth, ViewportHeight);
+
+	if (ViewportWidth <= 0 || ViewportHeight <= 0
+		|| ScreenPosition.X < 0.0f
+		|| ScreenPosition.Y < 0.0f
+		|| ScreenPosition.X >= ViewportWidth
+		|| ScreenPosition.Y >= ViewportHeight)
+	{
+		return false;
+	}
+
+	// 5. 플레이어와 적 사이 / 카메라와 적 사이 장애물 검사
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.AddIgnoredActor(TargetActor);
+
+	if (ATalBase* MyTal = GetCurrentTal())
+	{
+		QueryParams.AddIgnoredActor(MyTal);
+	}
+
+	QueryParams.AddIgnoredActor(TargetTalComponent->GetCurrentTal());
+
+	FHitResult Hit;
+
+	const bool bBlockedFromPlayer =
+		GetWorld()->LineTraceSingleByChannel(
+			Hit,
+			GetActorLocation(),
+			TargetLocation,
+			ECC_Visibility,
+			QueryParams);
+
+	if (bBlockedFromPlayer)
+	{
+		return false;
+	}
+
+	FVector CameraLocation;
+	FRotator CameraRotation;
+	PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+
+	const bool bBlockedFromCamera =
+		GetWorld()->LineTraceSingleByChannel(
+			Hit,
+			CameraLocation,
+			TargetLocation,
+			ECC_Visibility,
+			QueryParams);
+
+	return !bBlockedFromCamera;
+}
+
+AActor* ATalPlayerCharacter::FindBestTalchiTarget() const
+{
+	if (!GetWorld())
+	{
+		return nullptr;
+	}
+
+	AActor* BestTarget = nullptr;
+	double BestDistanceSquared = TNumericLimits<double>::Max();
+
+	for (TActorIterator<ACharacter> It(GetWorld()); It; ++It)
+	{
+		ACharacter* Candidate = *It;
+
+		if (!IsValid(Candidate) || Candidate == this)
+		{
+			continue;
+		}
+
+		const double DistanceSquared = FVector::DistSquared(
+			GetActorLocation(),
+			Candidate->GetActorLocation());
+
+		// 이미 찾은 대상보다 멀면 추가 검사하지 않습니다.
+		if (DistanceSquared >= BestDistanceSquared)
+		{
+			continue;
+		}
+
+		if (!CanTalchiTarget(Candidate))
+		{
+			continue;
+		}
+
+		BestTarget = Candidate;
+		BestDistanceSquared = DistanceSquared;
+	}
+
+	return BestTarget;
+}
+
+void ATalPlayerCharacter::HideTalchiPrompt()
+{
+	FocusedTalchiTarget.Reset();
+
+	if (IsValid(TalchiPromptWidget))
+	{
+		TalchiPromptWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void ATalPlayerCharacter::UpdateTalchiPrompt(float DeltaTime)
+{
+	APlayerController* PC = Cast<APlayerController>(GetController());
+
+	if (!IsValid(PC) || !PC->IsLocalController() || bIsDead)
+	{
+		HideTalchiPrompt();
+		return;
+	}
+
+	if (bIsTalchiInProgress)
+	{
+		HideTalchiPrompt();
+		return;
+	}
+
+	// 컨트롤러가 준비된 시점에 한 번 생성합니다.
+	if (!IsValid(TalchiPromptWidget))
+	{
+		if (!TalchiPromptWidgetClass)
+		{
+			HideTalchiPrompt();
+			return;
+		}
+
+		TalchiPromptWidget =
+			CreateWidget<UUserWidget>(PC, TalchiPromptWidgetClass);
+
+		if (!IsValid(TalchiPromptWidget))
+		{
+			HideTalchiPrompt();
+			return;
+		}
+
+		TalchiPromptWidget->AddToViewport(10);
+		TalchiPromptWidget->SetAlignmentInViewport(
+			FVector2D(0.5f, 0.5f));
+		TalchiPromptWidget->SetVisibility(
+			ESlateVisibility::Collapsed);
+	}
+
+	// 전체 대상 검색은 0.1초마다 수행합니다.
+	TalchiSearchElapsed += DeltaTime;
+
+	if (TalchiSearchElapsed >= 0.1f)
+	{
+		TalchiSearchElapsed = 0.0f;
+		FocusedTalchiTarget = FindBestTalchiTarget();
+	}
+
+	AActor* TargetActor = FocusedTalchiTarget.Get();
+
+	// 선택된 대상이 조건을 잃으면 즉시 숨깁니다.
+	if (!CanTalchiTarget(TargetActor))
+	{
+		HideTalchiPrompt();
+		return;
+	}
+
+	// 위치는 매 프레임 갱신하여 카메라 움직임을 따라갑니다.
+	FVector2D WidgetPosition;
+
+	const bool bProjected =
+		UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(
+			PC,
+			TargetActor->GetActorLocation(),
+			WidgetPosition,
+			false);
+
+	if (!bProjected)
+	{
+		HideTalchiPrompt();
+		return;
+	}
+
+	// 이 좌표에는 DPI 보정이 이미 반영되어 있으므로 false입니다.
+	TalchiPromptWidget->SetPositionInViewport(
+		WidgetPosition + TalchiPromptScreenOffset,
+		false);
+
+	// 마우스 입력을 가로채지 않는 표시 전용 위젯입니다.
+	TalchiPromptWidget->SetVisibility(
+		ESlateVisibility::HitTestInvisible);
+}
+
+void ATalPlayerCharacter::EndPlay(
+	const EEndPlayReason::Type EndPlayReason)
+{
+
+	if (IsValid(TalchiPromptWidget))
+	{
+		TalchiPromptWidget->RemoveFromParent();
+		TalchiPromptWidget = nullptr;
+	}
+
+	FocusedTalchiTarget.Reset();
+
+	FinishTalchi();
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void ATalPlayerCharacter::OnTalchiMontageEnded(
+	UAnimMontage* Montage,
+	bool bInterrupted)
+{
+	if (Montage != ActiveTalchiMontage.Get())
+	{
+		return;
+	}
+
+	FinishTalchi();
+}
+
+void ATalPlayerCharacter::FinishTalchi()
+{
+	// 여러 경로에서 정리를 호출해도 중복 실행하지 않습니다.
+	if (!bIsTalchiInProgress)
+	{
+		return;
+	}
+
+	bIsTalchiInProgress = false;
+
+	// 정리 중 발생하는 종료 콜백을 무시하도록 먼저 비웁니다.
+	UAnimMontage* MontageToStop = ActiveTalchiMontage.Get();
+	ActiveTalchiMontage = nullptr;
+
+	if (UAnimInstance* AnimInstance =
+		GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		if (MontageToStop
+			&& AnimInstance->Montage_IsActive(MontageToStop))
+		{
+			AnimInstance->Montage_Stop(0.1f, MontageToStop);
+		}
+	}
+
+	// 손에만 들고 있고 얼굴에 장착하지 못한 탈은 반환합니다.
+	// 얼굴 장착이 성공했다면 기존 코드에서 HeldStolenTal을 비웁니다.
+	if (IsValid(HeldStolenTal))
+	{
+		ATalBase* TalToReturn = HeldStolenTal.Get();
+		AActor* VictimActor = HeldTalVictim.Get();
+
+		HeldStolenTal = nullptr;
+		HeldTalVictim.Reset();
+
+		TalToReturn->DetachFromActor(
+			FDetachmentTransformRules::KeepWorldTransform);
+		TalToReturn->SetOwner(nullptr);
+
+		UNTTalComponent* VictimTalComponent =
+			IsValid(VictimActor)
+			&& !VictimActor->IsActorBeingDestroyed()
+			? VictimActor->FindComponentByClass<UNTTalComponent>()
+			: nullptr;
+
+		const bool bReturned =
+			IsValid(VictimTalComponent)
+			&& VictimTalComponent->EquipTal(TalToReturn);
+
+		if (!bReturned)
+		{
+			// 반환 대상이 사라졌거나 다른 탈이 장착된 경우,
+			// 탈은 현재 월드 위치에 분리된 상태로 남깁니다.
+			UE_LOG(LogTemp, Warning,
+				TEXT("Talchi: interrupted mask could not be returned."));
+		}
+	}
+
+	HeldTalVictim.Reset();
+	SelectedTalChiTarget.Reset();
+
+	if (MotionWarpingComponent)
+	{
+		MotionWarpingComponent->RemoveWarpTarget(
+			FName(TEXT("TalchiTarget")));
+	}
+
+	HideTalchiPrompt();
+
+	// 다음 갱신에서 바로 대상 검색을 수행합니다.
+	TalchiSearchElapsed = 0.1f;
 }
