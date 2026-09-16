@@ -558,8 +558,6 @@ protected:
 	void StartGuard(const FInputActionValue& Value);
 	void StopGuard(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, Category = "Guard")
-	float ParrySlowMoTimeDilation = 0.15f;
 
 	// 패링 성공 시 바라볼 대상
 	TWeakObjectPtr<AActor> LastParriedTarget;
@@ -567,13 +565,6 @@ protected:
 	//패링 후 대상 바라보는 회전 속도(도/초)
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParryFaceRotationSpeed = 720.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Guard")
-	float ParrySlowMoRealDuration = 1.0f;
-
-	bool bParrySlowMoActive = false;
-
-	float ParrySlowMoEndRealTime = 0.0f;
 
 	//패링 성공 직후 좌클릭으로 카운터 쓸 수 있는 상태인지
 	bool bParryCounterReady = false;
@@ -780,6 +771,12 @@ public:
 
 	// 도깨비불(모닥불)에서 호출 - 최대치로 충전시키기
 	void RechargeFlask();
+
+	////////////////////////////////////////////////////////////////
+	//////////////// 히트 스톱 / 카메라 셰이크 / FOV
+	protected:
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		TObjectPtr<class UNTCombatFeelComponent> CombatFeelComponent;
 
 
 };

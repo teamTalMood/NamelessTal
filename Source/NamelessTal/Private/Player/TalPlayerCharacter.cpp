@@ -48,6 +48,9 @@
 // 패링/가드 컴포넌트
 #include "Guard/GuardComponent.h"
 
+// 히트 스톱용
+#include "Components/NTCombatFeelComponent.h"
+
 //락온 추가
 #include "NPC/Components/NTLockOnTargetComponent.h"
 #include "Engine/World.h"
@@ -130,19 +133,16 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 
 	TalComponent = CreateDefaultSubobject<UNTTalComponent>(TEXT("TalComponent"));
+
+	CombatFeelComponent = CreateDefaultSubobject<UNTCombatFeelComponent>(
+		TEXT("CombatFeelComponent"));
 }
 
 
 void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >=
-		ParrySlowMoEndRealTime)
-	{
-		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
-		bParrySlowMoActive = false;
-	}
+	
 
 	// 카운터 창 만료시 (슬로모션과 무관하게 독립 판정)
 	if (bParryCounterReady && GetWorld()->GetRealTimeSeconds()
@@ -151,7 +151,8 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		CloseParryCounterWindow();
 	}
 
-	if (bParrySlowMoActive && LastParriedTarget.IsValid())
+	if (CombatFeelComponent && CombatFeelComponent->IsParrySlowMoActive()
+		&& LastParriedTarget.IsValid())
 	{
 		const FVector ToTarget = (LastParriedTarget->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
 		if (!ToTarget.IsNearlyZero())
@@ -674,6 +675,10 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		StatComponent->DrainSoul(Damage * GuardComponent->GetGuardSoulCost());
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		if (CombatFeelComponent)
+		{
+			CombatFeelComponent->TriggerHitStop(ENTHitStopKind::Guard);
+		}
 
 		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
 		const float GuardHitSectionLength = GuardMontage
@@ -802,6 +807,10 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 		ApplyGuardKnockBack(InDamage);
 
 		UE_LOG(LogTemp, Warning, TEXT("가드성공"));
+		if (CombatFeelComponent)
+		{
+			CombatFeelComponent->TriggerHitStop(ENTHitStopKind::Guard);
+		}
 		// 가드 성공 후 -> 0.2초 특정 행동 사용 불가
 		const float GuardHitSectionLength = GuardMontage
 			? GuardMontage->GetSectionLength(GuardMontage->GetSectionIndex(TEXT("Guard_hit")))
@@ -1089,6 +1098,17 @@ void ATalPlayerCharacter::OnWeaponOverlap(
 	{
 		StatComponent->RecoverSoul(KillSoulReward);
 	}
+
+	// 패링 슬로우 모션중 시간조작 겹치니까 건너고
+	// 2단계 슬로우모션이 컴포넌트로 이사시 가드는 컴포넌안으로 들어갈것임
+	if (CombatFeelComponent)
+	{
+		const ENTHitStopKind Kind = (DamageResult < 0.0f) ? ENTHitStopKind::Kill :
+			(bIsUsingSpecialArt ? ENTHitStopKind::SpecialArt : ENTHitStopKind::Normal);
+
+		CombatFeelComponent->TriggerHitStop(Kind);
+	}
+
 }
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
@@ -1835,14 +1855,10 @@ bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
 
 void ATalPlayerCharacter::TriggerParrySlowMo()
 {
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(),
-		ParrySlowMoTimeDilation);
-
-	bParrySlowMoActive = true; // 슬로우 시작
-
-	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() +
-		ParrySlowMoRealDuration;
-
+	if (CombatFeelComponent)
+	{
+		CombatFeelComponent->StartParrySlowMo();
+	}
 }
 
 void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
@@ -1903,10 +1919,9 @@ void ATalPlayerCharacter::TriggerParryCounter()
 	// 여기부터는 카운터가 확실히 발동한 경우만 실행된다
 
 	// 슬로우 즉시 해제
-	if (bParrySlowMoActive)
+	if (CombatFeelComponent)
 	{
-		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
-		bParrySlowMoActive = false;
+		CombatFeelComponent->StopParrySlowMo();
 	}
 
 	// 패링 몽타주 스태거 해제 (카운터 이후 행동 불가 방지)
