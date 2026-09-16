@@ -45,10 +45,10 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 
-/////////////////////////////////////////
-//
-// Basic Components
-//
+	/////////////////////////////////////////
+	//
+	// Basic Components
+	//
 protected:
 	TObjectPtr<class UBehaviorTreeComponent> BTComponent;
 	TObjectPtr<class UBlackboardComponent> BBComponent;
@@ -72,10 +72,10 @@ protected:
 	void OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 
-/////////////////////////////////////////
-//
-// INTNPCCharacterBaseInterface override
-//
+	/////////////////////////////////////////
+	//
+	// INTNPCCharacterBaseInterface override
+	//
 public:
 	virtual float GetAIPatrolRadius() override;
 	virtual float GetAIDetectRange() override;
@@ -107,10 +107,10 @@ protected:
 
 
 
-////////////////////////////////////////
-//
-//   Attack
-//
+	////////////////////////////////////////
+	//
+	//   Attack
+	//
 protected:	// BlueprintEditable
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TMap<FName, TObjectPtr<class UAnimMontage>> AttackMontages;
@@ -150,12 +150,12 @@ protected:
 	float CurrentStunRate = 0.0f;
 
 
-// INTWeaponCollisionInterface override
+	// INTWeaponCollisionInterface override
 public:
 	virtual void EnableWeaponCollision() override;
 	virtual void DisableWeaponCollision() override;
 
-// Attack
+	// Attack
 protected:
 	void MoveToAttackPoint();
 	void BeginAttack();
@@ -167,10 +167,10 @@ protected:
 
 
 
-////////////////////////////////////////
-//
-//   Damaged
-//
+	////////////////////////////////////////
+	//
+	//   Damaged
+	//
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> DamageMontage;
@@ -188,19 +188,19 @@ protected:
 	void StopCurrentPlayMontage();
 
 
-////////////////////////////////////////
-//
-//   Stat
-//
+	////////////////////////////////////////
+	//
+	//   Stat
+	//
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	TObjectPtr <class UStatComponent> StatComponent;
 
 
-/////////////////////////////////////////
-//
-//   HP Component
-//
+	/////////////////////////////////////////
+	//
+	//   HP Component
+	//
 public:
 	virtual void SetupCharacterWidget(class UNTHPBarWidget* InUserWidget);
 
@@ -210,10 +210,10 @@ protected:
 
 
 
-////////////////////////////////////////
-//
-//   Exhausted
-//
+	////////////////////////////////////////
+	//
+	//   Exhausted
+	//
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
 	float ExhaustedDuration = 0;
@@ -221,10 +221,10 @@ protected:
 	uint8 bIsExhausting : 1 = false;
 
 
-////////////////////////////////////////
-//
-//   Tal
-//
+	////////////////////////////////////////
+	//
+	//   Tal
+	//
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal")
 	TObjectPtr<UNTTalComponent> TalComponent;
@@ -239,10 +239,10 @@ protected:
 	void OnTalChiMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 
-////////////////////////////////////////
-//
-//   Dead
-//
+	////////////////////////////////////////
+	//
+	//   Dead
+	//
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> DeathMontage;
@@ -250,7 +250,35 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsDead = false;
 
+
+	///// 죽을때 레그돌로 날아갈지 여부
+	// 보스등 정해진 사망 연출이 있으면 BP에서끄기
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dead")
+	bool bLaunchOnDeath = true;
+
+	// 래그돌이 이 속도 아래로 떨어지면 멈춘것으로보고 물리 끄기
+	UPROPERTY(EditAnywhere, Category = "Dead")
+	float RagdollSettleSpeedThreshold = 20.0f;
+
+	// 멈추었는지 확인하는 주기(초)
+	UPROPERTY(EditAnywhere, Category = "Dead")
+	float RagdollSettleCheckInterval = 0.3f;
+
+	// 죽인 타격이 전달할 impulse. HandleDeath가 읽어감
+	FVector PendingLaunchImpulse = FVector::ZeroVector;
+
+	FTimerHandle RagdollSettleTimer;
+
+
 protected:
 	UFUNCTION()
-	void HandleDeath();
+	virtual void HandleDeath();
+
+	//래그돌전환 + impulse 적용
+	void StartDeathRagdoll(const FVector& Impulse);
+
+	// 타이머로 호출한 후 멈추면 재워서 굳히기
+	UFUNCTION()
+	void CheckRagdollSettled();
+
 };
