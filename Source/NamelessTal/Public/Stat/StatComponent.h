@@ -30,10 +30,10 @@ public: // 체력 관련 설정
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	float CurrentHP;
-	
+
 	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
 	FOnDeath OnDeath; //죽음
-	
+
 	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
 	FOnHPChanged OnHPChanged; // 체력 변화
 
@@ -49,7 +49,7 @@ public: // 체력 관련 설정
 	bool IsDead() const { return CurrentHP <= 0.0f; }
 
 	void RestoreSoul();
-	
+
 	// 적 처치 보상
 	void RecoverSoul(float Amount);
 
@@ -96,19 +96,19 @@ public: //넋 관련 설정
 	// 넋 소모하는 행동이 내가 가진 넋보다 많은지 체크하기
 	bool HasEnoughSoul(float Cost) const { return CurrentSoul >= Cost; }
 
-	// 넋이 바닥났다가 30이상이냐 < 체크 
+	// 넋이 바닥났다가 30이상이냐 < 체크
 	bool IsSoulExhausted() const { return bIsSoulExhausted; }
 
 	bool IsGroggy() const { return bIsGroggy; }
-	
+
 	// 전투중인지 확인하기
 	bool IsInCombat() const;
 
 	// 그로기 중 피격 시 호출 -> 그로기 조기 해제
 	void NotifyHitDuringGroggy();
 
-	// 비전투 상태 시 넋 회복 
-	void NotifyCombatAction(); 
+	// 비전투 상태 시 넋 회복
+	void NotifyCombatAction();
 
 	// 넋 고갈 시 그로기 지속 시간
 	UPROPERTY(EditAnywhere, Category = "Stat")
@@ -154,6 +154,6 @@ public://Getter
 	float GetCurrentSoul() const { return CurrentSoul; }
 	UFUNCTION(BlueprintPure, Category = "Stat")
 	float GetMaxSoul() const { return MaxSoul; }
-	
+
 
 };
