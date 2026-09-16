@@ -466,6 +466,9 @@ protected:
 
 	void UseSpecialAttack(const FInputActionValue& Value);
 
+	// 실제 본체로 발동성공시 true(패링)
+	bool TryUseSpecialAttack(bool bFreeUse);
+
 	void StartSpecialArtStep(FName StepID);
 
 	// 몽타주 종료 콜백 함수
@@ -527,10 +530,24 @@ protected:
 	float ParrySlowMoRealDuration = 1.0f;
 
 	bool bParrySlowMoActive = false;
+
 	float ParrySlowMoEndRealTime = 0.0f;
+
+	//패링 성공 직후 좌클릭으로 카운터 쓸 수 있는 상태인지
+	bool bParryCounterReady = false;
+
+	// 카운터 창 길이(실시간) , 슬로우 모션 길이와 별개로 튜닝하기
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParryCounterWindowDuration = 1.5f;
+
+	// 카운터 창 만료 시간
+	float ParryCounterEndRealTime = 0.0f;
+
 
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	UAnimMontage* ParryMontage;
+
+
 
 	// 정면 120도 범위 절반
 	UPROPERTY(EditAnywhere, Category = "Guard")
@@ -567,6 +584,18 @@ public:
 
 	// 누르고 있는중인가요
 	bool IsGuardInputHeld() const; 
+
+	// 패링으로 강공격을 누를 수 있는 순간인지 확인하긴
+	bool IsInParryCounterWindow() const;
+
+	//창을 여는 유일통로 (만료시간까지 적기)
+	void OpenParryCounterWindow();
+
+	// 창을 닫는 유일통로
+	void CloseParryCounterWindow();
+
+	// 슬로우 모션 해제 + 스티거 해제 + 강공격 발동
+	void TriggerParryCounter();
 
 ////////////////////////////////////////////////////////////////////////////
 ///////		락온 시스템
