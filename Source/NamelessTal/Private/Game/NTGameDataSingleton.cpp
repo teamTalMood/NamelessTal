@@ -106,3 +106,15 @@ UNTGameDataSingleton& UNTGameDataSingleton::Get()
 	return *NewObject<UNTGameDataSingleton>();
 }
 
+const FNTPlayerSpecialArtStepData*
+UNTGameDataSingleton::FindPlayerSpecialArtStep(FName InSpecialArtID, int32 InComboCount) const
+{
+	for (const auto& RowPair : PlayerSpecialArtStepTable)
+	{
+		const FNTPlayerSpecialArtStepData& Data = RowPair.Value;
+
+		if (Data.SpecialArtID == InSpecialArtID && Data.ComboCount == InComboCount) return;
+	}
+
+	return nullptr;
+}

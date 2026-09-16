@@ -29,7 +29,7 @@ public:
 	
 	// 사용 시 최초로 실행할 타격 데이터의 ID. SpecialArtStepTable을 참조
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArt")
-	FName MontageID;
+	TSoftObjectPtr<UAnimMontage> Montage;
 
 	// 사용할 수 있는 횟수(탈취시마다 초기화)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArt")
