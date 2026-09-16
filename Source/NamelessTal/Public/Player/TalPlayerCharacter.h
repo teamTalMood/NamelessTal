@@ -28,6 +28,7 @@ class ADdokaebiFire; // 화톳불 전방선언
 class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
 class UUserWidget;
 class ANTNPCCharacterBase;
+class UCurveFloat;
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -140,6 +141,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <UCapsuleComponent> WeaponCollision;
+
+	// 왼쪽 반쪽 탈입니다. 교체되지 않는 상시 장비라 TalComponent 슬롯과 별개로 둡니다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> LeftTalMesh;
 
 
 
@@ -358,21 +363,61 @@ protected:
 	void RestoreTalchiCamera();
 	void RestoreTalchiFirstPerson();
 	void HideTalchiFaceMask();
-	void ShowTalchiScreenMask();
-	void UpdateTalchiScreenMask();
-	void HideTalchiScreenMask();
+	void BeginTalchiMaskApproach();
+	void UpdateTalchiMaskApproach();
+	void EndTalchiMaskApproach();
+	void BeginTalchiLeftMaskFraming();
+	void RestoreTalchiLeftMask();
+	void SettleTalchiRightMask();
+	void RestoreTalchiRightMask();
+	FTransform GetTalchiRightMaskCoverTransform() const;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Talchi|Mask")
-	TSoftClassPtr<UUserWidget> TalchiMaskWidgetClass;
+	// 1인칭 구간에서 왼쪽 탈이 놓일 자리입니다. TalchiCamera 로컬 기준이며
+	// X는 전방, Y는 오른쪽이라 왼쪽 절반은 Y가 음수입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FVector TalchiLeftMaskOffset = FVector(22.0f, -8.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FRotator TalchiLeftMaskRotation = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
+	float TalchiLeftMaskScale = 1.0f;
+
+	// 뺏은 오른쪽 탈이 안착할 자리입니다. 중앙 이음새가 맞도록 왼쪽과 짝을 맞춥니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FVector TalchiRightMaskOffset = FVector(22.0f, 8.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FRotator TalchiRightMaskRotation = FRotator::ZeroRotator;
+
+	// 손에 들려 있을 때 크기를 기준으로 한 배율입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
+	float TalchiRightMaskScale = 1.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.0", Units = "s"))
-	float TalchiMaskFadeDuration = 0.15f;
+	float TalchiMaskApproachDuration = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	TObjectPtr<UCurveFloat> TalchiMaskApproachCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	bool bTalchiMaskDisableShadow = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
+	FName LeftTalSocketName = TEXT("TalSocket_L");
 
 	UPROPERTY(Transient)
-	TObjectPtr<UUserWidget> TalchiMaskWidget;
+	TWeakObjectPtr<ATalBase> TalchiApproachMask;
 
-	double TalchiMaskFadeStartTime = 0.0;
-	bool bTalchiMaskFadingIn = false;
+	FTransform TalchiMaskApproachStart = FTransform::Identity;
+	FVector TalchiRightMaskCoverScale3D = FVector::OneVector;
+	double TalchiMaskApproachStartTime = 0.0;
+	bool bTalchiMaskApproachActive = false;
+	bool bTalchiMaskSavedCastShadow = false;
+
+	FTransform TalchiLeftMaskSavedTransform = FTransform::Identity;
+	bool bTalchiLeftMaskFramed = false;
+	bool bTalchiRightMaskSettled = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera")
 	FName TalchiFirstPersonHeadBone = TEXT("head");

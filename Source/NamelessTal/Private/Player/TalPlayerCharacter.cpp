@@ -21,6 +21,7 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Curves/CurveFloat.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -124,6 +125,10 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ATalPlayerCharacter::OnWeaponOverlap);
 
+	LeftTalMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LeftTalMesh"));
+	LeftTalMesh->SetupAttachment(GetMesh(), LeftTalSocketName);
+	LeftTalMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
 	//이동방향으로 캐릭터 회전
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -139,9 +144,6 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 	CombatFeelComponent = CreateDefaultSubobject<UNTCombatFeelComponent>(
 		TEXT("CombatFeelComponent"));
-
-	TalchiMaskWidgetClass = TSoftClassPtr<UUserWidget>(FSoftObjectPath(
-		TEXT("/Game/Player/Blueprints/WBP_TalchiMask.WBP_TalchiMask_C")));
 }
 
 
@@ -203,7 +205,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		CombatFeelComponent->IsParryCameraMoving();
 
 	UpdateTalchiCamera();
-	UpdateTalchiScreenMask();
+	UpdateTalchiMaskApproach();
 
 	if (bIsLockOnActive && !bParryCameraMoving && !bIsTalchiInProgress)
 	{
@@ -2748,6 +2750,9 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 	}
 	if (!IsValid(TalComponent) || !IsValid(HeldStolenTal)) return;
 
+	// 카메라에 붙어 있던 연출용 부착을 먼저 풀어야 얼굴 소켓에 정상적으로 붙습니다.
+	EndTalchiMaskApproach();
+
 	ATalBase* TalToEquip = HeldStolenTal.Get();
 	ATalBase* OldPlayerTal = TalComponent->UnequipTal();
 
@@ -2762,7 +2767,8 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 	}
 	
 	//얼굴 장착 성공
-	HideTalchiFaceMask();
+	// 1인칭 연출 중이면 화면 오른쪽 자리에 그대로 붙여 둡니다.
+	SettleTalchiRightMask();
 	AActor* VictimActor = HeldTalVictim.Get();
 
 	HeldStolenTal = nullptr;
@@ -3097,61 +3103,189 @@ void ATalPlayerCharacter::EnterTalchiFirstPerson()
 		GetMesh()->HideBoneByName(TalchiHiddenHeadBone, PBO_None);
 	}
 	if (IsValid(WeaponMesh)) WeaponMesh->SetOwnerNoSee(true);
+
+	// 교체될 예전 오른쪽 탈을 치워 빼앗은 탈이 들어올 자리를 비웁니다.
 	HideTalchiFaceMask();
 
 	FollowCamera->Deactivate();
 	TalchiCamera->Activate();
-	ShowTalchiScreenMask();
+	BeginTalchiLeftMaskFraming();
+	BeginTalchiMaskApproach();
 }
 
-void ATalPlayerCharacter::ShowTalchiScreenMask()
+// 기본 니어 클립이 10cm라 그보다 가까우면 탈이 잘려 보입니다.
+static constexpr float TalchiMaskMinCoverDistance = 12.0f;
+
+FTransform ATalPlayerCharacter::GetTalchiRightMaskCoverTransform() const
 {
-	if (!bIsTalchiInProgress || !IsLocallyControlled() || !GetWorld()) return;
+	FVector CoverOffset = TalchiRightMaskOffset;
+	CoverOffset.X = FMath::Max(CoverOffset.X, TalchiMaskMinCoverDistance);
 
-	if (!IsValid(TalchiMaskWidget))
+	return FTransform(TalchiRightMaskRotation, CoverOffset, TalchiRightMaskCoverScale3D);
+}
+
+void ATalPlayerCharacter::BeginTalchiLeftMaskFraming()
+{
+	if (bTalchiLeftMaskFramed || !IsValid(LeftTalMesh) || !IsValid(TalchiCamera)) return;
+
+	TalchiLeftMaskSavedTransform = LeftTalMesh->GetRelativeTransform();
+
+	// 오른쪽 탈과 같은 부모에 두어야 중앙 이음새가 흔들리지 않습니다.
+	if (!LeftTalMesh->AttachToComponent(
+		TalchiCamera, FAttachmentTransformRules::KeepRelativeTransform))
 	{
-		APlayerController* PlayerController = Cast<APlayerController>(Controller);
-		UClass* WidgetClass = TalchiMaskWidgetClass.LoadSynchronous();
-		if (!IsValid(PlayerController) || !IsValid(WidgetClass))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Talchi: mask widget class is not configured."));
-			return;
-		}
-
-		TalchiMaskWidget = CreateWidget<UUserWidget>(PlayerController, WidgetClass);
-		if (!IsValid(TalchiMaskWidget)) return;
-		TalchiMaskWidget->AddToViewport(100);
-		TalchiMaskWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+		return;
 	}
 
-	TalchiMaskWidget->SetRenderOpacity(0.0f);
-	TalchiMaskFadeStartTime = GetWorld()->GetRealTimeSeconds();
-	bTalchiMaskFadingIn = true;
-	UpdateTalchiScreenMask();
+	bTalchiLeftMaskFramed = true;
+
+	FVector LeftOffset = TalchiLeftMaskOffset;
+	LeftOffset.X = FMath::Max(LeftOffset.X, TalchiMaskMinCoverDistance);
+
+	LeftTalMesh->SetRelativeTransform(FTransform(
+		TalchiLeftMaskRotation,
+		LeftOffset,
+		TalchiLeftMaskSavedTransform.GetScale3D() * FMath::Max(0.01f, TalchiLeftMaskScale)));
 }
 
-void ATalPlayerCharacter::UpdateTalchiScreenMask()
+void ATalPlayerCharacter::RestoreTalchiLeftMask()
 {
-	if (!bTalchiMaskFadingIn || !IsValid(TalchiMaskWidget) || !GetWorld()) return;
+	if (!bTalchiLeftMaskFramed) return;
+	bTalchiLeftMaskFramed = false;
 
-	const float Duration = FMath::Max(0.0f, TalchiMaskFadeDuration);
+	if (!IsValid(LeftTalMesh) || !IsValid(GetMesh())) return;
+
+	LeftTalMesh->AttachToComponent(
+		GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, LeftTalSocketName);
+	LeftTalMesh->SetRelativeTransform(TalchiLeftMaskSavedTransform);
+}
+
+void ATalPlayerCharacter::SettleTalchiRightMask()
+{
+	if (!bTalchiFirstPersonActive || bTalchiRightMaskSettled || !IsValid(TalchiCamera)) return;
+
+	ATalBase* Mask = GetCurrentTal();
+	USceneComponent* MaskRoot = IsValid(Mask) ? Mask->GetRootComponent() : nullptr;
+	if (!MaskRoot) return;
+
+	// 장착 때문에 얼굴 소켓으로 끌려간 탈을 연출 구도로 되돌립니다.
+	if (!Mask->AttachToComponent(
+		TalchiCamera, FAttachmentTransformRules::KeepRelativeTransform))
+	{
+		return;
+	}
+
+	MaskRoot->SetRelativeTransform(GetTalchiRightMaskCoverTransform());
+	bTalchiRightMaskSettled = true;
+}
+
+void ATalPlayerCharacter::RestoreTalchiRightMask()
+{
+	if (!bTalchiRightMaskSettled) return;
+	bTalchiRightMaskSettled = false;
+
+	ATalBase* Mask = GetCurrentTal();
+	if (!IsValid(Mask) || !IsValid(TalComponent) || !IsValid(GetMesh())) return;
+
+	Mask->AttachToComponent(
+		GetMesh(),
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		TalComponent->GetTalSocketName());
+}
+
+void ATalPlayerCharacter::BeginTalchiMaskApproach()
+{
+	if (!bIsTalchiInProgress || bTalchiMaskApproachActive
+		|| !IsLocallyControlled() || !IsValid(TalchiCamera) || !GetWorld())
+	{
+		return;
+	}
+
+	ATalBase* Mask = HeldStolenTal.Get();
+	USceneComponent* MaskRoot = IsValid(Mask) ? Mask->GetRootComponent() : nullptr;
+	if (!MaskRoot) return;
+
+	// 월드 트랜스폼을 유지해 손에서 카메라로 옮기는 순간 튀지 않게 합니다.
+	if (!Mask->AttachToComponent(
+		TalchiCamera, FAttachmentTransformRules::KeepWorldTransform))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Talchi: could not attach mask to the first-person camera."));
+		return;
+	}
+
+	TalchiApproachMask = Mask;
+	TalchiMaskApproachStart = MaskRoot->GetRelativeTransform();
+	TalchiRightMaskCoverScale3D =
+		TalchiMaskApproachStart.GetScale3D() * FMath::Max(0.01f, TalchiRightMaskScale);
+	TalchiMaskApproachStartTime = GetWorld()->GetRealTimeSeconds();
+	bTalchiMaskApproachActive = true;
+
+	if (bTalchiMaskDisableShadow)
+	{
+		TArray<UPrimitiveComponent*> MaskPrimitives;
+		Mask->GetComponents<UPrimitiveComponent>(MaskPrimitives);
+		for (UPrimitiveComponent* Primitive : MaskPrimitives)
+		{
+			bTalchiMaskSavedCastShadow = Primitive->CastShadow;
+			Primitive->SetCastShadow(false);
+		}
+	}
+
+	UpdateTalchiMaskApproach();
+}
+
+void ATalPlayerCharacter::UpdateTalchiMaskApproach()
+{
+	if (!bTalchiMaskApproachActive || !GetWorld()) return;
+
+	ATalBase* Mask = TalchiApproachMask.Get();
+	USceneComponent* MaskRoot = IsValid(Mask) ? Mask->GetRootComponent() : nullptr;
+	if (!MaskRoot)
+	{
+		EndTalchiMaskApproach();
+		return;
+	}
+
+	const float Duration = FMath::Max(0.0f, TalchiMaskApproachDuration);
 	const float Alpha = Duration <= 0.0f
 		? 1.0f
 		: FMath::Clamp(static_cast<float>(
-			(GetWorld()->GetRealTimeSeconds() - TalchiMaskFadeStartTime) / Duration), 0.0f, 1.0f);
-	const float SmoothAlpha = Alpha * Alpha * (3.0f - 2.0f * Alpha);
-	TalchiMaskWidget->SetRenderOpacity(SmoothAlpha);
+			(GetWorld()->GetRealTimeSeconds() - TalchiMaskApproachStartTime) / Duration), 0.0f, 1.0f);
 
-	if (Alpha >= 1.0f) bTalchiMaskFadingIn = false;
+	const float Eased = IsValid(TalchiMaskApproachCurve)
+		? TalchiMaskApproachCurve->GetFloatValue(Alpha)
+		: Alpha * Alpha * (3.0f - 2.0f * Alpha);
+
+	FTransform Current;
+	Current.Blend(TalchiMaskApproachStart, GetTalchiRightMaskCoverTransform(), Eased);
+	MaskRoot->SetRelativeTransform(Current);
 }
 
-void ATalPlayerCharacter::HideTalchiScreenMask()
+void ATalPlayerCharacter::EndTalchiMaskApproach()
 {
-	bTalchiMaskFadingIn = false;
-	if (IsValid(TalchiMaskWidget))
+	if (!bTalchiMaskApproachActive) return;
+	bTalchiMaskApproachActive = false;
+
+	ATalBase* Mask = TalchiApproachMask.Get();
+	TalchiApproachMask.Reset();
+
+	if (!IsValid(Mask)) return;
+
+	if (bTalchiMaskDisableShadow)
 	{
-		TalchiMaskWidget->RemoveFromParent();
-		TalchiMaskWidget = nullptr;
+		TArray<UPrimitiveComponent*> MaskPrimitives;
+		Mask->GetComponents<UPrimitiveComponent>(MaskPrimitives);
+		for (UPrimitiveComponent* Primitive : MaskPrimitives)
+		{
+			Primitive->SetCastShadow(bTalchiMaskSavedCastShadow);
+		}
+	}
+
+	// 카메라에 붙은 채로 두면 얼굴 장착과 반환이 모두 꼬입니다.
+	USceneComponent* MaskRoot = Mask->GetRootComponent();
+	if (MaskRoot && MaskRoot->GetAttachParent() == TalchiCamera)
+	{
+		Mask->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	}
 }
 
@@ -3170,7 +3304,9 @@ void ATalPlayerCharacter::HideTalchiFaceMask()
 
 void ATalPlayerCharacter::RestoreTalchiFirstPerson()
 {
-	HideTalchiScreenMask();
+	EndTalchiMaskApproach();
+	RestoreTalchiRightMask();
+	RestoreTalchiLeftMask();
 	if (!bTalchiFirstPersonActive) return;
 	bTalchiFirstPersonActive = false;
 

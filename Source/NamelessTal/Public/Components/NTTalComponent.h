@@ -25,6 +25,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Tal")
 	ATalBase* GetCurrentTal() const;
 
+	UFUNCTION(BlueprintPure, Category = "Tal")
+	FName GetTalSocketName() const { return TalSocketName; }
+
 	UFUNCTION(BlueprintCallable, Category = "Tal")
 	bool EquipTal(ATalBase* NewTal);
 
