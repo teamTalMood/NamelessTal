@@ -133,7 +133,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >= 
+	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >=
 		ParrySlowMoEndRealTime)
 	{
 		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
@@ -576,7 +576,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	}
 
 	StatComponent->NotifyHitDuringGroggy();
-	
+
 	if (GuardComponent->IsGuarding() &&
 		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -680,7 +680,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	if (GuardComponent->IsGuarding() && IsWithinFrontTalGuardAngle(DamageCauser))
 	{
 		const bool bParried = GuardComponent->TryParry();
-		
+
 		if (bParried)
 		{
 			LastParriedTarget = DamageCauser;
@@ -826,7 +826,7 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
 		|| bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt) return;
-	
+
 	bIsSprinting = true;
 
 }
@@ -883,7 +883,7 @@ void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 	default:
 		break;
 	}
-	
+
 }
 
 void ATalPlayerCharacter::StartAttackStep(int32 Step)
@@ -1025,6 +1025,8 @@ void ATalPlayerCharacter::OnWeaponOverlap(
 		DamageData.StaggerDamage = CurrentSpecialArtData.StaggerDamage;
 		DamageData.bIsParry = false;
 
+		// 스킬로 죽이면 NPC가 이 값으로 날아가게
+		DamageData.LaunchImpulse = ComputeSpecialArtLaunchImpulse(OtherActor);
 		DamageResult = NPCCharacter->ApplyDamage(this, DamageData);
 	}
 	else
@@ -1059,7 +1061,7 @@ ATalBase* ATalPlayerCharacter::GetCurrentTal() const
 void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 {
 	Super::BeginPlay();
-	
+
 	InitialSpawnTransform = GetActorTransform();
 
 	FlaskCount = FlaskInitialCount;
@@ -1192,7 +1194,7 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 		return;
 	}
 
-	MotionWarpingComponent->AddOrUpdateWarpTargetFromTransform(TalchiWarpTargetName,TargetTransform);
+	MotionWarpingComponent->AddOrUpdateWarpTargetFromTransform(TalchiWarpTargetName, TargetTransform);
 
 	if (bBasicAttackActionLocked)
 	{
@@ -1561,6 +1563,40 @@ bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
 	return true;
 }
 
+FVector ATalPlayerCharacter::ComputeSpecialArtLaunchImpulse(const AActor* Target) const
+{
+	if (!Target)
+	{
+		return FVector::ZeroVector;
+	}
+
+	const FVector Forward = GetActorForwardVector().GetSafeNormal2D();
+
+	FVector ToTarget = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+
+	// 완전히 겹치면 방향 못구하니 정면으로한다
+	if (ToTarget.IsNearlyZero())
+	{
+		ToTarget = Forward;
+	}
+
+	// 플레이어 정면 * 대상 방향
+	// 0 = 정면, 1 = 멀어지는 방향 (중간값 = 대각선)
+	FVector Dir = FMath::Lerp(
+		Forward, ToTarget, FMath::Clamp(SpecialArtLaunchRadialBlend, 0.0f, 1.0f)).GetSafeNormal2D();
+
+	// 정면과 대상 방향 반대면 합 0 그때는 정면으로 
+	if (Dir.IsNearlyZero())
+	{
+		Dir = Forward;
+	}
+
+	// 위쪽 성분 더해서 뜨게 만들기
+	Dir.Z = SpecialArtLaunchUpRatio;
+
+	return Dir.GetSafeNormal() * SpecialArtLaunchPower;
+}
+
 void ATalPlayerCharacter::BeginSpecialArtHit(int32 ComboCount)
 {
 	if (!bIsUsingSpecialArt ||
@@ -1627,6 +1663,10 @@ void ATalPlayerCharacter::EndSpecialArtHit(int32 ComboCount)
 		WeaponCollision->SetCollisionEnabled(
 			ECollisionEnabled::NoCollision);
 	}
+}
+
+void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
+{
 }
 
 void ATalPlayerCharacter::OnSpecialArtMontageEnd(
@@ -1745,14 +1785,14 @@ bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
 
 void ATalPlayerCharacter::TriggerParrySlowMo()
 {
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(),
 		ParrySlowMoTimeDilation);
 
 	bParrySlowMoActive = true; // 슬로우 시작
 
-	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() + 
+	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() +
 		ParrySlowMoRealDuration;
-	
+
 }
 
 void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
@@ -2135,15 +2175,15 @@ void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
 			? HorizontalDelta < 0.0f
 			: HorizontalDelta > 0.0f;
 
-			if (!bCorrectDirection) continue;
+		if (!bCorrectDirection) continue;
 
-			const float HorizontalDistance = FMath::Abs(HorizontalDelta);
+		const float HorizontalDistance = FMath::Abs(HorizontalDelta);
 
-			if (HorizontalDistance < BestHorizontalDistance)
-			{
-				BestHorizontalDistance = HorizontalDistance;
-				BestTarget = Candidate;
-			}
+		if (HorizontalDistance < BestHorizontalDistance)
+		{
+			BestHorizontalDistance = HorizontalDistance;
+			BestTarget = Candidate;
+		}
 	}
 
 	if (!IsValid(BestTarget)) return;
@@ -2261,7 +2301,8 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 
 		GetWorldTimerManager().SetTimer(ReviveTimerHandle, this,
 			&ATalPlayerCharacter::EndRevive, ReviveAnim->GetPlayLength(), false);
-	} else {
+	}
+	else {
 		EndRevive();
 	}
 }
@@ -2318,7 +2359,7 @@ void ATalPlayerCharacter::UpdateRealFalling()
 
 	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, QueryParams))
 	{
-		const float HeightAboveGround = 
+		const float HeightAboveGround =
 			Hit.Distance - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 		bHighEnough = HeightAboveGround >= MinFallHeightToPlayAnim;
 	}
@@ -2346,7 +2387,7 @@ void ATalPlayerCharacter::UseFlaskItem(const FInputActionValue& Value)
 		return;
 	}
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	
+
 	if (AnimInstance == nullptr) return;
 
 	bIsUsingFlask = true;
@@ -2402,9 +2443,9 @@ void ATalPlayerCharacter::StartVictimTalchiMontage()
 
 	UNTTalChiTargetComponent* TargetPoint = SelectedTalChiTarget.Get();
 	ACharacter* VictimCharacter = Cast<ACharacter>(TargetPoint->GetOwner());
-	UAnimMontage * VictimMontage = TargetPoint->GetVictimTalchiMontage();
+	UAnimMontage* VictimMontage = TargetPoint->GetVictimTalchiMontage();
 
-	if(!IsValid(VictimCharacter) || !IsValid(VictimMontage)) return;
+	if (!IsValid(VictimCharacter) || !IsValid(VictimMontage)) return;
 
 	const float MontageLength = VictimCharacter->PlayAnimMontage(VictimMontage);
 
@@ -2484,7 +2525,7 @@ void ATalPlayerCharacter::GrabSelectedTalToHand()
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 		TalGrabSocketName
 	);
-	
+
 	if (!bAttached)
 	{
 		TargetTalComponent->EquipTal(StolenTal);

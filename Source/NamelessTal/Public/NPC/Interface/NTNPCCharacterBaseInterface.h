@@ -24,7 +24,7 @@ enum class EAttackDistance : uint8
 	AttackLong = 30
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FNPCApplyDamageData
 {
 	GENERATED_BODY()
@@ -33,9 +33,14 @@ struct FNPCApplyDamageData
 	int32 SoulDamage = 0;
 	int32 StaggerDamage = 0.0f;
 	uint8 bIsParry : 1 = false;
+
+	// 타격으로 죽일때 시체 날릴 impulse
+	// 방향 * 세기 값 ZeroVector면 날리지 않고 몽타주 실행해서 제자리에서 죽게하기
+	FVector LaunchImpulse = FVector::ZeroVector;
+
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FNPCAttackPatternSelectData
 {
 	GENERATED_BODY()

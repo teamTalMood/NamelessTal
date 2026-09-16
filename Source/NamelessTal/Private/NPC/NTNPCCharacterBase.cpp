@@ -40,11 +40,14 @@
 
 //State
 #include "GameFramework/CharacterMovementComponent.h"
+#include "TimerManager.h"
+#include "PhysicsEngine/PhysicsAsset.h"
+
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetMesh()->SetRelativeLocationAndRotation(FVector(0, 0, -GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), FRotator(0, -90, 0));
@@ -71,6 +74,8 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 
 	// Lock On
 	LockOnTargetComponent = CreateDefaultSubobject<UNTLockOnTargetComponent>(TEXT("LockOnTargetCom"));
+	LockOnTargetComponent->SetupAttachment(GetCapsuleComponent());
+	LockOnTargetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f));
 
 	// TalChi Target
 	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
@@ -124,25 +129,8 @@ void ANTNPCCharacterBase::BeginPlay()
 		}
 	}
 
-	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
-	if (FindedPatternDatas.IsEmpty())
-	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
 
-		AttackPatternDatas = {
-			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
-			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
-			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
-		};
-	}
-	else
-	{
-		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
-		{
-			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
-		}
-	}
-
+	SetAttackPatternDatas();
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -301,7 +289,11 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 		{
 			StatComponent->DrainSoul(InDamageData.SoulDamage);
 		}
+
+		PendingLaunchImpulse = InDamageData.LaunchImpulse;
+
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
+
 		// 만약 피해받고 죽었으면 피격 처리 중단
 		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)
 		{
@@ -312,6 +304,10 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 
 			//FVector NewLocation = GetActorLocation() + Direction * (InDamageData.HPDamage - StatComponent->CurrentHP) * 100;
 			//SetActorLocation(NewLocation);
+
+			// HandleDeath가 읽어갈 수 있도록 데미지 적용 전에 보관하기
+			// ApplyDamage가 OnDeath를 동기로 브로드캐스트 하게하기
+
 
 
 			return -InDamageData.HPDamage;
@@ -457,6 +453,28 @@ void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsP
 
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 	BeginAttack();
+}
+
+void ANTNPCCharacterBase::SetAttackPatternDatas()
+{
+	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
+	if (FindedPatternDatas.IsEmpty())
+	{
+		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
+
+		AttackPatternDatas = {
+			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
+			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
+			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
+		};
+	}
+	else
+	{
+		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
+		{
+			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
+		}
+	}
 }
 
 void ANTNPCCharacterBase::BeginAttack()
@@ -782,6 +800,20 @@ void ANTNPCCharacterBase::HandleDeath()
 		MovementComponent->DisableMovement();
 	}
 
+	HpBar->SetVisibility(false);
+
+
+	const bool bCanRagdoll =
+		bLaunchOnDeath && !PendingLaunchImpulse.IsNearlyZero()
+		&& GetMesh() != nullptr && GetMesh()->GetPhysicsAsset() != nullptr;
+	
+	if (bCanRagdoll)
+	{
+		StartDeathRagdoll(PendingLaunchImpulse);
+		MC_LOG(LogDG, Warning, TEXT("NPC Dead (Ragdoll) : %s"), *GetName());
+		return;
+	}
+
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 		if (UNTNPCAnimInstance* NPCAnim = Cast<UNTNPCAnimInstance>(AnimInstance))
@@ -803,7 +835,76 @@ void ANTNPCCharacterBase::HandleDeath()
 		MC_LOG(LogSY, Warning, TEXT("DeathMontage is not assigned : %s"), *GetName());
 	}
 
-	HpBar->SetVisibility(false);
 
 	MC_LOG(LogSY, Warning, TEXT("NPC DEAD : %s"), *GetName());
+}
+
+void ANTNPCCharacterBase::StartDeathRagdoll(const FVector& Impulse)
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		MC_LOG(LogDG, Warning, TEXT("MeshComp없음 문제발생"));
+		return;
+	}
+
+	// 핸들 데쓰가 액터 콜리전 통째로 끄고
+	// 물리 임펄스 주기 위해 잠깐 되살린다
+	SetActorEnableCollision(true);
+
+	//대신 캡슐과 무기는 직접꺼내 시체가 플레이어 안막게
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	if (WeaponCollision)
+	{
+		WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	// HandleDeath의 SetActorenable~~(false)가 캡슐까지 끈 상태임
+	// 캡슐 끄고 메시만 물리용으로 살리고 지형과 부딪히고 Pawndㅡㄴ 통과하는 프로파일
+	MeshComp->SetCollisionProfileName(TEXT("Ragdoll"));
+
+	MeshComp->SetSimulatePhysics(true);
+
+	// 빠른 속도로 얇은 벽을 뚫고 지나가는 걸 막는다
+	MeshComp->SetAllUseCCD(true);
+
+	// bVelChance = true : 질량 무시하고 속도적용!!
+	MeshComp->AddImpulseToAllBodiesBelow(Impulse, NAME_None, true);
+
+	//루트에만 더 줘서 팔다리가 끌려오게 만들기
+	MeshComp->AddImpulse(Impulse * 0.2f, NAME_None, true);
+	MeshComp->SetPhysicsAngularVelocityInDegrees(
+		FVector(FMath::FRandRange(-60.0f, 60.0f),
+			FMath::FRandRange(-60.0f, 60.f),
+			FMath::FRandRange(-60.0f, 60.0f)), true);
+
+
+	GetWorldTimerManager().SetTimer(RagdollSettleTimer, this,
+		&ANTNPCCharacterBase::CheckRagdollSettled, RagdollSettleCheckInterval, true);
+}
+
+void ANTNPCCharacterBase::CheckRagdollSettled()
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+
+	if (!MeshComp || !MeshComp->IsSimulatingPhysics())
+	{
+		GetWorldTimerManager().ClearTimer(RagdollSettleTimer);
+		return;
+	}
+
+	//아직 움직이고 있으면 다음 주기에 다시 확인
+	if (MeshComp->GetPhysicsLinearVelocity().Size() >= RagdollSettleSpeedThreshold)
+	{
+		return;
+	}
+
+	//멈춘경우 물리 재우고 본 업데이트 종료로 비용 없애기
+	MeshComp->PutAllRigidBodiesToSleep();
+	MeshComp->SetComponentTickEnabled(false);
+
+	GetWorldTimerManager().ClearTimer(RagdollSettleTimer);
 }
