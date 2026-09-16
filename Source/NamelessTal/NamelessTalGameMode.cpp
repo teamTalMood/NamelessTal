@@ -28,7 +28,7 @@ void ANamelessTalGameMode::BeginPlay()
 
 	if (CutsceneSource)
 	{
-		PlayCutscene(CutsceneSource);
+		//PlayCutscene(CutsceneSource);
 	}
 }
 
