@@ -1414,7 +1414,7 @@ void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
 	bIsUsingSpecialArt = true;
 
 	CurrentSpecialArtID = SpecialArtID;
-	StartSpecialArtStep(ArtData->FirstStepID);
+	StartSpecialArtStep(ArtData->MontageID);
 
 }
 
@@ -1439,14 +1439,9 @@ void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
 	}
 	else
 	{
-		CurrentSpecialArtData.NextStepID = StepData->NextStepID;
 		CurrentSpecialArtData.HPDamage = StepData->HPDamage;
 		CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
 		CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
-		CurrentSpecialArtData.CastTime = StepData->CastTime;
-		CurrentSpecialArtData.RecoveryTime = StepData->RecoveryTime;
-		CurrentSpecialArtData.MoveDistance = StepData->MoveDistance;
-		CurrentSpecialArtData.MontageName = StepData->MontageName;
 	}
 
 	TObjectPtr<UAnimMontage>* FoundMontage = SpecialArtMontages.Find(CurrentSpecialArtData.MontageName);
