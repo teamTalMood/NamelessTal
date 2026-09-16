@@ -56,6 +56,9 @@ void UStatComponent::HealHp(float HealAmount)
 void UStatComponent::RestoreFull()
 // 모닥불 처리
 {
+	bTalchiRecoveryPaused = false;
+	TalchiRemainingGroggyTime = 0.0f;
+
 	CurrentHP = MaxHP;
 	CurrentSoul = MaxSoul;
 	bIsSoulExhausted = false; // 고갈 패널티 제거 
@@ -70,6 +73,10 @@ void UStatComponent::RestoreFull()
 
 void UStatComponent::RestoreSoul()
 {
+	if (bTalchiRecoveryPaused)
+	{
+		return;
+	}
 	CurrentSoul = MaxSoul;
 	bIsSoulExhausted = false;
 	MC_SUBLOG(LogMC, Log, TEXT("CurrentSoul : %f"), CurrentSoul);
@@ -79,6 +86,10 @@ void UStatComponent::RestoreSoul()
 
 void UStatComponent::RecoverSoul(float Amount)
 {
+	if (bTalchiRecoveryPaused)
+	{
+		return;
+	}
 	CurrentSoul = FMath::Clamp(CurrentSoul + Amount, 0.0f, MaxSoul);
 	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
 }
@@ -98,6 +109,12 @@ void UStatComponent::DrainSoul(float Amount)
 			bIsGroggy = true; // 그로기 시작
 			GroggyEndTime = GetWorld()->GetTimeSeconds() + GroggyDuration;
 			SetSoulRegenBlocked(true);
+
+			// 잠금 도중 새로 그로기에 진입해도 재개할 시간을 보관합니다.
+			if (bTalchiRecoveryPaused)
+			{
+				TalchiRemainingGroggyTime = FMath::Max(0.0f, GroggyDuration);
+			}
 		}
 	}
 
@@ -146,6 +163,11 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 {
 	Super::TickComponent(DeltaTime, TickType, PCSoulTickFunction);
 
+	if (bTalchiRecoveryPaused || IsDead())
+	{
+		return;
+	}
+
 	if (bIsGroggy && GetWorld()->GetTimeSeconds() >= GroggyEndTime)
 	{
 		EndGroggy();
@@ -188,10 +210,42 @@ float UStatComponent::GetSoulRegenRate() const
 
 void UStatComponent::EndGroggy()
 {
-	if (!bIsGroggy) return; 
+	if (!bIsGroggy || bTalchiRecoveryPaused) return; 
 	bIsGroggy = false;
 	SetSoulRegenBlocked(false);
 	CurrentSoul = FMath::Clamp(CurrentSoul + GroggyRecoverSoul, 0.0f, MaxSoul);
 
 	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
+}
+
+void UStatComponent::SetTalchiRecoveryPaused(bool bPaused)
+{
+	if (bTalchiRecoveryPaused == bPaused || !GetWorld())
+	{
+		return;
+	}
+
+	const float Now = GetWorld()->GetTimeSeconds();
+
+	if (bPaused)
+	{
+		TalchiRemainingGroggyTime = bIsGroggy
+			? FMath::Max(0.0f, GroggyEndTime - Now)
+			: 0.0f;
+
+		bTalchiRecoveryPaused = true;
+		return;
+	}
+
+	bTalchiRecoveryPaused = false;
+
+	if (bIsGroggy)
+	{
+		GroggyEndTime = Now + TalchiRemainingGroggyTime;
+	}
+
+	TalchiRemainingGroggyTime = 0.0f;
+
+	// 자동 회복 대기 시간은 탈취 종료 시점부터 다시 계산합니다.
+	LastSoulDrainTime = Now;
 }

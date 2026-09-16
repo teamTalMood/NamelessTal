@@ -136,6 +136,10 @@ void ANTNPCCharacterBase::BeginPlay()
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (IsValid(StatComponent))
+	{
+		StatComponent->SetTalchiRecoveryPaused(false);
+	}
 	GetWorldTimerManager().ClearTimer(ExhaustedTimerHandle);
 
 	bTalchiHeld = false;
@@ -674,11 +678,12 @@ void ANTNPCCharacterBase::EndExhausted()
 	StatComponent->RestoreSoul();
 	bIsExhausting = false;
 
+	FTimerHandle Handle;//🐘
 	GetWorldTimerManager().SetTimer(
-		ExhaustedTimerHandle,
+		Handle,
 		this,
-		&ANTNPCCharacterBase::EndExhausted,
-		ExhaustedDuration,
+		&ANTNPCCharacterBase::ReleaseStun,
+		1.0f,
 		false);
 }
 
@@ -755,8 +760,12 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 		NPCAnim->SetAnimIsExhausted(true);
 
-		FTimerHandle Handle;
-		GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::EndExhausted, ExhaustedDuration, false);
+		GetWorldTimerManager().SetTimer(
+			ExhaustedTimerHandle,
+			this,
+			&ANTNPCCharacterBase::EndExhausted,
+			ExhaustedDuration,
+			false);
 	}
 	else
 	{
@@ -944,13 +953,18 @@ void ANTNPCCharacterBase::CheckRagdollSettled()
 
 bool ANTNPCCharacterBase::BeginTalchiHold()
 {
-	if (bIsDead || !bIsExhausting || bTalchiHeld)
+	if (bIsDead
+		|| !bIsExhausting
+		|| bTalchiHeld
+		|| !IsValid(StatComponent))
 	{
 		return false;
 	}
 
+
 	bTalchiHeld = true;
 	bTalchiDeferredExhaustedEnd = false;
+	StatComponent->SetTalchiRecoveryPaused(true);
 
 	FTimerManager& Timers = GetWorldTimerManager();
 
@@ -975,6 +989,10 @@ void ANTNPCCharacterBase::EndTalchiHold()
 	}
 
 	bTalchiHeld = false;
+	if (IsValid(StatComponent))
+	{
+		StatComponent->SetTalchiRecoveryPaused(false);
+	}
 
 	const bool bResumeTimer = bTalchiPausedExhaustedTimer;
 	const bool bFinishExhausted = bTalchiDeferredExhaustedEnd;

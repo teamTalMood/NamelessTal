@@ -41,6 +41,9 @@ public: // 체력 관련 설정
 	UPROPERTY(BlueprintAssignable, Category = "Stat|Events")
 	FOnSoulChanged OnSoulChanged; // 넋 변화
 
+	//탈취 중 그로기 시간, 넋 회복 정지
+	void SetTalchiRecoveryPaused(bool bPaused);
+
 	// 다른 클래스에서 호출해야함
 	void ApplyDamage(float HitDamage);
 	void HealHp(float HealAmount);
@@ -142,7 +145,8 @@ private:
 	bool bSoulRegenBlocked = false;
 	bool bIsSoulExhausted = false;
 	bool bDeathBroadcasted = false;//중복 방송 방지
-
+	bool bTalchiRecoveryPaused = false;
+	float TalchiRemainingGroggyTime = 0.0f;
 
 
 public://Getter

@@ -12,6 +12,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "GameFramework/Controller.h"
 
 
 #include "InputMappingContext.h"
@@ -138,6 +139,9 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 
 	CombatFeelComponent = CreateDefaultSubobject<UNTCombatFeelComponent>(
 		TEXT("CombatFeelComponent"));
+
+	TalchiMaskWidgetClass = TSoftClassPtr<UUserWidget>(FSoftObjectPath(
+		TEXT("/Game/Player/Blueprints/WBP_TalchiMask.WBP_TalchiMask_C")));
 }
 
 
@@ -198,7 +202,10 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		CombatFeelComponent &&
 		CombatFeelComponent->IsParryCameraMoving();
 
-	if (bIsLockOnActive && !bParryCameraMoving)
+	UpdateTalchiCamera();
+	UpdateTalchiScreenMask();
+
+	if (bIsLockOnActive && !bParryCameraMoving && !bIsTalchiInProgress)
 	{
 		UpdateLockOn(DeltaTime);
 	}
@@ -248,6 +255,19 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 		if (!bMontageActive)
 		{
 			FinishTalchi();
+		}
+	}
+	if (bIsTalchiInProgress)
+	{
+		TalchiSlowElapsed += DeltaTime;
+
+		const float Interval =
+			FMath::Max(0.01f, TalchiSlowUpdateInterval);
+
+		if (TalchiSlowElapsed >= Interval)
+		{
+			TalchiSlowElapsed = 0.0f;
+			UpdateTalchiSlow();
 		}
 	}
 
@@ -380,7 +400,7 @@ void ATalPlayerCharacter::UpdateRotationMode()
 		return;
 	}
 
-	const bool bFaceTarget = bIsLockOnActive && !bIsSprinting;
+	const bool bFaceTarget = bIsLockOnActive && !bIsSprinting && !bIsTalchiInProgress;
 
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bUseControllerDesiredRotation = bFaceTarget;
@@ -858,13 +878,14 @@ void ATalPlayerCharacter::NotifyControllerChanged()
 
 void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 {
+	if (bTalchiFirstPersonActive) return;
 	if (CombatFeelComponent && CombatFeelComponent->IsParryCameraMoving())
 	{
 		return;
 	}
 
 	//락온여부
-	if (bIsLockOnActive || Controller == nullptr) return;
+	if ((bIsLockOnActive && !bIsTalchiInProgress) || Controller == nullptr) return;
 	const FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 	if (Controller == nullptr) return;
@@ -1165,6 +1186,12 @@ ATalBase* ATalPlayerCharacter::UnequipTal()
 
 void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 {
+	// The parry sequence owns the same spring arm until its return finishes.
+	if (CombatFeelComponent && CombatFeelComponent->IsParryCameraMoving())
+	{
+		return;
+	}
+
 	if (bIsTalchiInProgress
 		|| bIsDead
 		|| bIsDodging
@@ -1282,6 +1309,9 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 	// 몽타주 재생 전에 상태를 켭니다.
 	bIsTalchiInProgress = true;
 	ActiveTalchiMontage = PlayerTalchiMontage;
+	BeginTalchiCamera(TargetActor);
+	TalchiSlowElapsed = 0.0f;
+	UpdateTalchiSlow();
 
 	// 기존 이동 입력과 속도를 정리합니다.
 	ConsumeMovementInputVector();
@@ -1986,6 +2016,7 @@ void ATalPlayerCharacter::BeginLockOn()
 
 void ATalPlayerCharacter::ToggleLockOn(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress) return;
 	if (IsValid(CurrentLockOnTarget))
 	{
 		ClearLockOnTarget();
@@ -2234,6 +2265,7 @@ bool ATalPlayerCharacter::TryGetValidLockOnCandidateScreenPosition(
 
 void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
 {
+	if (bIsTalchiInProgress) return;
 	if (!bIsLockOnActive || !IsValid(CurrentLockOnTarget)) return;
 
 	const float Direction = Value.Get<float>();
@@ -2301,6 +2333,8 @@ void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
 {
+	// First-person visibility is owned by the talchi sequence until restoration.
+	if (bTalchiFirstPersonActive) return;
 	if (!IsLocallyControlled() || !IsValid(CameraTarget) || !IsValid(FollowCamera)) return;
 
 	// 패링 카메라 연출 중에는 플레이어와 무기를 표시
@@ -2728,6 +2762,7 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 	}
 	
 	//얼굴 장착 성공
+	HideTalchiFaceMask();
 	AActor* VictimActor = HeldTalVictim.Get();
 
 	HeldStolenTal = nullptr;
@@ -3029,8 +3064,199 @@ void ATalPlayerCharacter::OnTalchiMontageEnded(
 	FinishTalchi();
 }
 
+void ATalPlayerCharacter::EnterTalchiFirstPerson()
+{
+	if (!bIsTalchiInProgress || bTalchiFirstPersonActive || !IsLocallyControlled()
+		|| !IsValid(TalchiCamera) || !IsValid(FollowCamera) || !IsValid(GetMesh()))
+	{
+		return;
+	}
+
+	// The existing body animation supplies the hands; only hide the head subtree.
+	// Do not hide a guessed ancestor bone, which could also hide the arms.
+	if (!TalchiFirstPersonHeadBone.IsNone()
+		&& GetMesh()->GetBoneIndex(TalchiFirstPersonHeadBone) == INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Talchi: first-person head bone not found: %s"),
+			*TalchiFirstPersonHeadBone.ToString());
+		return;
+	}
+
+	bTalchiSavedFollowCameraActive = FollowCamera->IsActive();
+	bTalchiSavedFirstPersonCameraActive = TalchiCamera->IsActive();
+	bTalchiSavedMeshOwnerNoSee = GetMesh()->bOwnerNoSee;
+	bTalchiSavedWeaponOwnerNoSee = IsValid(WeaponMesh) && WeaponMesh->bOwnerNoSee;
+	TalchiHiddenHeadBone = TalchiFirstPersonHeadBone;
+	bTalchiSavedHeadHidden = !TalchiHiddenHeadBone.IsNone()
+		&& GetMesh()->IsBoneHiddenByName(TalchiHiddenHeadBone);
+	bTalchiFirstPersonActive = true;
+
+	GetMesh()->SetOwnerNoSee(false);
+	if (!TalchiHiddenHeadBone.IsNone() && !bTalchiSavedHeadHidden)
+	{
+		GetMesh()->HideBoneByName(TalchiHiddenHeadBone, PBO_None);
+	}
+	if (IsValid(WeaponMesh)) WeaponMesh->SetOwnerNoSee(true);
+	HideTalchiFaceMask();
+
+	FollowCamera->Deactivate();
+	TalchiCamera->Activate();
+	ShowTalchiScreenMask();
+}
+
+void ATalPlayerCharacter::ShowTalchiScreenMask()
+{
+	if (!bIsTalchiInProgress || !IsLocallyControlled() || !GetWorld()) return;
+
+	if (!IsValid(TalchiMaskWidget))
+	{
+		APlayerController* PlayerController = Cast<APlayerController>(Controller);
+		UClass* WidgetClass = TalchiMaskWidgetClass.LoadSynchronous();
+		if (!IsValid(PlayerController) || !IsValid(WidgetClass))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Talchi: mask widget class is not configured."));
+			return;
+		}
+
+		TalchiMaskWidget = CreateWidget<UUserWidget>(PlayerController, WidgetClass);
+		if (!IsValid(TalchiMaskWidget)) return;
+		TalchiMaskWidget->AddToViewport(100);
+		TalchiMaskWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+	}
+
+	TalchiMaskWidget->SetRenderOpacity(0.0f);
+	TalchiMaskFadeStartTime = GetWorld()->GetRealTimeSeconds();
+	bTalchiMaskFadingIn = true;
+	UpdateTalchiScreenMask();
+}
+
+void ATalPlayerCharacter::UpdateTalchiScreenMask()
+{
+	if (!bTalchiMaskFadingIn || !IsValid(TalchiMaskWidget) || !GetWorld()) return;
+
+	const float Duration = FMath::Max(0.0f, TalchiMaskFadeDuration);
+	const float Alpha = Duration <= 0.0f
+		? 1.0f
+		: FMath::Clamp(static_cast<float>(
+			(GetWorld()->GetRealTimeSeconds() - TalchiMaskFadeStartTime) / Duration), 0.0f, 1.0f);
+	const float SmoothAlpha = Alpha * Alpha * (3.0f - 2.0f * Alpha);
+	TalchiMaskWidget->SetRenderOpacity(SmoothAlpha);
+
+	if (Alpha >= 1.0f) bTalchiMaskFadingIn = false;
+}
+
+void ATalPlayerCharacter::HideTalchiScreenMask()
+{
+	bTalchiMaskFadingIn = false;
+	if (IsValid(TalchiMaskWidget))
+	{
+		TalchiMaskWidget->RemoveFromParent();
+		TalchiMaskWidget = nullptr;
+	}
+}
+
+void ATalPlayerCharacter::HideTalchiFaceMask()
+{
+	ATalBase* FaceMask = GetCurrentTal();
+	if (!bTalchiFirstPersonActive || !IsValid(FaceMask)) return;
+
+	const TWeakObjectPtr<AActor> Key(FaceMask);
+	if (!TalchiSavedMaskVisibility.Contains(Key))
+	{
+		TalchiSavedMaskVisibility.Add(Key, FaceMask->IsHidden());
+	}
+	FaceMask->SetActorHiddenInGame(true);
+}
+
+void ATalPlayerCharacter::RestoreTalchiFirstPerson()
+{
+	HideTalchiScreenMask();
+	if (!bTalchiFirstPersonActive) return;
+	bTalchiFirstPersonActive = false;
+
+	if (IsValid(GetMesh()))
+	{
+		GetMesh()->SetOwnerNoSee(bTalchiSavedMeshOwnerNoSee);
+		if (!TalchiHiddenHeadBone.IsNone() && !bTalchiSavedHeadHidden)
+		{
+			GetMesh()->UnHideBoneByName(TalchiHiddenHeadBone);
+		}
+	}
+	TalchiHiddenHeadBone = NAME_None;
+	if (IsValid(WeaponMesh)) WeaponMesh->SetOwnerNoSee(bTalchiSavedWeaponOwnerNoSee);
+	for (const auto& Entry : TalchiSavedMaskVisibility)
+	{
+		if (AActor* Mask = Entry.Key.Get()) Mask->SetActorHiddenInGame(Entry.Value);
+	}
+	TalchiSavedMaskVisibility.Empty();
+	if (IsValid(TalchiCamera)) TalchiCamera->SetActive(bTalchiSavedFirstPersonCameraActive);
+	if (IsValid(FollowCamera)) FollowCamera->SetActive(bTalchiSavedFollowCameraActive);
+}
+
+void ATalPlayerCharacter::BeginTalchiCamera(AActor* TargetActor)
+{
+	if (bTalchiCameraActive || !IsValid(CameraBoom)
+		|| !IsValid(Controller) || !IsValid(TargetActor) || !GetWorld())
+	{
+		return;
+	}
+
+	TalchiCameraOriginalArmLength = CameraBoom->TargetArmLength;
+	bTalchiOriginalUseControlRotation = CameraBoom->bUsePawnControlRotation;
+	bTalchiOriginalRotationLag = CameraBoom->bEnableCameraRotationLag;
+	TalchiCameraTargetArmLength = FMath::Max(0.0f, TalchiCameraDistance);
+	TalchiCameraActiveBlendDuration = FMath::Max(0.0f, TalchiCameraBlendDuration);
+	TalchiCameraStartTime = GetWorld()->GetRealTimeSeconds();
+	bTalchiCameraActive = true;
+
+	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->bEnableCameraRotationLag = false;
+
+	// Align yaw once; leave pitch and subsequent player look input intact.
+	const FVector ToTarget = TargetActor->GetActorLocation() - GetActorLocation();
+	if (ToTarget.SizeSquared2D() > UE_KINDA_SMALL_NUMBER)
+	{
+		FRotator Rotation = Controller->GetControlRotation();
+		Rotation.Yaw = ToTarget.Rotation().Yaw;
+		Controller->SetControlRotation(Rotation);
+	}
+
+	UpdateRotationMode();
+	UpdateTalchiCamera();
+}
+
+void ATalPlayerCharacter::UpdateTalchiCamera()
+{
+	if (!bTalchiCameraActive || !IsValid(CameraBoom) || !GetWorld()) return;
+
+	// Real time keeps the authored 0.2-second transition stable during hit stop.
+	const double Elapsed = GetWorld()->GetRealTimeSeconds() - TalchiCameraStartTime;
+	const float Alpha = TalchiCameraActiveBlendDuration <= 0.0f
+		? 1.0f
+		: FMath::Clamp(static_cast<float>(Elapsed / TalchiCameraActiveBlendDuration), 0.0f, 1.0f);
+	const float SmoothAlpha = Alpha * Alpha * (3.0f - 2.0f * Alpha);
+	CameraBoom->TargetArmLength = FMath::Lerp(
+		TalchiCameraOriginalArmLength, TalchiCameraTargetArmLength, SmoothAlpha);
+}
+
+void ATalPlayerCharacter::RestoreTalchiCamera()
+{
+	if (!bTalchiCameraActive) return;
+	bTalchiCameraActive = false;
+
+	if (IsValid(CameraBoom))
+	{
+		CameraBoom->TargetArmLength = TalchiCameraOriginalArmLength;
+		CameraBoom->bUsePawnControlRotation = bTalchiOriginalUseControlRotation;
+		CameraBoom->bEnableCameraRotationLag = bTalchiOriginalRotationLag;
+	}
+}
+
 void ATalPlayerCharacter::FinishTalchi()
 {
+	RestoreTalchiFirstPerson();
+	RestoreTalchiCamera();
+	ClearTalchiSlow();
 	// 여러 경로에서 정리를 호출해도 중복 실행하지 않습니다.
 	if (!bIsTalchiInProgress)
 	{
@@ -3123,4 +3349,120 @@ void ATalPlayerCharacter::FinishTalchi()
 
 	// 다음 갱신에서 바로 대상 검색을 수행합니다.
 	TalchiSearchElapsed = 0.1f;
+}
+
+void ATalPlayerCharacter::UpdateTalchiSlow()
+{
+	if (!bIsTalchiInProgress || !GetWorld())
+	{
+		ClearTalchiSlow();
+		return;
+	}
+
+	TSet<TWeakObjectPtr<AActor>> DesiredActors;
+
+	const float Radius = FMath::Max(0.0f, TalchiSlowRadius);
+	const float RadiusSquared = FMath::Square(Radius);
+	const float Multiplier =
+		FMath::Clamp(TalchiSlowMultiplier, 0.01f, 1.0f);
+
+	ANTNPCCharacterBase* Victim = ActiveTalchiVictim.Get();
+
+	// 현재 범위 안에 있는 살아 있는 NPC를 찾습니다.
+	for (TActorIterator<ANTNPCCharacterBase> It(GetWorld()); It; ++It)
+	{
+		ANTNPCCharacterBase* NPC = *It;
+
+		if (!IsValid(NPC)
+			|| NPC->IsActorBeingDestroyed()
+			|| NPC == Victim)
+		{
+			continue;
+		}
+
+		const UStatComponent* NPCStat =
+			NPC->FindComponentByClass<UStatComponent>();
+
+		if (!IsValid(NPCStat) || NPCStat->IsDead())
+		{
+			continue;
+		}
+
+		if (FVector::DistSquared(
+			GetActorLocation(), NPC->GetActorLocation()) > RadiusSquared)
+		{
+			continue;
+		}
+
+		DesiredActors.Add(TWeakObjectPtr<AActor>(NPC));
+
+		// AIController도 별도 액터이므로 함께 적용합니다.
+		if (AController* AIController = NPC->GetController())
+		{
+			if (IsValid(AIController)
+				&& !AIController->IsActorBeingDestroyed()
+				&& !AIController->IsPlayerController())
+			{
+				DesiredActors.Add(
+					TWeakObjectPtr<AActor>(AIController));
+			}
+		}
+	}
+
+	// 범위를 나갔거나 사망한 대상은 기존 속도로 복구합니다.
+	for (auto It = TalchiOriginalTimeDilations.CreateIterator(); It; ++It)
+	{
+		AActor* Actor = It.Key().Get();
+
+		if (!IsValid(Actor))
+		{
+			It.RemoveCurrent();
+			continue;
+		}
+
+		if (!DesiredActors.Contains(It.Key()))
+		{
+			Actor->CustomTimeDilation = It.Value();
+			It.RemoveCurrent();
+		}
+	}
+
+	// 신규 대상은 원래 속도를 한 번만 저장합니다.
+	for (const TWeakObjectPtr<AActor>& WeakActor : DesiredActors)
+	{
+		AActor* Actor = WeakActor.Get();
+
+		if (!IsValid(Actor))
+		{
+			continue;
+		}
+
+		float* OriginalDilation =
+			TalchiOriginalTimeDilations.Find(WeakActor);
+
+		if (!OriginalDilation)
+		{
+			TalchiOriginalTimeDilations.Add(
+				WeakActor, Actor->CustomTimeDilation);
+
+			OriginalDilation =
+				TalchiOriginalTimeDilations.Find(WeakActor);
+		}
+
+		Actor->CustomTimeDilation = *OriginalDilation * Multiplier;
+	}
+}
+
+void ATalPlayerCharacter::ClearTalchiSlow()
+{
+	for (const auto& Entry : TalchiOriginalTimeDilations)
+	{
+		if (AActor* Actor = Entry.Key.Get())
+		{
+			Actor->CustomTimeDilation = Entry.Value;
+		}
+	}
+
+	TalchiOriginalTimeDilations.Empty();
+	TalchiSlowElapsed = 0.0f;
 }

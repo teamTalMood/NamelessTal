@@ -303,6 +303,9 @@ public:
 	void GrabSelectedTalToHand();
 	void EquipHeldTalToFace();
 
+	UFUNCTION(BlueprintCallable, Category = "Talchi|Camera")
+	void EnterTalchiFirstPerson();
+
 	UFUNCTION(BlueprintPure, Category = "Tal")
 	UNTTalComponent* GetTalComponent() const { return TalComponent; }
 
@@ -344,9 +347,78 @@ protected:
 	// 정상 종료와 중단 모두 이 함수로 정리합니다.
 	void FinishTalchi();
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera", meta = (ClampMin = "0.0", Units = "cm"))
+	float TalchiCameraDistance = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera", meta = (ClampMin = "0.0", Units = "s"))
+	float TalchiCameraBlendDuration = 0.2f;
+
+	void BeginTalchiCamera(AActor* TargetActor);
+	void UpdateTalchiCamera();
+	void RestoreTalchiCamera();
+	void RestoreTalchiFirstPerson();
+	void HideTalchiFaceMask();
+	void ShowTalchiScreenMask();
+	void UpdateTalchiScreenMask();
+	void HideTalchiScreenMask();
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Talchi|Mask")
+	TSoftClassPtr<UUserWidget> TalchiMaskWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.0", Units = "s"))
+	float TalchiMaskFadeDuration = 0.15f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> TalchiMaskWidget;
+
+	double TalchiMaskFadeStartTime = 0.0;
+	bool bTalchiMaskFadingIn = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera")
+	FName TalchiFirstPersonHeadBone = TEXT("head");
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi|Camera")
+	bool bTalchiFirstPersonActive = false;
+
+	bool bTalchiSavedFollowCameraActive = false;
+	bool bTalchiSavedFirstPersonCameraActive = false;
+	bool bTalchiSavedMeshOwnerNoSee = false;
+	bool bTalchiSavedWeaponOwnerNoSee = false;
+	bool bTalchiSavedHeadHidden = false;
+	FName TalchiHiddenHeadBone = NAME_None;
+	TMap<TWeakObjectPtr<AActor>, bool> TalchiSavedMaskVisibility;
+
+	bool bTalchiCameraActive = false;
+	float TalchiCameraOriginalArmLength = 0.0f;
+	float TalchiCameraTargetArmLength = 0.0f;
+	float TalchiCameraActiveBlendDuration = 0.0f;
+	double TalchiCameraStartTime = 0.0;
+	bool bTalchiOriginalUseControlRotation = false;
+	bool bTalchiOriginalRotationLag = false;
+
 	// 탈취 몽타주의 종료 콜백
 	void OnTalchiMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.0", Units = "cm"))
+	float TalchiSlowRadius = 1000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.01", ClampMax = "1.0"))
+	float TalchiSlowMultiplier = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.01"))
+	float TalchiSlowUpdateInterval = 0.1f;
+
+	// NPC와 AIController의 적용 전 속도를 각각 보관합니다.
+	// 약한 참조이므로 대상의 파괴를 막지 않습니다.
+	TMap<TWeakObjectPtr<AActor>, float> TalchiOriginalTimeDilations;
+
+	float TalchiSlowElapsed = 0.0f;
+
+	void UpdateTalchiSlow();
+	void ClearTalchiSlow();
 
 	// 화면 좌표 기준으로 적 중심에서 오른쪽 위에 표시합니다.
 	UPROPERTY(EditDefaultsOnly, Category = "Talchi|UI")
