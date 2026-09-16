@@ -57,14 +57,9 @@ enum class EBufferedCombatAction : uint8
 // 
 struct FPlayerCurrentSpecialArtData
 {
-	FName NextStepID;
-	int32 HPDamage;
-	int32 SoulDamage;
-	int32 StaggerDamage;
-	float CastTime;
-	float RecoveryTime;
-	float MoveDistance;
-	FName MontageName;
+	int32 HPDamage = 0;
+	int32 SoulDamage = 0;
+	int32 StaggerDamage = 0;
 };
 
 
@@ -431,35 +426,31 @@ protected:
 	///////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////
 	////////////////////		특수기
+public:
+	void BeginSpecialArtHit(int32 ComboCount);
+	void EndSpecialArtHit(int32 ComboCount);
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "SpecialAttack")
 	TObjectPtr<UInputAction> SpecialArtAction;
 
 	// 특수기 이름표 -> 에셋 매핑
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialAttack")
-	TMap<FName, TObjectPtr<UAnimMontage>> SpecialArtMontages;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> CurrentSpecialArtMontage = nullptr;
+
 
 	// 지금 실행중인 특수기 ID
-	FName CurrentSpecialArtID;
+	FName CurrentSpecialArtID = NAME_None;
 
 	// 지금 특수기 사용중인가?
 	bool bIsUsingSpecialArt = false;
+	bool bIsSpecialArtHitActive = false;
+	bool bIsSpecialArtCancelling = false;
 
+
+	int32 CurrentSpecialArtComboCount = INDEX_NONE;
 	// 지금 장착한 탈로 특수기 몇번 썼는지
 	int32 SpecialArtUseCount = 0;
-
-	// 특수기 후딜 타이머
-	FTimerHandle SpecialArtRecoveryTimer;
-
-	// 특수기 돌진 중인지
-	bool bIsSpecialArtMoving = false;
-
-	// 특수기 돌진 속도 (초당 이동량)
-	FVector SpecialArtMoveVelocity = FVector::ZeroVector;
-
-	//특수기 돌진 종료 타이머
-	FTimerHandle SpecialArtMoveTimer;
 
 	// 지금 실행 중인 스텝의 데이터
 	FPlayerCurrentSpecialArtData CurrentSpecialArtData;
@@ -469,16 +460,12 @@ protected:
 	// 실제 본체로 발동성공시 true(패링)
 	bool TryUseSpecialAttack(bool bFreeUse);
 
-	void StartSpecialArtStep(FName StepID);
+
 
 	// 몽타주 종료 콜백 함수
-	void OnSpecialArtMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void OnSpecialArtMontageEnd(class UAnimMontage* Montage, bool bInterrupted);
 	void CancelSpecialArt();
-	
-	void EndSpecialArtRecovery();
-
-	// 돌진기 관련 함수
-	void EndSpecialArtMove();
+	void ResetSpecialArtState();
 
 
 	////////////////////////////////////////////////////////////////////////////
