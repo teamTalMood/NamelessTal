@@ -133,10 +133,18 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >= ParrySlowMoEndRealTime)
+	if (bParrySlowMoActive && GetWorld()->GetRealTimeSeconds() >= 
+		ParrySlowMoEndRealTime)
 	{
 		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
 		bParrySlowMoActive = false;
+	}
+
+	// 카운터 창 만료시 (슬로모션과 무관하게 독립 판정)
+	if (bParryCounterReady && GetWorld()->GetRealTimeSeconds()
+		>= ParryCounterEndRealTime)
+	{
+		CloseParryCounterWindow();
 	}
 
 	if (bParrySlowMoActive && LastParriedTarget.IsValid())
@@ -573,7 +581,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 	}
 
 	StatComponent->NotifyHitDuringGroggy();
-
+	
 	if (GuardComponent->IsGuarding() &&
 		IsWithinFrontTalGuardAngle(DamageCauser))
 	{
@@ -582,6 +590,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		if (bParried)
 		{
 			LastParriedTarget = DamageCauser;
+			OpenParryCounterWindow();
 		}
 
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -608,6 +617,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 				const float ParrySectionLength = ParryMontage ? ParryMontage->GetSectionLength(
 					ParryMontage->GetSectionIndex(ParrySection)) : 0.0f;
 				GuardComponent->StartStagger(ParrySectionLength + ParryStaggerTime);
+
 
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnParryMontage);
@@ -679,6 +689,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 		if (bParried)
 		{
 			LastParriedTarget = DamageCauser;
+			OpenParryCounterWindow();
 		}
 
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -820,7 +831,7 @@ void ATalPlayerCharacter::StartSprint(const FInputActionValue& Value)
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered() || StatComponent->IsGroggy()
 		|| bIsLandingRecovering || bIsUsingFlask || bIsUsingSpecialArt) return;
-
+	
 	bIsSprinting = true;
 
 }
@@ -832,6 +843,12 @@ void ATalPlayerCharacter::StopSprint(const FInputActionValue& Value)
 
 void ATalPlayerCharacter::Attack(const FInputActionValue& Value)
 {
+	if (bParryCounterReady && !bIsUsingSpecialArt)
+	{
+		TriggerParryCounter();
+		return;
+	}
+
 	// 패링,가드 성공 시(시간 초만큼 실행불가능)
 	if (GuardComponent->IsStaggered()
 		|| StatComponent->IsGroggy()
@@ -1365,18 +1382,29 @@ void ATalPlayerCharacter::EndComboGrace()
 
 void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
 {
-	if (GuardComponent->IsStaggered() || 
-		StatComponent->IsGroggy() || 
-		bIsLandingRecovering|| 
-		bIsUsingFlask || 
+	TryUseSpecialAttack(false);
+}
+
+bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
+{
+	// 패링 카운터는 몽태주 스태거 무신
+	if ((!bFreeUse && GuardComponent->IsStaggered()) ||
+		StatComponent->IsGroggy() ||
+		bIsLandingRecovering ||
+		bIsUsingFlask ||
 		bIsDodging ||
 		bIsUsingSpecialArt)
 	{
-		return;
+		return false;
 	}
 
 	ATalBase* MyTal = GetCurrentTal();
-	if (MyTal == nullptr) return;
+	if (MyTal == nullptr)
+	{
+		MC_LOG(LogDG, Warning, TEXT("장착탈없어 특수기 실패"));
+		return false;
+	}
+
 
 
 	//const TArray<FName> Candidates = UNTGameDataSingleton::Get().FindPlayerSpecialArtIDsByWeapon(MyTal->GetTalStyle());
@@ -1391,31 +1419,47 @@ void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
 	//}
 
 	const FName SpecialArtID = MyTal->GetSpecialArtID();
-	if (SpecialArtID.IsNone()) { MC_LOG(LogSY, Warning, TEXT("%s에 SpecialArtID 없음"), *GetNameSafe(MyTal));  return; }
+	if (SpecialArtID.IsNone()) 
+	{ 
+		MC_LOG(LogSY, Warning, TEXT("%s에 SpecialArtID 없음"), 
+			*GetNameSafe(MyTal));  
+		return false;
+	}
 
 	const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
-	if (ArtData == nullptr) { MC_LOG(LogSY, Warning, TEXT("SpecialArt 자체가 없음 : %s"), *SpecialArtID.ToString()); return; }
-
-
-	if (SpecialArtUseCount >= ArtData->UseLimit)
-	{
-		MC_LOG(LogDG, Warning, TEXT("특수기 사용 횟수 초과!"));
-		return;
+	if (ArtData == nullptr) 
+	{ 
+		MC_LOG(LogSY, Warning, TEXT("SpecialArt 자체가 없음 : %s"), *SpecialArtID.ToString());
+		return false; 
 	}
 
-	if (!StatComponent->HasEnoughSoul(static_cast<float>(ArtData->SoulCost)))
-	{
-		return;
-	}
-	StatComponent->DrainSoul(static_cast<float>(ArtData->SoulCost));
 
-	SpecialArtUseCount++;
+	// 유료 사용일 때만 횟수/넋 검사 및 소모
+	if (!bFreeUse)
+	{
+		if (SpecialArtUseCount >= ArtData->UseLimit)
+		{
+			MC_LOG(LogDG, Warning, TEXT("특수기 사용 횟수 초과!"));
+			return false;
+		}
+
+		if (!StatComponent->HasEnoughSoul(static_cast<float>(ArtData->SoulCost)))
+		{
+			MC_LOG(LogSY, Warning, TEXT("넋 부족으로 특수기 실패"));
+			return false;
+		}
+
+		StatComponent->DrainSoul(static_cast<float>(ArtData->SoulCost));
+		SpecialArtUseCount++;
+	}
+
 
 	bIsUsingSpecialArt = true;
 
 	CurrentSpecialArtID = SpecialArtID;
 	StartSpecialArtStep(ArtData->MontageID);
 
+	return bIsUsingSpecialArt;
 }
 
 void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
@@ -1568,9 +1612,14 @@ bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
 
 void ATalPlayerCharacter::TriggerParrySlowMo()
 {
-	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), ParrySlowMoTimeDilation);
+	UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 
+		ParrySlowMoTimeDilation);
+
 	bParrySlowMoActive = true; // 슬로우 시작
-	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() + ParrySlowMoRealDuration;
+
+	ParrySlowMoEndRealTime = GetWorld()->GetRealTimeSeconds() + 
+		ParrySlowMoRealDuration;
+	
 }
 
 void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
@@ -1600,6 +1649,47 @@ bool ATalPlayerCharacter::IsGuarding() const
 bool ATalPlayerCharacter::IsGuardInputHeld() const
 {
 	return GuardComponent->IsGuardInputHeld();
+}
+
+bool ATalPlayerCharacter::IsInParryCounterWindow() const
+{
+	return bParryCounterReady;
+}
+
+void ATalPlayerCharacter::OpenParryCounterWindow()
+{
+	bParryCounterReady = true;
+	ParryCounterEndRealTime = GetWorld()->GetRealTimeSeconds()
+		+ ParryCounterWindowDuration;
+}
+
+void ATalPlayerCharacter::CloseParryCounterWindow()
+{
+	bParryCounterReady = false;
+}
+
+void ATalPlayerCharacter::TriggerParryCounter()
+{
+	// 무료 발동을 먼저 시도한다. 실패하면 아무 상태도 바꾸지 않는다
+	if (!TryUseSpecialAttack(true))
+	{
+		// 창을 유지하므로 다음 클릭이 다시 시도할 수 있다
+		return;
+	}
+
+	// 여기부터는 카운터가 확실히 발동한 경우만 실행된다
+
+	// 슬로우 즉시 해제
+	if (bParrySlowMoActive)
+	{
+		UGameplayStatics::SetGlobalTimeDilation(GetWorld(), 1.0f);
+		bParrySlowMoActive = false;
+	}
+
+	// 패링 몽타주 스태거 해제 (카운터 이후 행동 불가 방지)
+	GuardComponent->StartStagger(0.0f);
+
+	CloseParryCounterWindow();
 }
 
 //락온 시스템
@@ -2290,7 +2380,7 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 
 		return;
 	}
-
+	
 	bool bOldTalRestored = true;
 
 	if (IsValid(OldPlayerTal))
