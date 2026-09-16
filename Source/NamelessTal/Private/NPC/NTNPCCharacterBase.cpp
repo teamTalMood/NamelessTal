@@ -427,6 +427,7 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 
 	if (DistanceToTarget <= AttackDistance || ForwardDot <= 0.f)
 	{
+		MC_LOG(LogMC, Log, TEXT("Mon is close enough"));
 		OnJumpMontageEnd(nullptr, false);
 		return;
 	}

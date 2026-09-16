@@ -10,6 +10,11 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "NPC/Components/NTLockOnTargetComponent.h"
+#include "NPC/NTAIParams.h"
+
+//AOE
+#include "NPC/Boss/NTOkJangPan.h"
+#include "Components/CapsuleComponent.h"
 
 
 ANTNPCCharacterBoss::ANTNPCCharacterBoss()
@@ -30,6 +35,8 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 void ANTNPCCharacterBoss::BeginPlay()
 {
 	Super::BeginPlay();
+
+	CurrentPhase = EBossPhase::Third;
 
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();
@@ -156,4 +163,31 @@ void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsPro
 
 	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
 	MC_LOG(LogMC, Log, TEXT("End : %s"), *EnumString);
+}
+
+void ANTNPCCharacterBoss::BeginAttack()
+{
+	Super::BeginAttack();
+
+	if (BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK) == TEXT("P_BossMon1_Attack4") || BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK) == TEXT("P_BossMon1_Attack6"))
+	{
+		if (!OkJangPanClass)
+		{
+			MC_LOG(LogMC, Error, TEXT("OkJangPanClass is not set!"));
+			return;
+		}
+
+		FVector SpawnLocation = GetActorLocation();
+		SpawnLocation.Z -= GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		ANTOkJangPan* SpawnedOkJangPan = GetWorld()->SpawnActor<ANTOkJangPan>(OkJangPanClass, SpawnLocation, GetActorRotation(), SpawnParams);
+		if (SpawnedOkJangPan)
+		{
+			SpawnedOkJangPan->StartAOE();
+		}
+	}
 }
