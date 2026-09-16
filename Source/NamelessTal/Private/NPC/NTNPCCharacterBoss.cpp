@@ -10,6 +10,11 @@
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "NPC/Components/NTLockOnTargetComponent.h"
+#include "NPC/NTAIParams.h"
+
+//AOE
+#include "NPC/Boss/NTOkJangPan.h"
+#include "Components/CapsuleComponent.h"
 
 
 ANTNPCCharacterBoss::ANTNPCCharacterBoss()
@@ -30,6 +35,8 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 void ANTNPCCharacterBoss::BeginPlay()
 {
 	Super::BeginPlay();
+
+	CurrentPhase = EBossPhase::Third;
 
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();
@@ -94,7 +101,6 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 	bIsDead = true;
 
-	//락온 해제
 	if (UNTLockOnTargetComponent* LockOnTarget = FindComponentByClass<UNTLockOnTargetComponent>())
 	{
 		LockOnTarget->SetLockOnEnabled(false);
@@ -102,25 +108,21 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 	SetCanBeDamaged(false);
 
-	//공격 상태 종료
 	bIsAttacking = false;
-	//CurrentAttack = EAttackDistance::AttackNone;//상태변환
-	SetActorEnableCollision(false);//갖고있는 콜리전 다 해제
-	//DisableWeaponCollision();//콜리전해제
-	OnAICharacterAttackFinished.Unbind();//바인드해제
+	SetActorEnableCollision(false);
+	OnAICharacterAttackFinished.Unbind();
 
-	//재생중인 몽타주 종료 + 바인딩된 종료 델리게이트 해제 (사망 중 콤보 재호출 방지)
 	StopCurrentPlayMontage();
 
 	if (DeathMontage)
 	{
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
+			AnimInstance->Montage_Play(DeathMontage);
+
 			FOnMontageEnded EndDelegate;
 			EndDelegate.BindUObject(this, &ANTNPCCharacterBoss::StartNextPhase);
 			AnimInstance->Montage_SetEndDelegate(EndDelegate, DeathMontage);
-
-			AnimInstance->Montage_Play(DeathMontage);
 		}
 	}
 	else
@@ -133,6 +135,8 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	switch (CurrentPhase)
 	{
 	case EBossPhase::First:
@@ -152,6 +156,38 @@ void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsPro
 	StatComponent->SetSoulRegenBlocked(true);
 	bIsDead = false;
 
+	SetCanBeDamaged(true);
+	SetActorEnableCollision(true);
+
+	ReleaseStun();
+
 	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
 	MC_LOG(LogMC, Log, TEXT("End : %s"), *EnumString);
+}
+
+void ANTNPCCharacterBoss::BeginAttack()
+{
+	Super::BeginAttack();
+
+	if (BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK) == TEXT("P_BossMon1_Attack4") || BBComponent->GetValueAsName(BBKEY_SELECTEDATTACK) == TEXT("P_BossMon1_Attack6"))
+	{
+		if (!OkJangPanClass)
+		{
+			MC_LOG(LogMC, Error, TEXT("OkJangPanClass is not set!"));
+			return;
+		}
+
+		FVector SpawnLocation = GetActorLocation();
+		SpawnLocation.Z -= GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		ANTOkJangPan* SpawnedOkJangPan = GetWorld()->SpawnActor<ANTOkJangPan>(OkJangPanClass, SpawnLocation, GetActorRotation(), SpawnParams);
+		if (SpawnedOkJangPan)
+		{
+			SpawnedOkJangPan->StartAOE();
+		}
+	}
 }

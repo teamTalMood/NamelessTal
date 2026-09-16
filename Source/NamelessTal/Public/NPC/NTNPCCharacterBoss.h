@@ -7,6 +7,8 @@
 #include "NPC/NTNPCAttackPatternData.h"
 #include "NTNPCCharacterBoss.generated.h"
 
+class ANTOkJangPan;
+
 UENUM(BlueprintType)
 enum class EBossPhase : uint8
 {
@@ -61,9 +63,14 @@ protected:
 
 	EBossPhase CurrentPhase = EBossPhase::First;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AOE")
+	TSubclassOf<ANTOkJangPan> OkJangPanClass;
+
 protected:
 	virtual void HandleDeath() override;
 
 	UFUNCTION()
 	void StartNextPhase(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+
+	virtual void BeginAttack() override;
 };

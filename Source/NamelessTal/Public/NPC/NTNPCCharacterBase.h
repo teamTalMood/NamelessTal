@@ -158,7 +158,7 @@ public:
 	// Attack
 protected:
 	void MoveToAttackPoint();
-	void BeginAttack();
+	virtual void BeginAttack();
 	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void EndAttack();
 	void OnJumpMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);

@@ -109,6 +109,7 @@ void ANTNPCCharacterBase::BeginPlay()
 		BBComponent->SetValueAsVector(BBKEY_HOMEPOS, GetActorLocation());
 		BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, GetActorLocation());
+		BBComponent->SetValueAsFloat(BBKEY_ATTACKDISTANCE, AttackDistance);
 	}
 
 	if (TalComponent && DefaultTalClass)
@@ -224,6 +225,7 @@ void ANTNPCCharacterBase::AttackByAI()
 
 	if (bIsDead)
 	{
+		OnAICharacterAttackFinished.ExecuteIfBound();
 		return;
 	}
 
@@ -426,6 +428,7 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 
 	if (DistanceToTarget <= AttackDistance || ForwardDot <= 0.f)
 	{
+		MC_LOG(LogMC, Log, TEXT("Mon is close enough"));
 		OnJumpMontageEnd(nullptr, false);
 		return;
 	}
@@ -677,9 +680,10 @@ void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
 	UNTHPBarWidget* HpBarWidget = Cast<UNTHPBarWidget>(InUserWidget);
 	if (HpBarWidget)
 	{
-		HpBarWidget->SetMaxHp(StatComponent->MaxHP);
 		HpBarWidget->UpdateHpBar(StatComponent->CurrentHP, StatComponent->MaxHP);
 		StatComponent->OnHPChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateHpBar);
+		HpBarWidget->UpdateSoulBar(StatComponent->CurrentSoul, StatComponent->MaxSoul);
+		StatComponent->OnSoulChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateSoulBar);
 	}
 }
 

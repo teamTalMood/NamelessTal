@@ -30,8 +30,13 @@ public:
 	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
 	const ENTRespawnPointEnum GetCurrentSavePoint() { return CurrentRespawnPoint; }
 
+	void SetIsEpicKilled(uint8 InIsEpicKilled) { bIsEpicKilled = InIsEpicKilled; }
+	const uint8 GetIsEpicKilled() { return bIsEpicKilled; }
+
 protected:
 	ENTRespawnPointEnum CurrentRespawnPoint = ENTRespawnPointEnum::StartPoint;
+
+	uint8 bIsEpicKilled : 1 = false;
 
 };
 
