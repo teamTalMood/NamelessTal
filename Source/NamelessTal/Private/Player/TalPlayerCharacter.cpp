@@ -222,11 +222,6 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 
 	GetCharacterMovement()->MaxWalkSpeed =
 		FMath::FInterpTo(GetCharacterMovement()->MaxWalkSpeed, TargetSpeed, DeltaTime, SpeedInterpSpeed);
-
-	if (bIsSpecialArtMoving)
-	{
-		AddActorWorldOffset(SpecialArtMoveVelocity * DeltaTime, true);
-	}
 }
 
 UAnimMontage* ATalPlayerCharacter::SelectRollMontage(float Angle) const
@@ -952,6 +947,7 @@ void ATalPlayerCharacter::StartNextCombo()
 
 void ATalPlayerCharacter::EnableWeaponCollision()
 {
+	if (bIsUsingSpecialArt) return;
 	//공격 판정 구간 진입
 	if (AttackPhase == EPlayerAttackPhase::Startup)
 	{
@@ -968,6 +964,7 @@ void ATalPlayerCharacter::EnableWeaponCollision()
 }
 void ATalPlayerCharacter::DisableWeaponCollision()
 {
+	if (bIsUsingSpecialArt) return;
 	if (WeaponCollision != nullptr)
 	{
 		WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -981,53 +978,70 @@ void ATalPlayerCharacter::DisableWeaponCollision()
 
 }
 
-void ATalPlayerCharacter::OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void ATalPlayerCharacter::OnWeaponOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult)
 {
-	// 떄려지는 객체 확인 로그
-	UE_LOG(LogTemp, Warning, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
-	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
+	if (!OtherActor ||
+		OtherActor == this ||
+		HitActors.Contains(OtherActor))
 	{
 		return;
 	}
 
-	INTNPCCharacterBaseInterface* NPCCharacter = Cast<INTNPCCharacterBaseInterface>(OtherActor);
-	if (NPCCharacter == nullptr)
+	if (bIsUsingSpecialArt && !bIsSpecialArtHitActive)
 	{
 		return;
 	}
 
-	if (OtherComp && OtherComp->ComponentHasTag(TEXT("WeaponCollision")))
+	INTNPCCharacterBaseInterface* NPCCharacter =
+		Cast<INTNPCCharacterBaseInterface>(OtherActor);
+
+	if (!NPCCharacter)
 	{
-		//MC_LOG(LogMC, Log, TEXT("WeaponCollision"));
-		return; // 무기끼리 부딪힌 경우는 데미지 적용 안 함
+		return;
+	}
+
+	if (OtherComp &&
+		OtherComp->ComponentHasTag(TEXT("WeaponCollision")))
+	{
+		return;
 	}
 
 	HitActors.Add(OtherActor);
-	
-	// 넋 안차요 때리면
 	StatComponent->NotifyCombatAction();
 
+	float DamageResult = 0.0f;
 
-	float DamageToApply = AttackDamage;
-	float DrainToApply = 10.0f;
+	if (bIsUsingSpecialArt)
+	{
+		FNPCApplyDamageData DamageData{};
+		DamageData.HPDamage = CurrentSpecialArtData.HPDamage;
+		DamageData.SoulDamage = CurrentSpecialArtData.SoulDamage;
+		DamageData.StaggerDamage = CurrentSpecialArtData.StaggerDamage;
+		DamageData.bIsParry = false;
 
-		if (bIsUsingSpecialArt)
-		{
-			DamageToApply = static_cast<float>(CurrentSpecialArtData.HPDamage);
-			DrainToApply = static_cast<float>(CurrentSpecialArtData.SoulDamage);
-		}
+		DamageResult = NPCCharacter->ApplyDamage(this, DamageData);
+	}
+	else
+	{
+		// 기존 일반 공격의 피해량 유지
+		DamageResult = NPCCharacter->ApplyDamage(
+			this,
+			AttackDamage,
+			10.0f,
+			false);
+	}
 
-	//UGameplayStatics::ApplyDamage(OtherActor, AttackDamage, GetController(), this, UDamageType::StaticClass());
-	//드레인 수치는 임의값, 나중에 수정할것
-	float bNPCDead = NPCCharacter->ApplyDamage(this, DamageToApply, DrainToApply, false);
-
-	if (bNPCDead < 0)
+	if (DamageResult < 0.0f)
 	{
 		StatComponent->RecoverSoul(KillSoulReward);
-		UE_LOG(LogTemp, Warning, TEXT("20회복했읍니다"));
 	}
 }
-
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
 	if (TalComponent)
@@ -1379,15 +1393,22 @@ void ATalPlayerCharacter::EndComboGrace()
 	ClearAttackBuffer();
 }
 
-
-void ATalPlayerCharacter::UseSpecialAttack(const FInputActionValue& Value)
+//🐘
+void ATalPlayerCharacter::UseSpecialAttack(
+	const FInputActionValue& Value)
 {
 	TryUseSpecialAttack(false);
 }
 
 bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
 {
-	// 패링 카운터는 몽태주 스태거 무신
+	if (!GuardComponent || !StatComponent || bIsDead)
+	{
+		return false;
+	}
+
+	// 기존 규칙 유지:
+	// 패링 카운터는 스태거 검사를 건너뜁니다.
 	if ((!bFreeUse && GuardComponent->IsStaggered()) ||
 		StatComponent->IsGroggy() ||
 		bIsLandingRecovering ||
@@ -1399,167 +1420,266 @@ bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
 	}
 
 	ATalBase* MyTal = GetCurrentTal();
-	if (MyTal == nullptr)
+	if (!MyTal)
 	{
-		MC_LOG(LogDG, Warning, TEXT("장착탈없어 특수기 실패"));
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: No equipped Tal"));
 		return false;
 	}
-
-
-
-	//const TArray<FName> Candidates = UNTGameDataSingleton::Get().FindPlayerSpecialArtIDsByWeapon(MyTal->GetTalStyle());
-	//const FName SpecialArtID = Candidates.Num() > 0 ? Candidates[0] : TEXT("SA_M001_Slash");
-
-	//const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
-
-	//if (ArtData == nullptr)
-	//{
-	//	MC_LOG(LogDG, Warning, TEXT("No SpecialArtData! : %s"), *SpecialArtID.ToString());
-	//	return;
-	//}
 
 	const FName SpecialArtID = MyTal->GetSpecialArtID();
-	if (SpecialArtID.IsNone()) 
-	{ 
-		MC_LOG(LogSY, Warning, TEXT("%s에 SpecialArtID 없음"), 
-			*GetNameSafe(MyTal));  
+
+	if (SpecialArtID.IsNone())
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: Tal has no SpecialArtID"));
 		return false;
 	}
 
-	const FNTPlayerSpecialArtData* ArtData = UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
-	if (ArtData == nullptr) 
-	{ 
-		MC_LOG(LogSY, Warning, TEXT("SpecialArt 자체가 없음 : %s"), *SpecialArtID.ToString());
-		return false; 
+	const FNTPlayerSpecialArtData* ArtData =
+		UNTGameDataSingleton::Get().GetPlayerSpecialArt(SpecialArtID);
+
+	if (!ArtData)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: Missing skill row: %s"),
+			*SpecialArtID.ToString());
+		return false;
 	}
 
+	const float SoulCost =
+		FMath::Max(0.0f, static_cast<float>(ArtData->SoulCost));
 
-	// 유료 사용일 때만 횟수/넋 검사 및 소모
+	// 일반 사용만 횟수와 넋을 검사합니다.
 	if (!bFreeUse)
 	{
 		if (SpecialArtUseCount >= ArtData->UseLimit)
 		{
-			MC_LOG(LogDG, Warning, TEXT("특수기 사용 횟수 초과!"));
+			UE_LOG(LogTemp, Warning,
+				TEXT("SpecialArt: Use limit reached"));
 			return false;
 		}
 
-		if (!StatComponent->HasEnoughSoul(static_cast<float>(ArtData->SoulCost)))
+		if (!StatComponent->HasEnoughSoul(SoulCost))
 		{
-			MC_LOG(LogSY, Warning, TEXT("넋 부족으로 특수기 실패"));
+			UE_LOG(LogTemp, Warning,
+				TEXT("SpecialArt: Not enough soul"));
 			return false;
 		}
-
-		StatComponent->DrainSoul(static_cast<float>(ArtData->SoulCost));
-		SpecialArtUseCount++;
 	}
 
-
-	bIsUsingSpecialArt = true;
-
-	CurrentSpecialArtID = SpecialArtID;
-	StartSpecialArtStep(ArtData->MontageID);
-
-	return bIsUsingSpecialArt;
-}
-
-void ATalPlayerCharacter::StartSpecialArtStep(FName StepID)
-{
-	const FNTPlayerSpecialArtStepData* StepData = 
-		UNTGameDataSingleton::Get().GetPlayerSpecialArtStep(StepID);
-
-
-	if (StepData == nullptr)
+	// 최소한 첫 타격 데이터가 있는지 확인합니다.
+	if (!UNTGameDataSingleton::Get().FindPlayerSpecialArtStep(
+		SpecialArtID, 0))
 	{
-		MC_LOG(LogMC, Warning, TEXT("No SpecialArtStepData!"));
-
-		CurrentSpecialArtData.NextStepID = FName(TEXT(""));
-		CurrentSpecialArtData.HPDamage = 10;
-		CurrentSpecialArtData.SoulDamage = 10;
-		CurrentSpecialArtData.StaggerDamage = 10;
-		CurrentSpecialArtData.CastTime = 0.4f;
-		CurrentSpecialArtData.RecoveryTime = 0.5f;
-		CurrentSpecialArtData.MoveDistance = 0.0f;
-		CurrentSpecialArtData.MontageName = FName(TEXT("AM_PlayerSpecialArt1"));
-	}
-	else
-	{
-		CurrentSpecialArtData.HPDamage = StepData->HPDamage;
-		CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
-		CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
-	}
-
-	TObjectPtr<UAnimMontage>* FoundMontage = SpecialArtMontages.Find(CurrentSpecialArtData.MontageName);
-	if (FoundMontage == nullptr || *FoundMontage == nullptr)
-	{
-		MC_LOG(LogMC, Warning, TEXT("No SpecialArtMontage! : %s"), *CurrentSpecialArtData.MontageName.ToString());
-		bIsUsingSpecialArt = false;
-		return;
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: Missing hit 0 for %s"),
+			*SpecialArtID.ToString());
+		return false;
 	}
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance == nullptr) { return; }
+	UAnimMontage* Montage = ArtData->Montage.LoadSynchronous();
 
-	UAnimMontage* MontageToPlay = *FoundMontage;
-	AnimInstance->Montage_Play(MontageToPlay, 1.0f);
+	if (!AnimInstance || !Montage || !WeaponCollision)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: Missing AnimInstance, Montage or Collision"));
+		return false;
+	}
+
+	// 재생 중 호출되는 노티파이도 상태를 확인할 수 있도록
+	// Montage_Play 전에 기술 상태를 설정합니다.
+	CurrentSpecialArtID = SpecialArtID;
+	CurrentSpecialArtMontage = Montage;
+	CurrentSpecialArtData = FPlayerCurrentSpecialArtData{};
+	CurrentSpecialArtComboCount = INDEX_NONE;
+	bIsSpecialArtHitActive = false;
+	bIsUsingSpecialArt = true;
+	bIsSpecialArtCancelling = false;
+
+	const float PlayedLength =
+		AnimInstance->Montage_Play(Montage, 1.0f);
+
+	if (PlayedLength <= 0.0f)
+	{
+		// 실패 시 일반 공격의 충돌 상태까지 정리하지 않습니다.
+		bIsUsingSpecialArt = false;
+		bIsSpecialArtHitActive = false;
+		CurrentSpecialArtID = NAME_None;
+		CurrentSpecialArtMontage = nullptr;
+		CurrentSpecialArtComboCount = INDEX_NONE;
+		CurrentSpecialArtData = FPlayerCurrentSpecialArtData{};
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: Montage_Play failed: %s"),
+			*GetNameSafe(Montage));
+		return false;
+	}
+
+	// 기존 일반 공격의 예약과 상태가 특수기에 남지 않게 정리합니다.
+	GetWorldTimerManager().ClearTimer(ComboGraceTimer);
+	ClearAttackBuffer();
+
+	bCanCombo = false;
+	bBasicAttackActionLocked = false;
+	ComboInputPhase = EComboInputPhase::Closed;
+	AttackPhase = EPlayerAttackPhase::None;
+	ComboIndex = 0;
+
+	WeaponCollision->SetCollisionEnabled(
+		ECollisionEnabled::NoCollision);
+	HitActors.Empty();
 
 	FOnMontageEnded EndDelegate;
-	EndDelegate.BindUObject(this, &ATalPlayerCharacter::OnSpecialArtMontageEnd);
-	AnimInstance->Montage_SetEndDelegate(EndDelegate, MontageToPlay);
+	EndDelegate.BindUObject(
+		this,
+		&ATalPlayerCharacter::OnSpecialArtMontageEnd);
 
-	// 돌진 시작
-	if (CurrentSpecialArtData.MoveDistance != 0.0f && CurrentSpecialArtData.CastTime > 0.0f)
+	AnimInstance->Montage_SetEndDelegate(EndDelegate, Montage);
+
+	// 실제로 재생에 성공한 경우에만 비용을 반영합니다.
+	if (!bFreeUse)
 	{
-		SpecialArtMoveVelocity = GetActorForwardVector() * (CurrentSpecialArtData.MoveDistance / CurrentSpecialArtData.CastTime);
-		bIsSpecialArtMoving = true;
+		++SpecialArtUseCount;
+		StatComponent->DrainSoul(SoulCost);
+	}
 
-		GetWorldTimerManager().SetTimer(SpecialArtMoveTimer, this,
-			&ATalPlayerCharacter::EndSpecialArtMove, CurrentSpecialArtData.CastTime, false);
+	return true;
+}
+
+void ATalPlayerCharacter::BeginSpecialArtHit(int32 ComboCount)
+{
+	if (!bIsUsingSpecialArt ||
+		!CurrentSpecialArtMontage ||
+		!WeaponCollision ||
+		bIsSpecialArtCancelling)
+	{
+		return;
+	}
+
+	// 이전 타격을 닫고 새 데이터를 준비합니다.
+	WeaponCollision->SetCollisionEnabled(
+		ECollisionEnabled::NoCollision);
+
+	bIsSpecialArtHitActive = false;
+	CurrentSpecialArtComboCount = INDEX_NONE;
+	CurrentSpecialArtData = FPlayerCurrentSpecialArtData{};
+
+	const FNTPlayerSpecialArtStepData* StepData =
+		UNTGameDataSingleton::Get().FindPlayerSpecialArtStep(
+			CurrentSpecialArtID,
+			ComboCount);
+
+	if (!StepData)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("SpecialArt: Missing hit data: %s / %d"),
+			*CurrentSpecialArtID.ToString(),
+			ComboCount);
+		return;
+	}
+
+	CurrentSpecialArtData.HPDamage = StepData->HPDamage;
+	CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
+	CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
+
+	CurrentSpecialArtComboCount = ComboCount;
+	bIsSpecialArtHitActive = true;
+
+	// 같은 적도 다음 타격에서는 다시 맞을 수 있습니다.
+	HitActors.Empty();
+
+	// 충돌을 켜기 전에 데이터와 충돌 응답을 준비합니다.
+	WeaponCollision->SetCollisionResponseToAllChannels(
+		ECollisionResponse::ECR_Overlap);
+
+	WeaponCollision->SetCollisionEnabled(
+		ECollisionEnabled::QueryOnly);
+}
+
+void ATalPlayerCharacter::EndSpecialArtHit(int32 ComboCount)
+{
+	if (!bIsUsingSpecialArt ||
+		CurrentSpecialArtComboCount != ComboCount)
+	{
+		return;
+	}
+
+	bIsSpecialArtHitActive = false;
+	CurrentSpecialArtComboCount = INDEX_NONE;
+
+	if (WeaponCollision)
+	{
+		WeaponCollision->SetCollisionEnabled(
+			ECollisionEnabled::NoCollision);
 	}
 }
 
-void ATalPlayerCharacter::OnSpecialArtMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+void ATalPlayerCharacter::OnSpecialArtMontageEnd(
+	UAnimMontage* Montage,
+	bool bInterrupted)
 {
-	if (CurrentSpecialArtData.NextStepID.IsNone() || CurrentSpecialArtData.NextStepID == FName(TEXT("")))
+	if (Montage != CurrentSpecialArtMontage.Get())
 	{
-		// 다음 스텝이 없으면 후딜 시작, 후딜 끝나면 특수기 종료
-		
-		GetWorldTimerManager().SetTimer(SpecialArtRecoveryTimer, this,
-			&ATalPlayerCharacter::EndSpecialArtRecovery, CurrentSpecialArtData.RecoveryTime, false);
-		
 		return;
 	}
-	StartSpecialArtStep(CurrentSpecialArtData.NextStepID);
+
+	ResetSpecialArtState();
 }
 
 void ATalPlayerCharacter::CancelSpecialArt()
 {
-	if (!bIsUsingSpecialArt) return;
+	if (!bIsUsingSpecialArt)
+	{
+		return;
+	}
+	bIsSpecialArtCancelling = true;
 
-	GetWorldTimerManager().ClearTimer(SpecialArtRecoveryTimer);
-	GetWorldTimerManager().ClearTimer(SpecialArtMoveTimer);
+	UAnimMontage* MontageToStop = CurrentSpecialArtMontage.Get();
 
-	bIsSpecialArtMoving = false;
+	// 블렌드아웃 중에도 이전 특수기 상태를 유지합니다.
+	bIsSpecialArtHitActive = false;
+	CurrentSpecialArtComboCount = INDEX_NONE;
+
+	if (WeaponCollision)
+	{
+		WeaponCollision->SetCollisionEnabled(
+			ECollisionEnabled::NoCollision);
+	}
 
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
-		if (TObjectPtr<UAnimMontage>* FoundMontage =
-			SpecialArtMontages.Find(CurrentSpecialArtData.MontageName))
+		if (MontageToStop &&
+			AnimInstance->Montage_IsActive(MontageToStop))
 		{
-			AnimInstance->Montage_Stop(0.2f, *FoundMontage);
+			// 종료 콜백에서 최종 상태를 정리합니다.
+			AnimInstance->Montage_Stop(0.2f, MontageToStop);
+			return;
 		}
 	}
-	bIsUsingSpecialArt = false;
+
+	ResetSpecialArtState();
 }
 
-void ATalPlayerCharacter::EndSpecialArtRecovery()
+void ATalPlayerCharacter::ResetSpecialArtState()
 {
-	bIsUsingSpecialArt = false;
-}
+	bIsSpecialArtCancelling = false;
+	bIsSpecialArtHitActive = false;
 
-void ATalPlayerCharacter::EndSpecialArtMove()
-{
-	bIsSpecialArtMoving = false;
-	SpecialArtMoveVelocity = FVector::ZeroVector;
+	if (WeaponCollision)
+	{
+		WeaponCollision->SetCollisionEnabled(
+			ECollisionEnabled::NoCollision);
+	}
+
+	HitActors.Empty();
+
+	bIsUsingSpecialArt = false;
+	CurrentSpecialArtID = NAME_None;
+	CurrentSpecialArtMontage = nullptr;
+	CurrentSpecialArtComboCount = INDEX_NONE;
+	CurrentSpecialArtData = FPlayerCurrentSpecialArtData{};
 }
 
 void ATalPlayerCharacter::RecoverSoul(float Amount)
