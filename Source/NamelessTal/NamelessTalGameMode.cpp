@@ -23,5 +23,5 @@ void ANamelessTalGameMode::RespawnAllMonsters()
 		Monster->Destroy();
 	}
 
-	OnMonsterRespawn.Broadcast(CurrentSavePoint);
+	OnMonsterRespawn.Broadcast(CurrentRespawnPoint);
 }

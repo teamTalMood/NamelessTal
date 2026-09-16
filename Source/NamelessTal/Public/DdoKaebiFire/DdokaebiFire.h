@@ -4,16 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Title/NTSavePointEnum.h"
 #include "DdokaebiFire.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBonfireRested);
-
-// 전방선언
-class USphereComponent;
-class UStaticMeshComponent;
-class UInputMappingContext;
-class UInputAction;
-
 
 UCLASS()
 class NAMELESSTAL_API ADdokaebiFire : public AActor
@@ -36,33 +30,33 @@ protected:
 
 protected:
 	// Collision 겹침 감지 용도 (상호 작용 가능 거리)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components",
-		meta = (AllowPrivateAccess = "true"))
-	USphereComponent* FireInteractionRange;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class USphereComponent> FireInteractionRange;
 
 	//  전용 E키 입력 (화톳불) 
 	UPROPERTY(EditAnywhere, Category = "Interact")
-	UInputMappingContext* InteractMappingContext;
+	TObjectPtr<class UInputMappingContext> InteractMappingContext;
 
 	UPROPERTY(EditAnywhere, Category = "Interact")
-	UInputAction* InteractAction;
+	TObjectPtr<class UInputAction> InteractAction;
 
+	UPROPERTY(EditAnywhere, Category = "Interact")
+	ENTRespawnPointEnum FireSavePoint = ENTRespawnPointEnum::StartPoint;
+
+protected:
 	// 화톳불안에 누가 있는지 기억하는 변수
-	AActor* OverlappingPlayer = nullptr;
+	TObjectPtr<class AActor> OverlappingPlayer = nullptr;
 
+protected:
 	// Range안에 누군가 들어왔을경우 호출
 	UFUNCTION()
-	void OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
-		const FHitResult& SweepResult);
+	void OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	// Range 밖으로 누군가 나갔을때 호출되는 함수 
 	UFUNCTION()
-	void OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	void OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	// E키가 눌릴 경우 실행될 함수 
 	void OnInteract();
 	
-
 };

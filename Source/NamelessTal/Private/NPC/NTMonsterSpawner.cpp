@@ -5,6 +5,7 @@
 #include "MCLOG.h"
 #include "NPC/NTNPCCharacterBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Title/NTSavePointEnum.h"
 #include "NamelessTalGameMode.h"
 
 
@@ -30,7 +31,7 @@ void ANTMonsterSpawner::BeginPlay()
 	SpawnNPC(StagePoint);
 }
 
-void ANTMonsterSpawner::SpawnNPC(int32 InSavePoint)
+void ANTMonsterSpawner::SpawnNPC(ENTRespawnPointEnum InSavePoint)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
@@ -40,7 +41,7 @@ void ANTMonsterSpawner::SpawnNPC(int32 InSavePoint)
 		return;
 	}
 
-	FVector SpawnLocation = GetActorLocation() + SpawnOffset;
+	FVector SpawnLocation = GetActorLocation() + SpawnOffset + FVector(0,0,100.f);
 	GetWorld()->SpawnActor<ANTNPCCharacterBase>(MonsterClass, SpawnLocation, GetActorRotation());
 }
 
