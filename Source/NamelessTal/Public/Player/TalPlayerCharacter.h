@@ -353,7 +353,7 @@ protected:
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
-	
+
 	void StartAttackStep(int32 Step);//공격의 시작
 	void StartNextCombo();//현재 공격의 다음 콤보를 시작
 
@@ -460,7 +460,22 @@ protected:
 	// 실제 본체로 발동성공시 true(패링)
 	bool TryUseSpecialAttack(bool bFreeUse);
 
+	// 스킬로 죽일 경우 시체를 날릴 impulse 계산
+	// 플레이어 정면과 대상 방향 섞어 대각선으로 날아가게(카메라에 나오게)
+	FVector ComputeSpecialArtLaunchImpulse(const AActor* Target) const;
 
+	//날아가는 세기 bVelChange라 질량 무시하고 몬스터가 뭐든 일정하게 날아감
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch")
+	float SpecialArtLaunchPower = 1200.0f; // 날아가는 거리 값
+
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float SpecialArtLaunchRadialBlend = 0.4f; // 날아가는 대각선 비율
+
+	// 위쪽 성분 0이면 바닥에 끌리고 크면 붕뜨게 된다
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+	float SpecialArtLaunchUpRatio = 0.35f; // 19도 정도 위로 뜨게 
+
+	void StartSpecialArtStep(FName StepID);
 
 	// 몽타주 종료 콜백 함수
 	void OnSpecialArtMontageEnd(class UAnimMontage* Montage, bool bInterrupted);
@@ -482,7 +497,7 @@ public:
 		return StatComponent;
 	}
 
-public :
+public:
 	void RecoverSoul(float AMount);
 
 	////////////////////////////////////////////////////////////////////////////
@@ -570,7 +585,7 @@ public:
 	bool IsGuarding() const;
 
 	// 누르고 있는중인가요
-	bool IsGuardInputHeld() const; 
+	bool IsGuardInputHeld() const;
 
 	// 패링으로 강공격을 누를 수 있는 순간인지 확인하긴
 	bool IsInParryCounterWindow() const;
@@ -584,10 +599,10 @@ public:
 	// 슬로우 모션 해제 + 스티거 해제 + 강공격 발동
 	void TriggerParryCounter();
 
-////////////////////////////////////////////////////////////////////////////
-///////		락온 시스템
+	////////////////////////////////////////////////////////////////////////////
+	///////		락온 시스템
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin = "0.0"))
 	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", ClampMax = "1.0", UTMin = "0.0", UIMax = "1.0"))
@@ -661,11 +676,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float LandingSpeedMultiplier = 0.5f;
 
-public :
+public:
 	bool IsRealFalling() const { return bIsRealFalling; }
 
 	void SetLastBonfire(ADdokaebiFire* Bonfire) { LastBonfire = Bonfire; }
-protected : 
+protected:
 	// 낙하 높이 설정하기 
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float MinFallHeightToPlayAnim = 200.0f;
@@ -677,15 +692,15 @@ protected :
 	void UpdateRealFalling();
 	void EndLandingRecovery();
 
-private :
+private:
 	bool bIsRealFalling = false;
 	bool bWasRealFallingThisAirtime = false;
 	bool bIsLandingRecovering = false;
 	FTimerHandle LandingRecoveryTimeHandle;
 
 
-///////////////////////////////////////////////
-////////	호리병
+	///////////////////////////////////////////////
+	////////	호리병
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Item")
