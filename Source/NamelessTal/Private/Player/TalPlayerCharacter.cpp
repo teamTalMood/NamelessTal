@@ -193,7 +193,12 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 			CameraManager->ViewPitchMax = SafePitchMax;
 		}
 	}
-	if (bIsLockOnActive)
+	
+	const bool bParryCameraMoving =
+		CombatFeelComponent &&
+		CombatFeelComponent->IsParryCameraMoving();
+
+	if (bIsLockOnActive && !bParryCameraMoving)
 	{
 		UpdateLockOn(DeltaTime);
 	}
@@ -853,6 +858,11 @@ void ATalPlayerCharacter::NotifyControllerChanged()
 
 void ATalPlayerCharacter::Look(const FInputActionValue& Value)
 {
+	if (CombatFeelComponent && CombatFeelComponent->IsParryCameraMoving())
+	{
+		return;
+	}
+
 	//락온여부
 	if (bIsLockOnActive || Controller == nullptr) return;
 	const FVector2D LookAxisVector = Value.Get<FVector2D>();
@@ -1872,10 +1882,15 @@ bool ATalPlayerCharacter::IsWithinFrontTalGuardAngle(AActor* DamageCauser) const
 
 void ATalPlayerCharacter::TriggerParrySlowMo()
 {
-	if (CombatFeelComponent)
-	{
-		CombatFeelComponent->StartParrySlowMo();
-	}
+    if (CombatFeelComponent)
+    {
+        // 카메라가 바라볼 적을 먼저 전달
+        CombatFeelComponent->SetParryCameraTarget(
+            LastParriedTarget.Get());
+
+        // 그다음 슬로우모션과 카메라 연출 시작
+        CombatFeelComponent->StartParrySlowMo();
+    }
 }
 
 void ATalPlayerCharacter::OnParryMontage(UAnimMontage* Montage, bool bInterrupted)
@@ -1915,8 +1930,15 @@ bool ATalPlayerCharacter::IsInParryCounterWindow() const
 void ATalPlayerCharacter::OpenParryCounterWindow()
 {
 	bParryCounterReady = true;
+
 	ParryCounterEndRealTime = GetWorld()->GetRealTimeSeconds()
 		+ ParryCounterWindowDuration;
+
+	if (CombatFeelComponent)
+	{
+		CombatFeelComponent->SetParryCameraCounterEndTime(
+			ParryCounterEndRealTime);
+	}
 }
 
 void ATalPlayerCharacter::CloseParryCounterWindow()
@@ -1939,6 +1961,7 @@ void ATalPlayerCharacter::TriggerParryCounter()
 	if (CombatFeelComponent)
 	{
 		CombatFeelComponent->StopParrySlowMo();
+		CombatFeelComponent->StartParryCameraSkillReturn();
 	}
 
 	// 패링 몽타주 스태거 해제 (카운터 이후 행동 불가 방지)
@@ -2279,6 +2302,28 @@ void ATalPlayerCharacter::SwitchLockOnTarget(const FInputActionValue& Value)
 void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
 {
 	if (!IsLocallyControlled() || !IsValid(CameraTarget) || !IsValid(FollowCamera)) return;
+
+	// 패링 카메라 연출 중에는 플레이어와 무기를 표시
+	if (CombatFeelComponent &&
+		CombatFeelComponent->IsParryCameraMoving())
+	{
+		if (bHiddenByCameraDistance)
+		{
+			bHiddenByCameraDistance = false;
+
+			if (IsValid(GetMesh()))
+			{
+				GetMesh()->SetOwnerNoSee(false);
+			}
+
+			if (IsValid(WeaponMesh))
+			{
+				WeaponMesh->SetOwnerNoSee(false);
+			}
+		}
+
+		return;
+	}
 
 	const float DistanceSquared = FVector::DistSquared(
 		CameraTarget->GetComponentLocation(),
