@@ -25,6 +25,11 @@ void ANamelessTalGameMode::BeginPlay()
 	{
 		CutsceneSound->SetMediaPlayer(CutsceneMediaPlayer);
 	}
+
+	if (CutsceneSource)
+	{
+		PlayCutscene(CutsceneSource);
+	}
 }
 
 void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)

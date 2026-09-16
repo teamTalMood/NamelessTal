@@ -55,6 +55,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
 	TObjectPtr<UMediaPlayer> CutsceneMediaPlayer;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
+	TObjectPtr<UMediaSource> CutsceneSource;
+
 	UPROPERTY(VisibleAnywhere, Category = "Cutscene")
 	TObjectPtr<UMediaSoundComponent> CutsceneSound;
 
