@@ -61,15 +61,17 @@ void ANTNPCCharacterBoss::SetAttackPatternDatas()
 	{
 		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
 		{
-			for (const TPair<EBossPhase, FName>& Pair : PatternsNames)
+			if (PatternData.PatternPhase == 1)
 			{
-				EBossPhase Phase = Pair.Key;
-				FName PatternName = Pair.Value;
-
-				if (PatternData.FirstStepID.ToString().StartsWith(PatternName.ToString()))
-				{
-					PhasePatternDatas[Phase].Patterns.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
-				}
+				PhasePatternDatas[EBossPhase::First].Patterns.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
+			}
+			else if (PatternData.PatternPhase == 2)
+			{
+				PhasePatternDatas[EBossPhase::Second].Patterns.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
+			}
+			else
+			{
+				PhasePatternDatas[EBossPhase::Third].Patterns.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
 			}
 		}
 	}
@@ -82,7 +84,7 @@ TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBoss::GetAttackPatternDatas(
 
 void ANTNPCCharacterBoss::HandleDeath()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (bIsDead)
 	{

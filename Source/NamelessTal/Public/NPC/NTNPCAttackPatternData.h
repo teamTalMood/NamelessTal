@@ -41,4 +41,7 @@ public:
 	// 패턴 전체의 기획 의도
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pattern")
 	FString Memo;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pattern")
+	int32 PatternPhase;
 };
