@@ -136,6 +136,11 @@ void ANTNPCCharacterBase::BeginPlay()
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	GetWorldTimerManager().ClearTimer(ExhaustedTimerHandle);
+
+	bTalchiHeld = false;
+	bTalchiPausedExhaustedTimer = false;
+	bTalchiDeferredExhaustedEnd = false;
 	// 0. 델리게이트 빼기
 	if (StatComponent)
 	{
@@ -637,13 +642,22 @@ void ANTNPCCharacterBase::StartStun()
 
 void ANTNPCCharacterBase::ReleaseStun()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	
+		if (bTalchiHeld || bIsDead || !BTComponent)
+		{
+			return;
+		}
 
-	BTComponent->ResumeLogic(TEXT("Stun End"));
+		BTComponent->ResumeLogic(TEXT("Stun End"));
 }
 
 void ANTNPCCharacterBase::EndExhausted()
 {
+	if (bTalchiHeld)
+	{
+		bTalchiDeferredExhaustedEnd = true;
+		return;
+	}
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (bIsDead)
@@ -651,13 +665,21 @@ void ANTNPCCharacterBase::EndExhausted()
 		return;
 	}
 
-	UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
-	Anim->SetAnimIsExhausted(false);
+	if (UNTNPCAnimInstance* Anim =
+		Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance()))
+	{
+		Anim->SetAnimIsExhausted(false);
+	}
+
 	StatComponent->RestoreSoul();
 	bIsExhausting = false;
 
-	FTimerHandle Handle;
-	GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::ReleaseStun, 1.0f, false);
+	GetWorldTimerManager().SetTimer(
+		ExhaustedTimerHandle,
+		this,
+		&ANTNPCCharacterBase::EndExhausted,
+		ExhaustedDuration,
+		false);
 }
 
 void ANTNPCCharacterBase::StopCurrentPlayMontage()
@@ -918,4 +940,67 @@ void ANTNPCCharacterBase::CheckRagdollSettled()
 	MeshComp->SetComponentTickEnabled(false);
 
 	GetWorldTimerManager().ClearTimer(RagdollSettleTimer);
+}
+
+bool ANTNPCCharacterBase::BeginTalchiHold()
+{
+	if (bIsDead || !bIsExhausting || bTalchiHeld)
+	{
+		return false;
+	}
+
+	bTalchiHeld = true;
+	bTalchiDeferredExhaustedEnd = false;
+
+	FTimerManager& Timers = GetWorldTimerManager();
+
+	// 이미 다른 이유로 멈춘 타이머는 우리가 재개하지 않습니다.
+	bTalchiPausedExhaustedTimer =
+		Timers.IsTimerActive(ExhaustedTimerHandle)
+		&& !Timers.IsTimerPaused(ExhaustedTimerHandle);
+
+	if (bTalchiPausedExhaustedTimer)
+	{
+		Timers.PauseTimer(ExhaustedTimerHandle);
+	}
+
+	return true;
+}
+
+void ANTNPCCharacterBase::EndTalchiHold()
+{
+	if (!bTalchiHeld)
+	{
+		return;
+	}
+
+	bTalchiHeld = false;
+
+	const bool bResumeTimer = bTalchiPausedExhaustedTimer;
+	const bool bFinishExhausted = bTalchiDeferredExhaustedEnd;
+
+	bTalchiPausedExhaustedTimer = false;
+	bTalchiDeferredExhaustedEnd = false;
+
+	FTimerManager& Timers = GetWorldTimerManager();
+
+	if (bIsDead)
+	{
+		Timers.ClearTimer(ExhaustedTimerHandle);
+		return;
+	}
+
+	// 탈취 중 다른 경로로 그로기 종료가 요청됐다면 지금 처리합니다.
+	if (bFinishExhausted)
+	{
+		Timers.ClearTimer(ExhaustedTimerHandle);
+		EndExhausted();
+		return;
+	}
+
+	// 탈취 시작 당시 남아 있던 시간부터 이어갑니다.
+	if (bResumeTimer)
+	{
+		Timers.UnPauseTimer(ExhaustedTimerHandle);
+	}
 }

@@ -73,6 +73,8 @@
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 
+#include "NPC/NTNPCCharacterBase.h"
+
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
 	//Cmaera Component Set
@@ -1244,6 +1246,21 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 		MC_LOG(LogSY, Warning, TEXT("탈취 몽타주가 없음"));
 		return;
 	}
+
+	ANTNPCCharacterBase* VictimNPC =
+		Cast<ANTNPCCharacterBase>(TargetActor);
+
+	if (!IsValid(VictimNPC) || !VictimNPC->BeginTalchiHold())
+	{
+		SelectedTalChiTarget.Reset();
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("Talchi: failed to hold victim."));
+		return;
+	}
+
+	ActiveTalchiVictim = VictimNPC;
+	ActiveVictimTalchiMontage = nullptr;
 
 	MotionWarpingComponent->AddOrUpdateWarpTargetFromTransform(TalchiWarpTargetName, TargetTransform);
 
@@ -2511,26 +2528,49 @@ void ATalPlayerCharacter::StartVictimTalchiMontage()
 	{
 		return;
 	}
-	if (!SelectedTalChiTarget.IsValid())
+
+	ANTNPCCharacterBase* Victim = ActiveTalchiVictim.Get();
+
+	if (!IsValid(Victim)
+		|| Victim->IsActorBeingDestroyed()
+		|| !SelectedTalChiTarget.IsValid()
+		|| SelectedTalChiTarget->GetOwner() != Victim)
 	{
-		MC_LOG(LogSY, Warning, TEXT("탈취할 사람이 없다"));
+		FinishTalchi();
 		return;
 	}
 
-	UNTTalChiTargetComponent* TargetPoint = SelectedTalChiTarget.Get();
-	ACharacter* VictimCharacter = Cast<ACharacter>(TargetPoint->GetOwner());
-	UAnimMontage* VictimMontage = TargetPoint->GetVictimTalchiMontage();
+	UAnimMontage* VictimMontage =
+		SelectedTalChiTarget->GetVictimTalchiMontage();
 
-	if (!IsValid(VictimCharacter) || !IsValid(VictimMontage)) return;
+	if (!IsValid(VictimMontage))
+	{
+		FinishTalchi();
+		return;
+	}
 
-	const float MontageLength = VictimCharacter->PlayAnimMontage(VictimMontage);
+	// 동일 노티파이가 중복 호출돼도 다시 재생하지 않습니다.
+	if (IsValid(ActiveVictimTalchiMontage))
+	{
+		return;
+	}
 
-	if (MontageLength <= 0.0f) return;
+	ActiveVictimTalchiMontage = VictimMontage;
+
+	const float MontageLength =
+		Victim->PlayAnimMontage(VictimMontage);
+
+	if (MontageLength <= 0.0f)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("Talchi: victim montage failed."));
+
+		FinishTalchi();
+		return;
+	}
 
 	MC_LOG(LogSY, Warning, TEXT("적탈취 모션 시작"));
-
 }
-
 void ATalPlayerCharacter::TransferSelectedTal()
 {
 	if (!bIsTalchiInProgress)
@@ -2999,6 +3039,30 @@ void ATalPlayerCharacter::FinishTalchi()
 			UE_LOG(LogTemp, Warning,
 				TEXT("Talchi: interrupted mask could not be returned."));
 		}
+	}
+
+	ANTNPCCharacterBase* Victim = ActiveTalchiVictim.Get();
+	UAnimMontage* VictimMontage = ActiveVictimTalchiMontage.Get();
+
+	// 콜백이 발생해도 같은 대상을 다시 정리하지 않도록 먼저 비웁니다.
+	ActiveTalchiVictim.Reset();
+	ActiveVictimTalchiMontage = nullptr;
+
+	if (IsValid(Victim) && !Victim->IsActorBeingDestroyed())
+	{
+		// 탈취 몽타주만 중지합니다.
+		// 별도로 재생 중인 사망 몽타주는 건드리지 않습니다.
+		if (UAnimInstance* VictimAnim =
+			Victim->GetMesh() ? Victim->GetMesh()->GetAnimInstance() : nullptr)
+		{
+			if (VictimMontage
+				&& VictimAnim->Montage_IsActive(VictimMontage))
+			{
+				VictimAnim->Montage_Stop(0.1f, VictimMontage);
+			}
+		}
+
+		Victim->EndTalchiHold();
 	}
 
 	HeldTalVictim.Reset();

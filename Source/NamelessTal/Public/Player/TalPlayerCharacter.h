@@ -27,7 +27,7 @@ class UMotionWarpingComponent; //모션워핑 전방선언
 class ADdokaebiFire; // 화톳불 전방선언
 class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
 class UUserWidget;
-
+class ANTNPCCharacterBase;
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -328,6 +328,15 @@ protected:
 	// 탈취 몽타주 재생 중에는 안내와 재입력을 막기 위해 사용합니다.
 	UPROPERTY(Transient)
 	TObjectPtr<UAnimMontage> ActiveTalchiMontage;
+
+	// 얼굴 장착 후에도 종료 시점까지 유지할 대상
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ANTNPCCharacterBase> ActiveTalchiVictim;
+
+	// 중단 시 적의 탈취 몽타주도 정리하기 위해 보관
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActiveVictimTalchiMontage;
+
 	// 회피 무적과 별도로 관리하는 탈취 진행 상태
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi")
 	bool bIsTalchiInProgress = false;
