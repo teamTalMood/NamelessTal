@@ -311,6 +311,7 @@ protected:
 
 	UPROPERTY(Transient)
 	TObjectPtr<ATalBase> HeldStolenTal;
+	TWeakObjectPtr<AActor> HeldTalVictim;//훔친탈의 주인
 
 	////////////////////////////////////////
 	//

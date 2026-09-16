@@ -301,7 +301,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 		{
 			StatComponent->DrainSoul(InDamageData.SoulDamage);
 		}
-
+		StatComponent->ApplyDamage(InDamageData.HPDamage);
 		// 만약 피해받고 죽었으면 피격 처리 중단
 		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)
 		{
@@ -313,7 +313,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 			//FVector NewLocation = GetActorLocation() + Direction * (InDamageData.HPDamage - StatComponent->CurrentHP) * 100;
 			//SetActorLocation(NewLocation);
 
-			StatComponent->ApplyDamage(InDamageData.HPDamage);
+
 			return -InDamageData.HPDamage;
 		}
 
@@ -358,14 +358,22 @@ const uint8 ANTNPCCharacterBase::GetIsExhausting()
 
 void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
 {
-	WeaponMesh->SetVisibility(false);
-	
-	StopCurrentPlayMontage();
+	//WeaponMesh->SetVisibility(false);
+	//
+	//StopCurrentPlayMontage();
 
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	FOnMontageEnded EndDelegate;
-	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
-	AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
+	//UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	//FOnMontageEnded EndDelegate;
+	//EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
+	//AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
+
+	if (bIsDead || !IsValid(StatComponent)) return;
+
+	const float Damage = StatComponent->MaxHP * 0.5f;
+
+	StatComponent->ApplyDamage(Damage);
+
+	MC_LOG(LogSY, Warning, TEXT("탈취 성공"));
 }
 
 void ANTNPCCharacterBase::EnableWeaponCollision()
@@ -707,9 +715,8 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::OnTalChiMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	StatComponent->ApplyDamage(StatComponent->MaxHP * 0.5f);
-
-	if (!bIsDead)
+	
+	if (!bIsDead && bIsExhausting)
 	{
 		EndExhausted();
 	}

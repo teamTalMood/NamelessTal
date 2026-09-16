@@ -1092,6 +1092,14 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 		return;
 	}
 
+	INTNPCCharacterBaseInterface* TargetNPC = Cast<INTNPCCharacterBaseInterface>(TargetActor);
+
+	if (!TargetNPC || !TargetNPC->GetIsExhausting())
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈취 실패: 그로기상태가 아님"));
+		return;
+	}
+
 	const float MaxDistance = FMath::Max(0.0f, InteractionDistance);
 	const float DistanceSquared = FVector::DistSquared(
 		GetActorLocation(),
@@ -1185,6 +1193,11 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 	}
 
 	MotionWarpingComponent->AddOrUpdateWarpTargetFromTransform(TalchiWarpTargetName,TargetTransform);
+
+	if (bBasicAttackActionLocked)
+	{
+		CloseComboWindow(ComboIndex);
+	}
 
 	const float MontageLength = PlayAnimMontage(PlayerTalchiMontage);
 
@@ -2480,31 +2493,46 @@ void ATalPlayerCharacter::GrabSelectedTalToHand()
 
 	StolenTal->SetOwner(this);
 	HeldStolenTal = StolenTal;
+	HeldTalVictim = TargetActor;
 }
 
 void ATalPlayerCharacter::EquipHeldTalToFace()
 {
 	if (!IsValid(TalComponent) || !IsValid(HeldStolenTal)) return;
 
-	ATalBase* TalToEquip = HeldStolenTal;
+	ATalBase* TalToEquip = HeldStolenTal.Get();
 	ATalBase* OldPlayerTal = TalComponent->UnequipTal();
 
-	if (TalComponent->EquipTal(TalToEquip))
+	if (!TalComponent->EquipTal(TalToEquip))
 	{
 		if (IsValid(OldPlayerTal))
 		{
-			OldPlayerTal->Destroy();
+			TalComponent->EquipTal(OldPlayerTal);
 		}
-
-		HeldStolenTal = nullptr;
 
 		return;
 	}
 	
-	bool bOldTalRestored = true;
+	//얼굴 장착 성공
+	AActor* VictimActor = HeldTalVictim.Get();
+
+	HeldStolenTal = nullptr;
+	HeldTalVictim.Reset();
+
+	SpecialArtUseCount = 0;
 
 	if (IsValid(OldPlayerTal))
 	{
-		bOldTalRestored = TalComponent->EquipTal(OldPlayerTal);
+		OldPlayerTal->Destroy();
+	}
+
+	if (IsValid(VictimActor))
+	{
+		INTNPCCharacterBaseInterface* VictimNPC = Cast<INTNPCCharacterBaseInterface>(VictimActor);
+
+		if (VictimNPC)
+		{
+			VictimNPC->TalChiNPC(FNPCTalchiData{});
+		}
 	}
 }
