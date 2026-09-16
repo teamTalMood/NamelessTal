@@ -2,4 +2,15 @@
 
 
 #include "NPC/NTNPCCharacterEpic.h"
+#include "NamelessTalGameMode.h"
+
+void ANTNPCCharacterEpic::HandleDeath()
+{
+	Super::HandleDeath();
+
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->SetIsEpicKilled(true);
+	}
+}
 

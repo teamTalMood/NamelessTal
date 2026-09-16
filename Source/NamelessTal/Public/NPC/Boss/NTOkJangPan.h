@@ -45,7 +45,7 @@ protected:
 	float Damage = 15.0f;
 
 	UPROPERTY(EditAnywhere, Category = "OkJangPan Settings")
-	float ExplosionEffectDuration = 1.0f;
+	float ExplosionEffectDuration = 1.5f;
 
 	FTimerHandle ExplodeTimerHandle;
 	FTimerHandle DestroyTimerHandle;

@@ -109,6 +109,7 @@ void ANTNPCCharacterBase::BeginPlay()
 		BBComponent->SetValueAsVector(BBKEY_HOMEPOS, GetActorLocation());
 		BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, GetActorLocation());
+		BBComponent->SetValueAsFloat(BBKEY_ATTACKDISTANCE, AttackDistance);
 	}
 
 	if (TalComponent && DefaultTalClass)

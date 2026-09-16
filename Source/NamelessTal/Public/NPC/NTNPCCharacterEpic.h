@@ -13,5 +13,7 @@ UCLASS()
 class NAMELESSTAL_API ANTNPCCharacterEpic : public ANTNPCCharacterBase
 {
 	GENERATED_BODY()
-	
+
+protected:
+	virtual void HandleDeath() override;
 };
