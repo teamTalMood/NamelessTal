@@ -224,6 +224,7 @@ void ANTNPCCharacterBase::AttackByAI()
 
 	if (bIsDead)
 	{
+		OnAICharacterAttackFinished.ExecuteIfBound();
 		return;
 	}
 
@@ -677,9 +678,10 @@ void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
 	UNTHPBarWidget* HpBarWidget = Cast<UNTHPBarWidget>(InUserWidget);
 	if (HpBarWidget)
 	{
-		HpBarWidget->SetMaxHp(StatComponent->MaxHP);
 		HpBarWidget->UpdateHpBar(StatComponent->CurrentHP, StatComponent->MaxHP);
 		StatComponent->OnHPChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateHpBar);
+		HpBarWidget->UpdateSoulBar(StatComponent->CurrentSoul, StatComponent->MaxSoul);
+		StatComponent->OnSoulChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateSoulBar);
 	}
 }
 

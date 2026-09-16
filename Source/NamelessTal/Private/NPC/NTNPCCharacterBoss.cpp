@@ -94,7 +94,6 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 	bIsDead = true;
 
-	//락온 해제
 	if (UNTLockOnTargetComponent* LockOnTarget = FindComponentByClass<UNTLockOnTargetComponent>())
 	{
 		LockOnTarget->SetLockOnEnabled(false);
@@ -102,25 +101,21 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 	SetCanBeDamaged(false);
 
-	//공격 상태 종료
 	bIsAttacking = false;
-	//CurrentAttack = EAttackDistance::AttackNone;//상태변환
-	SetActorEnableCollision(false);//갖고있는 콜리전 다 해제
-	//DisableWeaponCollision();//콜리전해제
-	OnAICharacterAttackFinished.Unbind();//바인드해제
+	SetActorEnableCollision(false);
+	OnAICharacterAttackFinished.Unbind();
 
-	//재생중인 몽타주 종료 + 바인딩된 종료 델리게이트 해제 (사망 중 콤보 재호출 방지)
 	StopCurrentPlayMontage();
 
 	if (DeathMontage)
 	{
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 		{
+			AnimInstance->Montage_Play(DeathMontage);
+
 			FOnMontageEnded EndDelegate;
 			EndDelegate.BindUObject(this, &ANTNPCCharacterBoss::StartNextPhase);
 			AnimInstance->Montage_SetEndDelegate(EndDelegate, DeathMontage);
-
-			AnimInstance->Montage_Play(DeathMontage);
 		}
 	}
 	else
@@ -133,6 +128,8 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	switch (CurrentPhase)
 	{
 	case EBossPhase::First:
@@ -151,6 +148,11 @@ void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsPro
 	StatComponent->RestoreFull();
 	StatComponent->SetSoulRegenBlocked(true);
 	bIsDead = false;
+
+	SetCanBeDamaged(true);
+	SetActorEnableCollision(true);
+
+	ReleaseStun();
 
 	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
 	MC_LOG(LogMC, Log, TEXT("End : %s"), *EnumString);
