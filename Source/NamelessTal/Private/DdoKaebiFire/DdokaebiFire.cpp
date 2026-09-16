@@ -30,7 +30,7 @@ ADdokaebiFire::ADdokaebiFire()
 
 	FireInteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("FireInteractionRange"));
 	RootComponent = FireInteractionRange;
-	FireInteractionRange->SetupAttachment(RootComponent);
+	//FireInteractionRange->SetupAttachment(RootComponent);
 	FireInteractionRange->SetSphereRadius(200.0f);
 	FireInteractionRange->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	FireInteractionRange->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);

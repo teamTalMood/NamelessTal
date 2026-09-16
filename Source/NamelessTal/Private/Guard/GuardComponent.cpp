@@ -41,6 +41,8 @@ void UGuardComponent::ActivateGuard()
 
 void UGuardComponent::StartGuard()
 {
+	bIsGuardInputHeld = true;
+	
 	// 가드 해제 후 짧은 시간 내 재입력시 패링 윈도우 스택 누적
 	const float TimeSinceLastStop = GetWorld()->GetTimeSeconds() - LastGuardStopTime;
 
@@ -63,6 +65,8 @@ void UGuardComponent::StartGuard()
 
 void UGuardComponent::StopGuard()
 {
+	bIsGuardInputHeld = false;
+
 	// 딜레이 중 버튼 뗄 시 , 활성화 안되도록 타이머 취소
 	GetWorld()->GetTimerManager().ClearTimer(GuardActivationTimerHandle);
 	bIsGuarding = false;
