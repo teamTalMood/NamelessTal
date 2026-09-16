@@ -162,6 +162,7 @@ protected:
 	void OnAttackMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 	void EndAttack();
 	void OnJumpMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	virtual void SetAttackPatternDatas();
 
 
 
@@ -252,5 +253,5 @@ protected:
 
 protected:
 	UFUNCTION()
-	void HandleDeath();
+	virtual void HandleDeath();
 };

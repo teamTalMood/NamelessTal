@@ -24,7 +24,7 @@ enum class EAttackDistance : uint8
 	AttackLong = 30
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FNPCApplyDamageData
 {
 	GENERATED_BODY()
@@ -35,7 +35,7 @@ struct FNPCApplyDamageData
 	uint8 bIsParry : 1 = false;
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FNPCAttackPatternSelectData
 {
 	GENERATED_BODY()

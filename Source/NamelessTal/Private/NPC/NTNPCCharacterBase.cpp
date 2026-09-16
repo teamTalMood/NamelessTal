@@ -124,25 +124,8 @@ void ANTNPCCharacterBase::BeginPlay()
 		}
 	}
 
-	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
-	if (FindedPatternDatas.IsEmpty())
-	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
 
-		AttackPatternDatas = {
-			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
-			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
-			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
-		};
-	}
-	else
-	{
-		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
-		{
-			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
-		}
-	}
-
+	SetAttackPatternDatas();
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -302,18 +285,10 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 			StatComponent->DrainSoul(InDamageData.SoulDamage);
 		}
 
-		// 만약 피해받고 죽었으면 피격 처리 중단
-		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)
+		StatComponent->ApplyDamage(InDamageData.HPDamage);
+
+		if (StatComponent->CurrentHP <= 0)
 		{
-			//MC_LOG(LogMC, Log, TEXT("Dead Back Begin : %d"), InDamageData.HPDamage);
-			//FVector Direction = GetActorLocation() - DamageCauser->GetActorLocation();
-			//Direction.Z = 0.f;
-			//Direction.Normalize();
-
-			//FVector NewLocation = GetActorLocation() + Direction * (InDamageData.HPDamage - StatComponent->CurrentHP) * 100;
-			//SetActorLocation(NewLocation);
-
-			StatComponent->ApplyDamage(InDamageData.HPDamage);
 			return -InDamageData.HPDamage;
 		}
 
@@ -449,6 +424,28 @@ void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsP
 
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 	BeginAttack();
+}
+
+void ANTNPCCharacterBase::SetAttackPatternDatas()
+{
+	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
+	if (FindedPatternDatas.IsEmpty())
+	{
+		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
+
+		AttackPatternDatas = {
+			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
+			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
+			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
+		};
+	}
+	else
+	{
+		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
+		{
+			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
+		}
+	}
 }
 
 void ANTNPCCharacterBase::BeginAttack()
