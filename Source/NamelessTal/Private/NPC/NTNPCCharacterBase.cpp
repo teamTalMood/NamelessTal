@@ -109,7 +109,7 @@ void ANTNPCCharacterBase::BeginPlay()
 		BBComponent->SetValueAsVector(BBKEY_HOMEPOS, GetActorLocation());
 		BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, GetActorLocation());
-		BBComponent->SetValueAsFloat(BBKEY_ATTACKDISTANCE, AttackDistance);
+		BBComponent->SetValueAsFloat(BBKEY_ATTACKDISTANCE, AttackDistance + 1.0f);
 	}
 
 	if (TalComponent && DefaultTalClass)
@@ -228,13 +228,6 @@ void ANTNPCCharacterBase::AttackByAI()
 		OnAICharacterAttackFinished.ExecuteIfBound();
 		return;
 	}
-
-	// 타겟 방향으로 바라보기
-	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
-	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
-	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
-	SetActorRotation(NewRotation);
 
 	// 공격 위치로 점프 -> 이 함수 내부에서 공격 시작 콜
 	MoveToAttackPoint();
@@ -398,7 +391,7 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 
 void ANTNPCCharacterBase::MoveToAttackPoint()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (JumpMontage == nullptr)
 	{
@@ -412,12 +405,20 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 		return;
 	}
 
+	// 타겟 방향으로 바라보기
+	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
+	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
+	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
+	SetActorRotation(NewRotation);
+
+
 	//점프 거리 계산
 	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
 	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
 
 #if ENABLE_DRAW_DEBUG
-	//DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
+	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
 #endif
 
 	const FVector ToTarget = TargetAttackPos - GetActorLocation();
@@ -426,7 +427,7 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 
 	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DirectionToTarget);
 
-	if (DistanceToTarget <= AttackDistance || ForwardDot <= 0.f)
+	if (DistanceToTarget <= AttackDistance)
 	{
 		MC_LOG(LogMC, Log, TEXT("Mon is close enough"));
 		OnJumpMontageEnd(nullptr, false);
@@ -583,7 +584,7 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CurrentAttackData.NextStepID == BB_ATTACKSTEP_NONE)
 	{
@@ -593,12 +594,18 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 	}
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, CurrentAttackData.NextStepID);
-	BeginAttack();
+
+	if (APawn* Target = Cast<APawn>(BBComponent->GetValueAsObject(BBKEY_TARGET)))
+	{
+		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, Target->GetActorLocation());
+	}
+
+	MoveToAttackPoint();
 }
 
 void ANTNPCCharacterBase::EndAttack()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 
@@ -737,7 +744,7 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::OnTalChiMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	
+
 	if (!bIsDead && bIsExhausting)
 	{
 		EndExhausted();
@@ -810,7 +817,7 @@ void ANTNPCCharacterBase::HandleDeath()
 	const bool bCanRagdoll =
 		bLaunchOnDeath && !PendingLaunchImpulse.IsNearlyZero()
 		&& GetMesh() != nullptr && GetMesh()->GetPhysicsAsset() != nullptr;
-	
+
 	if (bCanRagdoll)
 	{
 		StartDeathRagdoll(PendingLaunchImpulse);

@@ -122,7 +122,7 @@ protected:	// BlueprintEditable
 	FName PatternUserID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Attack")
-	float AttackDistance = 150.f;
+	float AttackDistance = 100.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	TObjectPtr<class UAnimMontage> JumpMontage;
