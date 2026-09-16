@@ -81,9 +81,7 @@ void ADdokaebiFire::BeginPlay()
 	
 }
 
-void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	bool bFromSweep, const FHitResult& SweepResult)
+void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,	bool bFromSweep, const FHitResult& SweepResult)
 {
 	UE_LOG(LogTemp, Warning, TEXT("범위 진입 감지! OtherActor: %s"), *GetNameSafe(OtherActor));
 	APawn* Pawn = Cast<APawn>(OtherActor);
@@ -120,8 +118,7 @@ void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent
 
 }
 
-void ADdokaebiFire::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void ADdokaebiFire::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent,	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 
 	UE_LOG(LogTemp, Warning, TEXT("범위 나감 감지! OtherActor: %s"), *GetNameSafe(OtherActor));

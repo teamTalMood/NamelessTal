@@ -4,9 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "Title/NTSavePointEnum.h"
 #include "NamelessTalGameMode.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterRespawn, int32, SavePoint);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterRespawn, ENTRespawnPointEnum, OnMonsterRespawn);
 
 /**
  *  Simple GameMode for a third person game
@@ -26,11 +27,11 @@ public:
 
 	void RespawnAllMonsters();
 
-	void SetCurrentSavePoint(int32 InCurrentSavePoint) { CurrentSavePoint = InCurrentSavePoint; }
-	const int32 GetCurrentSavePoint() { return CurrentSavePoint; }
+	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
+	const ENTRespawnPointEnum GetCurrentSavePoint() { return CurrentRespawnPoint; }
 
 protected:
-	int32 CurrentSavePoint = 0;
+	ENTRespawnPointEnum CurrentRespawnPoint = ENTRespawnPointEnum::StartPoint;
 
 };
 

@@ -301,12 +301,19 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 		{
 			StatComponent->DrainSoul(InDamageData.SoulDamage);
 		}
-		StatComponent->ApplyDamage(InDamageData.HPDamage);
 
 		// 만약 피해받고 죽었으면 피격 처리 중단
-		if (bIsDead)
+		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)
 		{
-			//MC_LOG(LogMC, Log, TEXT("Get Deaded"));
+			//MC_LOG(LogMC, Log, TEXT("Dead Back Begin : %d"), InDamageData.HPDamage);
+			//FVector Direction = GetActorLocation() - DamageCauser->GetActorLocation();
+			//Direction.Z = 0.f;
+			//Direction.Normalize();
+
+			//FVector NewLocation = GetActorLocation() + Direction * (InDamageData.HPDamage - StatComponent->CurrentHP) * 100;
+			//SetActorLocation(NewLocation);
+
+			StatComponent->ApplyDamage(InDamageData.HPDamage);
 			return -InDamageData.HPDamage;
 		}
 
@@ -789,6 +796,7 @@ void ANTNPCCharacterBase::HandleDeath()
 		MC_LOG(LogSY, Warning, TEXT("DeathMontage is not assigned : %s"), *GetName());
 	}
 
+	HpBar->SetVisibility(false);
 
 	MC_LOG(LogSY, Warning, TEXT("NPC DEAD : %s"), *GetName());
 }

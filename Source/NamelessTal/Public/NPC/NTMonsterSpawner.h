@@ -28,10 +28,10 @@ protected:
 	FVector SpawnOffset;
 
 	UPROPERTY(EditAnywhere, Category = "Spawn")
-	int32 StagePoint;
+	ENTRespawnPointEnum StagePoint;
 
 	UFUNCTION()
-	void SpawnNPC(int32 InSavePoint);
+	void SpawnNPC(ENTRespawnPointEnum InSavePoint);
 
 public:	
 	// Called every frame
