@@ -11,6 +11,8 @@ class UNTPlayerHUDWidget;
 class UNTMessageWidget;
 class UNTPauseMenuWidget;
 class ATalPlayerCharacter;
+class UNTAreaNoticeWidget;
+class UTexture2D;
 
 UENUM(BlueprintType)
 enum class ENTMessageStyle : uint8
@@ -35,15 +37,15 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
 	TArray<class UInputMappingContext*> DefaultMappingContexts;
 
-	// UI ����
+	// 지역 도착 알림. 트리거 안에 있는 동안 계속 떠 있는다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UNTMessageWidget> NoticeWidgetClass;
+	TSubclassOf<UNTAreaNoticeWidget> AreaNoticeWidgetClass;
 
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UNTMessageWidget> TutorialWidgetClass;
 
 	UPROPERTY()
-	TObjectPtr<UNTMessageWidget> NoticeWidget;
+	TObjectPtr<UNTAreaNoticeWidget> AreaNoticeWidget;
 
 	UPROPERTY()
 	TObjectPtr<UNTMessageWidget> TutorialWidget;
@@ -65,8 +67,14 @@ protected:
 
 	uint8 bISControllerSetted : 1 = false;
 
-public : // UI
+public: // UI
 	void ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration);
+
+	// 지역 트리거 진입 시 호출. 나갈 때까지 계속 떠 있는다.
+	void ShowAreaNotice(const FText& AreaName, const FText& Description, UTexture2D* Icon);
+
+	// 지역 트리거 이탈 시 호출
+	void HideAreaNotice();
 
 	void SetControllerSettings(ATalPlayerCharacter* InPawn = nullptr);
 
