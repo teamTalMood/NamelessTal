@@ -39,6 +39,7 @@
 
 //tal 헤더들 추가
 #include "TalBase.h"
+#include "Player/TalPlayerController.h"
 #include "Components/NTTalComponent.h"
 #include "NPC/Components/NTTalChiTargetComponent.h"
 
@@ -2478,6 +2479,15 @@ void ATalPlayerCharacter::HandleDeath()
 
 	MC_LOG(LogSY, Warning, TEXT("Player Dead!"));
 
+	// 화면을 검게 덮고 사망 문구를 띄운다. 부활 시 순간이동이 이 검정에 가려진다
+	if (ATalPlayerController* TalController = Cast<ATalPlayerController>(GetController()))
+	{
+		TalController->ShowDeathScreen();
+
+		TalController->ShowMessage(ENTMessageStyle::Notice, FText::GetEmpty(),
+			DeathMessage, DeathMessageDuration);
+	}
+
 	GetWorldTimerManager().SetTimer(RespawnTimerHandle, this,
 		&ATalPlayerCharacter::RespawnAtBonfire, RespawnDelay, false);
 }
@@ -2523,6 +2533,13 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 	if (LastBonfire.IsValid())
 	{
 		LastBonfire->OnBonfireRested.Broadcast();
+	}
+
+	// 순간이동이 끝났으니 검정을 걷어낸다. 일어나는 모션이 드러난다
+	if (ATalPlayerController* TalController = Cast<ATalPlayerController>(GetController()))
+	{
+		TalController->HideDeathScreen();
+
 	}
 
 	if (AnimInstance && ReviveAnim) {

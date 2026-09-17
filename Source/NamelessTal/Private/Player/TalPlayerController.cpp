@@ -78,6 +78,27 @@ void ATalPlayerController::HideAreaNotice()
 
 	AreaNoticeWidget->HideArea();
 }
+
+void ATalPlayerController::ShowDeathScreen()
+{
+	if (!IsValid(PlayerHUD))
+	{
+		return;
+	}
+
+	PlayerHUD->ShowDeathScreen();
+}
+
+void ATalPlayerController::HideDeathScreen()
+{
+	if (!IsValid(PlayerHUD))
+	{
+		return;
+	}
+
+	PlayerHUD->HideDeathScreen();
+}
+
 void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));

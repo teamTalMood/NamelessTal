@@ -872,7 +872,16 @@ protected:
 
 	// 사망 후 리스폰까지 대기 시간 (나중에 연출넣을자리)
 	UPROPERTY(EditAnywhere, Category = "State")
-	float RespawnDelay = 3.0f;
+	float RespawnDelay = 3.5f;
+	
+	// 사망 시 띄울 문구
+	UPROPERTY(EditAnywhere, Category = "State")
+	FText DeathMessage = NSLOCTEXT("Death", "Died", "넋이 흩어졌다");
+
+	// 문구가 떠 있는 시간. RespawnDelay보다 짧아야 문구가 먼저 사라진다
+	UPROPERTY(EditAnywhere, Category = "State", meta = (ClampMin = "0.1"))
+	float DeathMessageDuration = 2.5f;
+
 
 	FTimerHandle RespawnTimerHandle;
 
