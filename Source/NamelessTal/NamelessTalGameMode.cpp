@@ -27,12 +27,17 @@ ANamelessTalGameMode::ANamelessTalGameMode()
 	CutsceneSources.Add(EBossPhase::Second, nullptr);
 	CutsceneSources.Add(EBossPhase::Third, nullptr);
 	CutsceneSources.Add(EBossPhase::End, nullptr);
+
+	SpawnPositions.Add(ENTRespawnPointEnum::StartPoint, FVector(6998.492287, -8495.519940, 1050.774007));
+	SpawnPositions.Add(ENTRespawnPointEnum::FrontBossRoom, FVector(1680.000000, 70.000000, 1558.747247));
+	SpawnPositions.Add(ENTRespawnPointEnum::DownEpicRoom, FVector(11190.000000, -3520.000000, 70.470147));
+	SpawnPositions.Add(ENTRespawnPointEnum::Boss, FVector(1680.000000, 70.000000, 1558.747247));
 }
 
 void ANamelessTalGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CutsceneSound && CutsceneMediaPlayer)
@@ -202,6 +207,22 @@ void ANamelessTalGameMode::NotifyBossSoulChanged(float CurrentSoul, float MaxSou
 	}
 }
 
+FVector ANamelessTalGameMode::GetRespawnLocation() const
+{
+	if (UGameplayStatics::GetCurrentLevelName(this, true) != TEXT("BlockOut"))
+	{
+		return FVector::ZeroVector;
+	}
+
+	if (const FVector* FoundLocation = SpawnPositions.Find(CurrentRespawnPoint))
+	{
+		return *FoundLocation;
+	}
+
+	MC_LOG(LogMC, Warning, TEXT("No SpawnPosition for CurrentRespawnPoint"));
+	return FVector::ZeroVector;
+}
+
 void ANamelessTalGameMode::RespawnAllMonsters()
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
@@ -215,4 +236,14 @@ void ANamelessTalGameMode::RespawnAllMonsters()
 	}
 
 	OnMonsterRespawn.Broadcast(CurrentRespawnPoint);
+}
+
+void ANamelessTalGameMode::SetIsEpicKilled(uint8 InIsEpicKilled)
+{
+	bIsEpicKilled = InIsEpicKilled;
+
+	if (bIsEpicKilled)
+	{
+		CurrentRespawnPoint = ENTRespawnPointEnum::Boss;
+	}
 }

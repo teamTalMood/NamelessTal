@@ -194,6 +194,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation")
 	float DamageSpeedRate = 1.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<class USoundBase> HitSound;
+
 
 protected:
 	void StartStun();

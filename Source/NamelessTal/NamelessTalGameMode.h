@@ -51,7 +51,10 @@ public:
 	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
 	const ENTRespawnPointEnum GetCurrentSavePoint() { return CurrentRespawnPoint; }
 
-	void SetIsEpicKilled(uint8 InIsEpicKilled) { bIsEpicKilled = InIsEpicKilled; }
+	// CurrentRespawnPoint에 해당하는 SpawnPositions 좌표 반환
+	FVector GetRespawnLocation() const;
+
+	void SetIsEpicKilled(uint8 InIsEpicKilled);
 	const uint8 GetIsEpicKilled() { return bIsEpicKilled; }
 
 	void SetBossRoomEntered(uint8 InBossRoomEntered) { bBossRoomEntered = InBossRoomEntered; }

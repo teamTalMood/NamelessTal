@@ -97,6 +97,9 @@ protected:
 	float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry);
 	virtual float ApplyDamage(AActor* DamageCauser, const FPlayerApplyDamageData InDamageData) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<class USoundBase> HitSound;
+
 	////////////////////////////////////////
 	//
 	//   Basic Components : 컴포넌트들

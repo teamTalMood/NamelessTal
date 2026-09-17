@@ -15,6 +15,8 @@
 
 //Engine
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundWave.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Animation/AnimMontage.h"
 
 //AI
@@ -70,6 +72,13 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 	WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	WeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &ANTNPCCharacterBase::OnWeaponOverlap);
+
+	// Sound
+	static ConstructorHelpers::FObjectFinder<USoundWave> HitSoundAsset(TEXT("/Game/EditedAssets/Sound/SFX_007_Weak1.SFX_007_Weak1"));
+	if (HitSoundAsset.Succeeded())
+	{
+		HitSound = HitSoundAsset.Object;
+	}
 
 	// Stat
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
@@ -138,6 +147,10 @@ void ANTNPCCharacterBase::BeginPlay()
 	SetAttackPatternDatas();
 
 	SetupDynamicMaterials();
+
+	// 일부 BP가 소켓 부착 정보를 None으로 저장하고 있어, 생성자 부착이 무시됨
+	// BP에 저장된 부착 정보와 무관하게 소켓에 강제 재부착
+	WeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("WeaponSocket_R"));
 }
 
 void ANTNPCCharacterBase::SetupDynamicMaterials()
@@ -275,7 +288,7 @@ float ANTNPCCharacterBase::GetAITurnSpeed()
 
 void ANTNPCCharacterBase::AttackByAI()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BTComponent->PauseLogic(TEXT("BeginAttack"));
 
@@ -335,6 +348,11 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 	// 피격일 때 처리
 	if (!InDamageData.bIsParry)
 	{
+		// 여기에 피격 사운드 작업
+		UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation());
+
+
+
 		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
 		if (!bIsExhausting)
 		{
@@ -478,7 +496,7 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 
 void ANTNPCCharacterBase::MoveToAttackPoint()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (JumpMontage == nullptr)
 	{
@@ -516,7 +534,7 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 
 	if (DistanceToTarget <= AttackDistance)
 	{
-		MC_LOG(LogMC, Log, TEXT("Mon is close enough"));
+		//MC_LOG(LogMC, Log, TEXT("Mon is close enough"));
 		OnJumpMontageEnd(nullptr, false);
 		return;
 	}
@@ -570,7 +588,7 @@ void ANTNPCCharacterBase::SetAttackPatternDatas()
 
 void ANTNPCCharacterBase::BeginAttack()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (bIsDead)
 	{
@@ -629,29 +647,40 @@ void ANTNPCCharacterBase::BeginAttack()
 
 void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
+
 	// 떄려지는 객체 확인 로그
 	if (OtherActor == nullptr || OtherActor == this || HitActors.Contains(OtherActor))
 	{
+		// 대상 없음 / 자기 자신 / 이미 이번 공격에 맞은 대상이면 무시
+		MC_LOG(LogMC, Warning, TEXT("Invalid or already hit target: %s"), *GetNameSafe(OtherActor));
 		return;
 	}
-	//MC_LOG(LogMC, Log, TEXT("Weapon overlapped with: %s"), *GetNameSafe(OtherActor));
+
 
 	if (OtherActor != UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))
 	{
+		// 플레이어가 아니면(다른 NPC 등) 데미지 적용 대상 아님
+		MC_LOG(LogMC, Warning, TEXT("Overlapped actor is not the player: %s"), *GetNameSafe(OtherActor));
 		return;
 	}
 
 	INTPlayerApplyDamageInterface* PlayerCharacter = Cast<INTPlayerApplyDamageInterface>(OtherActor);
 	if (PlayerCharacter == nullptr)
 	{
+		// 플레이어여도 데미지 인터페이스 없으면 처리 불가
+		MC_LOG(LogMC, Warning, TEXT("Not PlayerCharacter"));
 		return;
 	}
 
 	if (OtherComp && OtherComp->ComponentHasTag(TEXT("WeaponCollision")))
 	{
-		//MC_LOG(LogMC, Log, TEXT("WeaponCollision"));
+		MC_LOG(LogMC, Warning, TEXT("WeaponCollision"));
 		return; // 무기끼리 부딪힌 경우는 데미지 적용 안 함
 	}
+
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	HitActors.Add(OtherActor);
 
@@ -671,7 +700,7 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CurrentAttackData.NextStepID == BB_ATTACKSTEP_NONE)
 	{
@@ -692,7 +721,7 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::EndAttack()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 
@@ -724,7 +753,7 @@ void ANTNPCCharacterBase::StartStun()
 
 void ANTNPCCharacterBase::ReleaseStun()
 {
-	
+
 		if (bTalchiHeld || bIsDead || !BTComponent)
 		{
 			return;
@@ -753,10 +782,10 @@ void ANTNPCCharacterBase::EndExhausted()
 		Anim->SetAnimIsExhausted(false);
 	}
 
-	StatComponent->RestoreSoul();
+	StatComponent->CurrentSoul = StatComponent->MaxSoul * 0.3f;
 	bIsExhausting = false;
 
-	FTimerHandle Handle;//🐘
+	FTimerHandle Handle;
 	GetWorldTimerManager().SetTimer(
 		Handle,
 		this,
@@ -787,7 +816,7 @@ void ANTNPCCharacterBase::StopCurrentPlayMontage()
 
 void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	UNTHPBarWidget* HpBarWidget = Cast<UNTHPBarWidget>(InUserWidget);
 	if (HpBarWidget)
@@ -825,7 +854,7 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 	// 그로기 체크
 	if (bIsSoulExhausted && !bIsExhausting)
 	{
-		//MC_LOG(LogMC, Log, TEXT("Exhausted"));
+		MC_LOG(LogMC, Log, TEXT("Exhausted"));
 
 		bIsExhausting = true;
 
@@ -838,12 +867,7 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 		NPCAnim->SetAnimIsExhausted(true);
 
-		GetWorldTimerManager().SetTimer(
-			ExhaustedTimerHandle,
-			this,
-			&ANTNPCCharacterBase::EndExhausted,
-			ExhaustedDuration,
-			false);
+		GetWorldTimerManager().SetTimer(	ExhaustedTimerHandle, this, &ANTNPCCharacterBase::EndExhausted, ExhaustedDuration, false);
 	}
 	else
 	{
