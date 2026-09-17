@@ -113,6 +113,10 @@ public: //넋 관련 설정
 	// 비전투 상태 시 넋 회복
 	void NotifyCombatAction();
 
+	// true면 그로기 시간이 지나면 자기 자신의 타이머로 회복 차단을 자동 해제함 (플레이어용). NPC는 false로 두면 자동 해제 없이 계속 차단됨
+	UPROPERTY(EditAnywhere, Category = "Stat")
+	bool bIsPlayer = true;
+
 	// 넋 고갈 시 그로기 지속 시간
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	float GroggyDuration = 3.0f;
