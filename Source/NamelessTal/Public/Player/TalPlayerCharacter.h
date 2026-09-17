@@ -304,12 +304,16 @@ public:
 	ATalBase* UnequipTal();//탈 벗고 반환
 	void TakeTalFrom(AActor* TargetActor);//탈바꿈
 	void StartVictimTalchiMontage();//탈취 애니메이션 시작
-	void TransferSelectedTal(); //탈 이전
 	void GrabSelectedTalToHand();
 	void EquipHeldTalToFace();
 
 	UFUNCTION(BlueprintCallable, Category = "Talchi|Camera")
 	void EnterTalchiFirstPerson();
+
+	// 1인칭 탈 구도를 콘솔에서 바로 확인하기 위한 디버그 토글입니다.
+	// 켜져 있는 동안은 디테일 패널에서 바꾼 Talchi|Mask 값이 매 프레임 반영됩니다.
+	UFUNCTION(Exec, BlueprintCallable, Category = "Talchi|Debug")
+	void NTPreviewTalchiMask();
 
 	UFUNCTION(BlueprintPure, Category = "Tal")
 	UNTTalComponent* GetTalComponent() const { return TalComponent; }
@@ -371,6 +375,8 @@ protected:
 	void SettleTalchiRightMask();
 	void RestoreTalchiRightMask();
 	FTransform GetTalchiRightMaskCoverTransform() const;
+	FTransform GetTalchiLeftMaskFrameTransform() const;
+	void UpdateTalchiMaskPreview();
 
 	// 1인칭 구간에서 왼쪽 탈이 놓일 자리입니다. TalchiCamera 로컬 기준이며
 	// X는 전방, Y는 오른쪽이라 왼쪽 절반은 Y가 음수입니다.
@@ -390,7 +396,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
 	FRotator TalchiRightMaskRotation = FRotator::ZeroRotator;
 
-	// 손에 들려 있을 때 크기를 기준으로 한 배율입니다.
+	// TalchiCamera 로컬 기준의 절대 스케일입니다. 어떤 탈을 빼앗아도
+	// 화면에서 같은 크기로 보이도록 원본 크기에 의존하지 않습니다.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
 	float TalchiRightMaskScale = 1.0f;
 
@@ -410,7 +417,7 @@ protected:
 	TWeakObjectPtr<ATalBase> TalchiApproachMask;
 
 	FTransform TalchiMaskApproachStart = FTransform::Identity;
-	FVector TalchiRightMaskCoverScale3D = FVector::OneVector;
+	FVector TalchiRightMaskSavedScale3D = FVector::OneVector;
 	double TalchiMaskApproachStartTime = 0.0;
 	bool bTalchiMaskApproachActive = false;
 	bool bTalchiMaskSavedCastShadow = false;
@@ -418,6 +425,10 @@ protected:
 	FTransform TalchiLeftMaskSavedTransform = FTransform::Identity;
 	bool bTalchiLeftMaskFramed = false;
 	bool bTalchiRightMaskSettled = false;
+
+	// 디버그 미리보기로 1인칭 구도에 들어가 있는 상태입니다.
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi|Debug")
+	bool bTalchiPreviewActive = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera")
 	FName TalchiFirstPersonHeadBone = TEXT("head");

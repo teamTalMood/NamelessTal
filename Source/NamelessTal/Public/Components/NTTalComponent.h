@@ -37,9 +37,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tal")
 	bool SpawnDefaultTal(TSubclassOf<ATalBase> TalClass);
 
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
 	FName TalSocketName = TEXT("TalSocket");
+
+	// 착용자가 자기 얼굴에 맞는 탈 크기를 정합니다.
+	// 어떤 탈을 뺏어 써도 이 크기로 통일됩니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
+	FVector TalWearScale = FVector::OneVector;
+
+	void ApplyTalWearScale();
 
 private:
 	UPROPERTY(Transient)
