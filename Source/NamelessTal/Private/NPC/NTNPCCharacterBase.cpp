@@ -40,11 +40,17 @@
 
 //State
 #include "GameFramework/CharacterMovementComponent.h"
+#include "TimerManager.h"
+#include "PhysicsEngine/PhysicsAsset.h"
+
+//Material
+#include "Materials/MaterialInstanceDynamic.h"
+
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetMesh()->SetRelativeLocationAndRotation(FVector(0, 0, -GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), FRotator(0, -90, 0));
@@ -71,6 +77,8 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 
 	// Lock On
 	LockOnTargetComponent = CreateDefaultSubobject<UNTLockOnTargetComponent>(TEXT("LockOnTargetCom"));
+	LockOnTargetComponent->SetupAttachment(GetCapsuleComponent());
+	LockOnTargetComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f));
 
 	// TalChi Target
 	TalChiTargetComponent = CreateDefaultSubobject<UNTTalChiTargetComponent>(TEXT("TalChiTargetCom"));
@@ -104,6 +112,7 @@ void ANTNPCCharacterBase::BeginPlay()
 		BBComponent->SetValueAsVector(BBKEY_HOMEPOS, GetActorLocation());
 		BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, GetActorLocation());
+		BBComponent->SetValueAsFloat(BBKEY_ATTACKDISTANCE, AttackDistance + 1.0f);
 	}
 
 	if (TalComponent && DefaultTalClass)
@@ -124,29 +133,43 @@ void ANTNPCCharacterBase::BeginPlay()
 		}
 	}
 
-	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
-	if (FindedPatternDatas.IsEmpty())
-	{
-		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
 
-		AttackPatternDatas = {
-			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
-			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
-			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
-		};
-	}
-	else
+	SetAttackPatternDatas();
+
+	SetupDynamicMaterials();
+}
+
+void ANTNPCCharacterBase::SetupDynamicMaterials()
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
 	{
-		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
-		{
-			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
-		}
+		return;
 	}
 
+	auto CreateSlotDynamicMaterial = [MeshComp](FName SlotName) -> UMaterialInstanceDynamic*
+	{
+		const int32 SlotIndex = MeshComp->GetMaterialIndex(SlotName);
+		return SlotIndex != INDEX_NONE ? MeshComp->CreateDynamicMaterialInstance(SlotIndex) : nullptr;
+	};
+
+	BodyDynamicMaterial = CreateSlotDynamicMaterial(TEXT("M_Human_Body"));
+	TopDynamicMaterial = CreateSlotDynamicMaterial(TEXT("Player_Top"));
+	PantsDynamicMaterial = CreateSlotDynamicMaterial(TEXT("Player_pant"));
+	ShoulderDynamicMaterial = CreateSlotDynamicMaterial(TEXT("M_Red_Fabric"));
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (IsValid(StatComponent))
+	{
+		StatComponent->SetTalchiRecoveryPaused(false);
+	}
+	GetWorldTimerManager().ClearTimer(ExhaustedTimerHandle);
+
+	bTalchiHeld = false;
+	bTalchiPausedExhaustedTimer = false;
+	bTalchiDeferredExhaustedEnd = false;
 	// 0. 델리게이트 빼기
 	if (StatComponent)
 	{
@@ -199,6 +222,27 @@ void ANTNPCCharacterBase::Tick(float DeltaTime)
 	{
 		AddActorWorldOffset(AttackMoving * DeltaTime, true);
 	}
+
+	if (KnockBackRemainingTime > 0.0f)
+	{
+		KnockBackRemainingTime = FMath::Max(0.0f, KnockBackRemainingTime - DeltaTime);
+
+		// 제곱 감속: 초반에 확 밀리고 빠르게 멎는다
+		const float Ratio = (KnockBackDuration > 0.0f)
+			? (KnockBackRemainingTime / KnockBackDuration) : 0.0f;
+		const float Alpha = Ratio * Ratio;
+
+		const FVector Delta = KnockBackVelocity * Alpha * DeltaTime;
+		const FVector Before = GetActorLocation();
+
+		FHitResult Hit;
+		AddActorWorldOffset(Delta, true, &Hit);
+
+		if (KnockBackRemainingTime <= 0.0f)
+		{
+			KnockBackVelocity = FVector::ZeroVector;
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -236,15 +280,9 @@ void ANTNPCCharacterBase::AttackByAI()
 
 	if (bIsDead)
 	{
+		OnAICharacterAttackFinished.ExecuteIfBound();
 		return;
 	}
-
-	// 타겟 방향으로 바라보기
-	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
-	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
-	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
-	SetActorRotation(NewRotation);
 
 	// 공격 위치로 점프 -> 이 함수 내부에서 공격 시작 콜
 	MoveToAttackPoint();
@@ -257,7 +295,7 @@ void ANTNPCCharacterBase::SetAIAttackDelegate(const FAICharacterAttackFinished& 
 
 float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const float InDamage, const float InDrain, const bool bIsParry)
 {
-	FNPCApplyDamageData ApplyDamageData = { InDamage, 100, 5.0f, bIsParry };
+	FNPCApplyDamageData ApplyDamageData = { InDamage, InDrain, 5.0f, bIsParry };
 
 	return ApplyDamage(DamageCauser, ApplyDamageData);
 }
@@ -297,13 +335,68 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 	if (!InDamageData.bIsParry)
 	{
 		// 피격시(플레이어->NPC공격)일때는 플레이어가 주는 수치대로 넋뎀 HP뎀
-		StatComponent->DrainSoul(InDamageData.SoulDamage);
+		if (!bIsExhausting)
+		{
+			StatComponent->DrainSoul(InDamageData.SoulDamage);
+		}
+
+		PendingLaunchImpulse = InDamageData.LaunchImpulse;
+
+		// 밀림 시작 이동은 Tick이관리
+		if (!InDamageData.PushBackVelocity.IsNearlyZero())
+		{
+			KnockBackVelocity = InDamageData.PushBackVelocity;
+			KnockBackRemainingTime = KnockBackDuration;
+
+			// 밀리는 동안 AI가 걸어서 되돌아오지 못하게 한다
+			if (AAIController* AIC = Cast<AAIController>(GetController()))
+			{
+				AIC->StopMovement();
+			}
+		}
+
+
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
 
-		// 만약 피해받고 죽었으면 피격 처리 중단
-		if (bIsDead)
+		// Normal 등급만: HP 50% 이하로 내려가면 상의/하의/어깨장식에 핏자국 노출
+		if (NPCGrade == ENPCGrade::Normal)
 		{
-			//MC_LOG(LogMC, Log, TEXT("Get Deaded"));
+			const float HPRatio = StatComponent->GetMaxHP() > 0.0f ? StatComponent->GetCurrentHP() / StatComponent->GetMaxHP() : 0.0f;
+			if (HPRatio <= 0.5f)
+			{
+				static const FName BloodAmountParam(TEXT("BloodAmount"));
+
+				if (TopDynamicMaterial)
+				{
+					TopDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+				if (PantsDynamicMaterial)
+				{
+					PantsDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+				if (ShoulderDynamicMaterial)
+				{
+					ShoulderDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+			}
+		}
+
+		// 만약 피해받고 죽었으면 피격 처리 중단
+		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)
+		{
+			//MC_LOG(LogMC, Log, TEXT("Dead Back Begin : %d"), InDamageData.HPDamage);
+			//FVector Direction = GetActorLocation() - DamageCauser->GetActorLocation();
+			//Direction.Z = 0.f;
+			//Direction.Normalize();
+
+			//FVector NewLocation = GetActorLocation() + Direction * (InDamageData.HPDamage - StatComponent->CurrentHP) * 100;
+			//SetActorLocation(NewLocation);
+
+			// HandleDeath가 읽어갈 수 있도록 데미지 적용 전에 보관하기
+			// ApplyDamage가 OnDeath를 동기로 브로드캐스트 하게하기
+
+
+
 			return -InDamageData.HPDamage;
 		}
 
@@ -317,15 +410,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 				StartDamaged();
 			}
 		}
-
-		// 그냥 피격체크 - 그로기가 아닐때만 데미지 애니메이션 적용
-		if (!bIsExhausting)
-		{
-			StartStun();
-			StartDamaged();
-		}
 	}
-
 	//MC_LOG(LogMC, Log, TEXT("End"));
 
 	return InDamageData.HPDamage;
@@ -348,25 +433,24 @@ const uint8 ANTNPCCharacterBase::GetIsExhausting()
 
 void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
 {
-	WeaponMesh->SetVisibility(false);
-	
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance == nullptr)
-	{
-		return;
-	}
+	//WeaponMesh->SetVisibility(false);
+	//
+	//StopCurrentPlayMontage();
 
-	static FOnMontageEnded EmptyDelegate;
-	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
-	if (CurrentMontage)
-	{
-		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
-	}
-	AnimInstance->Montage_Stop(0.1f);
+	//UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	//FOnMontageEnded EndDelegate;
+	//EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
+	//AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
 
-	FOnMontageEnded EndDelegate;
-	EndDelegate.BindUObject(this, &ANTNPCCharacterBase::OnTalChiMontageEnd);
-	AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
+	if (bIsDead || !IsValid(StatComponent)) return;
+
+	PendingLaunchImpulse = FVector::ZeroVector;
+
+	const float Damage = StatComponent->MaxHP * 0.5f;
+
+	StatComponent->ApplyDamage(Damage);
+
+	MC_LOG(LogSY, Warning, TEXT("탈취 성공"));
 }
 
 void ANTNPCCharacterBase::EnableWeaponCollision()
@@ -393,7 +477,7 @@ void ANTNPCCharacterBase::DisableWeaponCollision()
 
 void ANTNPCCharacterBase::MoveToAttackPoint()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (JumpMontage == nullptr)
 	{
@@ -407,12 +491,20 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 		return;
 	}
 
+	// 타겟 방향으로 바라보기
+	ACharacter* LocalPlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+	FVector Direction = LocalPlayerCharacter->GetActorLocation() - GetActorLocation();
+	FRotator NewRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
+	NewRotation.Pitch = 0.f; NewRotation.Roll = 0.f; // 눕지 않게 고정
+	SetActorRotation(NewRotation);
+
+
 	//점프 거리 계산
 	const float JumpMontageDuration = JumpMontage->GetPlayLength() / JumpMontageSpeedRate;
 	const FVector TargetAttackPos = BTComponent->GetBlackboardComponent()->GetValueAsVector(BBKEY_ATTACKPOS);
 
 #if ENABLE_DRAW_DEBUG
-	//DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
+	DrawDebugSphere(GetWorld(), TargetAttackPos, 20.f, 16, FColor::Red, false, JumpMontageDuration);
 #endif
 
 	const FVector ToTarget = TargetAttackPos - GetActorLocation();
@@ -421,8 +513,9 @@ void ANTNPCCharacterBase::MoveToAttackPoint()
 
 	const float ForwardDot = FVector::DotProduct(GetActorForwardVector(), DirectionToTarget);
 
-	if (DistanceToTarget <= AttackDistance || ForwardDot <= 0.f)
+	if (DistanceToTarget <= AttackDistance)
 	{
+		MC_LOG(LogMC, Log, TEXT("Mon is close enough"));
 		OnJumpMontageEnd(nullptr, false);
 		return;
 	}
@@ -450,6 +543,28 @@ void ANTNPCCharacterBase::OnJumpMontageEnd(UAnimMontage* TargetMontage, bool IsP
 
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 	BeginAttack();
+}
+
+void ANTNPCCharacterBase::SetAttackPatternDatas()
+{
+	const TArray<FNTNPCAttackPatternData> FindedPatternDatas = UNTGameDataSingleton::Get().FindNPCAttackPatternsByUser(PatternUserID);
+	if (FindedPatternDatas.IsEmpty())
+	{
+		MC_LOG(LogMC, Warning, TEXT("No PatternData! %s"), *PatternUserID.ToString());
+
+		AttackPatternDatas = {
+			{ TEXT("P_NormalMon1_Attack1_0"),  2.0f, 200.0f, 50, 0.0f },
+			{ TEXT("P_NormalMon1_Attack2_0"), 4.0f, 450.0f, 30, 0.0f },
+			{ TEXT("P_NormalMon1_Attack3_0"),   6.0f, 700.0f, 15, 0.0f },
+		};
+	}
+	else
+	{
+		for (FNTNPCAttackPatternData PatternData : FindedPatternDatas)
+		{
+			AttackPatternDatas.Add(FNPCAttackPatternSelectData(PatternData.FirstStepID, PatternData.CoolDown, PatternData.PatternRange, PatternData.PatternWeight, 0.0f));
+		}
+	}
 }
 
 void ANTNPCCharacterBase::BeginAttack()
@@ -555,7 +670,7 @@ void ANTNPCCharacterBase::OnWeaponOverlap(UPrimitiveComponent* OverlappedCompone
 
 void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CurrentAttackData.NextStepID == BB_ATTACKSTEP_NONE)
 	{
@@ -565,12 +680,18 @@ void ANTNPCCharacterBase::OnAttackMontageEnd(UAnimMontage* TargetMontage, bool I
 	}
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, CurrentAttackData.NextStepID);
-	BeginAttack();
+
+	if (APawn* Target = Cast<APawn>(BBComponent->GetValueAsObject(BBKEY_TARGET)))
+	{
+		BBComponent->SetValueAsVector(BBKEY_ATTACKPOS, Target->GetActorLocation());
+	}
+
+	MoveToAttackPoint();
 }
 
 void ANTNPCCharacterBase::EndAttack()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	BBComponent->SetValueAsName(BBKEY_SELECTEDATTACK, BB_ATTACKPATTERN_NONE);
 
@@ -597,24 +718,27 @@ void ANTNPCCharacterBase::StartStun()
 		return;
 	}
 
-	static FOnMontageEnded EmptyDelegate;
-	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
-	if (CurrentMontage)
-	{
-		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
-	}
-	AnimInstance->Montage_Stop(0.1f);
+	StopCurrentPlayMontage();
 }
 
 void ANTNPCCharacterBase::ReleaseStun()
 {
-	//MC_LOG(LogMC, Log, TEXT("Begin"));
+	
+		if (bTalchiHeld || bIsDead || !BTComponent)
+		{
+			return;
+		}
 
-	BTComponent->ResumeLogic(TEXT("Stun End"));
+		BTComponent->ResumeLogic(TEXT("Stun End"));
 }
 
 void ANTNPCCharacterBase::EndExhausted()
 {
+	if (bTalchiHeld)
+	{
+		bTalchiDeferredExhaustedEnd = true;
+		return;
+	}
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (bIsDead)
@@ -622,13 +746,42 @@ void ANTNPCCharacterBase::EndExhausted()
 		return;
 	}
 
-	UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance());
-	Anim->SetAnimIsExhausted(false);
+	if (UNTNPCAnimInstance* Anim =
+		Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance()))
+	{
+		Anim->SetAnimIsExhausted(false);
+	}
+
 	StatComponent->RestoreSoul();
 	bIsExhausting = false;
 
-	FTimerHandle Handle;
-	GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::ReleaseStun, 1.0f, false);
+	FTimerHandle Handle;//🐘
+	GetWorldTimerManager().SetTimer(
+		Handle,
+		this,
+		&ANTNPCCharacterBase::ReleaseStun,
+		1.0f,
+		false);
+}
+
+void ANTNPCCharacterBase::StopCurrentPlayMontage()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance == nullptr)
+	{
+		return;
+	}
+
+	static FOnMontageEnded EmptyDelegate;
+	UAnimMontage* CurrentMontage = AnimInstance->GetCurrentActiveMontage();
+	if (CurrentMontage)
+	{
+		AnimInstance->Montage_SetEndDelegate(EmptyDelegate, CurrentMontage);
+	}
+	AnimInstance->Montage_Stop(0.1f);
+
+	FRotator CurrentRot = GetActorRotation();
+	SetActorRotation(FRotator(0.f, CurrentRot.Yaw, 0.f));
 }
 
 void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
@@ -638,9 +791,10 @@ void ANTNPCCharacterBase::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
 	UNTHPBarWidget* HpBarWidget = Cast<UNTHPBarWidget>(InUserWidget);
 	if (HpBarWidget)
 	{
-		HpBarWidget->SetMaxHp(StatComponent->MaxHP);
 		HpBarWidget->UpdateHpBar(StatComponent->CurrentHP, StatComponent->MaxHP);
 		StatComponent->OnHPChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateHpBar);
+		HpBarWidget->UpdateSoulBar(StatComponent->CurrentSoul, StatComponent->MaxSoul);
+		StatComponent->OnSoulChanged.AddDynamic(HpBarWidget, &UNTHPBarWidget::UpdateSoulBar);
 	}
 }
 
@@ -683,8 +837,12 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 		NPCAnim->SetAnimIsExhausted(true);
 
-		FTimerHandle Handle;
-		GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::EndExhausted, ExhaustedDuration, false);
+		GetWorldTimerManager().SetTimer(
+			ExhaustedTimerHandle,
+			this,
+			&ANTNPCCharacterBase::EndExhausted,
+			ExhaustedDuration,
+			false);
 	}
 	else
 	{
@@ -694,9 +852,8 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 void ANTNPCCharacterBase::OnTalChiMontageEnd(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	StatComponent->ApplyDamage(StatComponent->MaxHP * 0.5f);
 
-	if (!bIsDead)
+	if (!bIsDead && bIsExhausting)
 	{
 		EndExhausted();
 	}
@@ -730,15 +887,7 @@ void ANTNPCCharacterBase::HandleDeath()
 	OnAICharacterAttackFinished.Unbind();//바인드해제
 
 	//재생중인 몽타주 종료 + 바인딩된 종료 델리게이트 해제 (사망 중 콤보 재호출 방지)
-	if (UAnimInstance* CurrentAnimInstance = GetMesh()->GetAnimInstance())
-	{
-		if (UAnimMontage* CurrentMontage = CurrentAnimInstance->GetCurrentActiveMontage())
-		{
-			FOnMontageEnded EmptyEndDelegate;
-			CurrentAnimInstance->Montage_SetEndDelegate(EmptyEndDelegate, CurrentMontage);
-			CurrentAnimInstance->Montage_Stop(0.0f, CurrentMontage);
-		}
-	}
+	StopCurrentPlayMontage();
 
 	if (BTComponent)
 	{
@@ -768,6 +917,24 @@ void ANTNPCCharacterBase::HandleDeath()
 
 		MovementComponent->StopMovementImmediately();
 		MovementComponent->DisableMovement();
+
+		// 래그돌, 사망 몽타주와 밀림이 겹치지 않게 정리하기
+		KnockBackVelocity = FVector::ZeroVector;
+		KnockBackRemainingTime = 0.0f;
+	}
+
+	HpBar->SetVisibility(false);
+
+
+	const bool bCanRagdoll =
+		bLaunchOnDeath && !PendingLaunchImpulse.IsNearlyZero()
+		&& GetMesh() != nullptr && GetMesh()->GetPhysicsAsset() != nullptr;
+
+	if (bCanRagdoll)
+	{
+		StartDeathRagdoll(PendingLaunchImpulse);
+		MC_LOG(LogDG, Warning, TEXT("NPC Dead (Ragdoll) : %s"), *GetName());
+		return;
 	}
 
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -793,4 +960,146 @@ void ANTNPCCharacterBase::HandleDeath()
 
 
 	MC_LOG(LogSY, Warning, TEXT("NPC DEAD : %s"), *GetName());
+}
+
+void ANTNPCCharacterBase::StartDeathRagdoll(const FVector& Impulse)
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		MC_LOG(LogDG, Warning, TEXT("MeshComp없음 문제발생"));
+		return;
+	}
+
+	// 핸들 데쓰가 액터 콜리전 통째로 끄고
+	// 물리 임펄스 주기 위해 잠깐 되살린다
+	SetActorEnableCollision(true);
+
+	//대신 캡슐과 무기는 직접꺼내 시체가 플레이어 안막게
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	if (WeaponCollision)
+	{
+		WeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	// HandleDeath의 SetActorenable~~(false)가 캡슐까지 끈 상태임
+	// 캡슐 끄고 메시만 물리용으로 살리고 지형과 부딪히고 Pawndㅡㄴ 통과하는 프로파일
+	MeshComp->SetCollisionProfileName(TEXT("Ragdoll"));
+
+	MeshComp->SetSimulatePhysics(true);
+
+	// 빠른 속도로 얇은 벽을 뚫고 지나가는 걸 막는다
+	MeshComp->SetAllUseCCD(true);
+
+	// bVelChance = true : 질량 무시하고 속도적용!!
+	MeshComp->AddImpulseToAllBodiesBelow(Impulse, NAME_None, true);
+
+	//루트에만 더 줘서 팔다리가 끌려오게 만들기
+	MeshComp->AddImpulse(Impulse * 0.2f, NAME_None, true);
+	MeshComp->SetPhysicsAngularVelocityInDegrees(
+		FVector(FMath::FRandRange(-60.0f, 60.0f),
+			FMath::FRandRange(-60.0f, 60.f),
+			FMath::FRandRange(-60.0f, 60.0f)), true);
+
+
+	GetWorldTimerManager().SetTimer(RagdollSettleTimer, this,
+		&ANTNPCCharacterBase::CheckRagdollSettled, RagdollSettleCheckInterval, true);
+}
+
+void ANTNPCCharacterBase::CheckRagdollSettled()
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+
+	if (!MeshComp || !MeshComp->IsSimulatingPhysics())
+	{
+		GetWorldTimerManager().ClearTimer(RagdollSettleTimer);
+		return;
+	}
+
+	//아직 움직이고 있으면 다음 주기에 다시 확인
+	if (MeshComp->GetPhysicsLinearVelocity().Size() >= RagdollSettleSpeedThreshold)
+	{
+		return;
+	}
+
+	//멈춘경우 물리 재우고 본 업데이트 종료로 비용 없애기
+	MeshComp->PutAllRigidBodiesToSleep();
+	MeshComp->SetComponentTickEnabled(false);
+
+	GetWorldTimerManager().ClearTimer(RagdollSettleTimer);
+}
+
+bool ANTNPCCharacterBase::BeginTalchiHold()
+{
+	if (bIsDead
+		|| !bIsExhausting
+		|| bTalchiHeld
+		|| !IsValid(StatComponent))
+	{
+		return false;
+	}
+
+
+	bTalchiHeld = true;
+	bTalchiDeferredExhaustedEnd = false;
+	StatComponent->SetTalchiRecoveryPaused(true);
+
+	FTimerManager& Timers = GetWorldTimerManager();
+
+	// 이미 다른 이유로 멈춘 타이머는 우리가 재개하지 않습니다.
+	bTalchiPausedExhaustedTimer =
+		Timers.IsTimerActive(ExhaustedTimerHandle)
+		&& !Timers.IsTimerPaused(ExhaustedTimerHandle);
+
+	if (bTalchiPausedExhaustedTimer)
+	{
+		Timers.PauseTimer(ExhaustedTimerHandle);
+	}
+
+	return true;
+}
+
+void ANTNPCCharacterBase::EndTalchiHold()
+{
+	if (!bTalchiHeld)
+	{
+		return;
+	}
+
+	bTalchiHeld = false;
+	if (IsValid(StatComponent))
+	{
+		StatComponent->SetTalchiRecoveryPaused(false);
+	}
+
+	const bool bResumeTimer = bTalchiPausedExhaustedTimer;
+	const bool bFinishExhausted = bTalchiDeferredExhaustedEnd;
+
+	bTalchiPausedExhaustedTimer = false;
+	bTalchiDeferredExhaustedEnd = false;
+
+	FTimerManager& Timers = GetWorldTimerManager();
+
+	if (bIsDead)
+	{
+		Timers.ClearTimer(ExhaustedTimerHandle);
+		return;
+	}
+
+	// 탈취 중 다른 경로로 그로기 종료가 요청됐다면 지금 처리합니다.
+	if (bFinishExhausted)
+	{
+		Timers.ClearTimer(ExhaustedTimerHandle);
+		EndExhausted();
+		return;
+	}
+
+	// 탈취 시작 당시 남아 있던 시간부터 이어갑니다.
+	if (bResumeTimer)
+	{
+		Timers.UnPauseTimer(ExhaustedTimerHandle);
+	}
 }

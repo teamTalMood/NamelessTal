@@ -13,5 +13,12 @@ UCLASS()
 class NAMELESSTAL_API ANTNPCCharacterEpic : public ANTNPCCharacterBase
 {
 	GENERATED_BODY()
-	
+
+public:
+	ANTNPCCharacterEpic();
+
+	virtual float ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData) override;
+
+protected:
+	virtual void HandleDeath() override;
 };

@@ -25,15 +25,19 @@ protected:
 	virtual void NativeConstruct() override;
 
 protected:
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UTextBlock> Txt_Title;
-
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Txt_Body;
+
+	UPROPERTY(meta = (BindWidgetAnim), Transient)
+	TObjectPtr<UWidgetAnimation> Anim_Show;
+
+	UPROPERTY(meta = (BindWidgetAnim), Transient)
+	TObjectPtr<UWidgetAnimation> Anim_Hide;
 
 private :
 	void Hide();
 
 	FTimerHandle HideTimer;
+	FTimerHandle CollapseTimer;
 
 };
