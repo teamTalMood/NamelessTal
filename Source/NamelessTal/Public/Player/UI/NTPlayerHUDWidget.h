@@ -11,6 +11,9 @@ class UStatComponent;
 class UNTTalComponent;
 class UNTTalIconWidget;
 class UNTHPBarWidget;
+class UTextBlock;
+class UImage;
+class ATalPlayerCharacter;
 
 UCLASS()
 class NAMELESSTAL_API UNTPlayerHUDWidget : public UUserWidget
@@ -19,6 +22,9 @@ class NAMELESSTAL_API UNTPlayerHUDWidget : public UUserWidget
 
 public:
 	void InitializeWithStatComponent(UStatComponent* InStatComponent);
+
+	// 호리병 개수 표시용. 캐릭터의 OnFlaskCountChanged에 바인딩한다
+	void InitializeWithPlayerCharacter(ATalPlayerCharacter* InPlayerCharacter);
 
 	void InitializeWithTalComponent(UNTTalComponent* InTalComponent);
 
@@ -48,6 +54,13 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<class UProgressBar> PB_Soul;
 
+	// 호리병 아이콘. 개수가 0이 되면 흐리게 만든다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> Img_Flask;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> Txt_FlaskCount;
+
 	UPROPERTY()
 	TObjectPtr<class UNTMessageWidget> WDG_Message;
 
@@ -63,11 +76,17 @@ private:
 	UPROPERTY()
 	TObjectPtr<UStatComponent> StatComponent;
 
+	UPROPERTY()
+	TObjectPtr<ATalPlayerCharacter> PlayerCharacter;
+
 	UFUNCTION()
 	void HandleHPChanged(float NewHP, float MaxHP);
 
 	UFUNCTION()
 	void HandleSoulChanged(float NewSoul, float MaxSoul);
+
+	UFUNCTION()
+	void HandleFlaskCountChanged(int32 NewCount, int32 MaxCount);
 
 	void RefreshAll();
 };

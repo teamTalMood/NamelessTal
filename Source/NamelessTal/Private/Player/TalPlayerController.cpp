@@ -9,10 +9,12 @@
 #include "Player/TalPlayerCharacter.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
+#include "Player/UI/NTAreaNoticeWidget.h"
 #include "NamelessTalGameMode.h"
 #include "MCLOG.h"
 #include "EnhancedInputComponent.h"
 #include "Player/UI/NTPauseMenuWidget.h"
+#include "Engine/Texture2D.h"
 
 
 void ATalPlayerController::BeginPlay()
@@ -57,6 +59,25 @@ void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title
 	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
 }
 
+void ATalPlayerController::ShowAreaNotice(const FText& AreaName, const FText& Description, UTexture2D* Icon)
+{
+	if (!IsValid(AreaNoticeWidget))
+	{
+		return;
+	}
+
+	AreaNoticeWidget->ShowArea(AreaName, Description, Icon);
+}
+
+void ATalPlayerController::HideAreaNotice()
+{
+	if (!IsValid(AreaNoticeWidget))
+	{
+		return;
+	}
+
+	AreaNoticeWidget->HideArea();
+}
 void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
@@ -68,15 +89,15 @@ void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 	SetInputMode(FInputModeGameOnly());
 	SetShowMouseCursor(false);
 
-	// 메시지 위젯은 숨긴채로 미리 만들어두기!
-	if (NoticeWidgetClass)
+	// 지역 알림 위젯은 숨긴채로 미리 만들어두기!
+	if (AreaNoticeWidgetClass)
 	{
-		NoticeWidget = CreateWidget<UNTMessageWidget>(this, NoticeWidgetClass);
-		if (IsValid(NoticeWidget))
+		AreaNoticeWidget = CreateWidget<UNTAreaNoticeWidget>(this, AreaNoticeWidgetClass);
+		if (IsValid(AreaNoticeWidget))
 		{
-			NoticeWidget->AddToViewport();
+			AreaNoticeWidget->AddToViewport();
 
-			NoticeWidget->SetVisibility(ESlateVisibility::Collapsed);
+			AreaNoticeWidget->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 
@@ -110,6 +131,7 @@ void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 	PlayerHUD->AddToViewport();
 	PlayerHUD->InitializeWithStatComponent(StatComponent);
 	PlayerHUD->InitializeWithTalComponent(TalCharacter->GetTalComponent());
+	PlayerHUD->InitializeWithPlayerCharacter(TalCharacter);
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{

@@ -222,6 +222,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 	}
 
 	UpdateRotationMode();
+	UpdateAttackStepMove(DeltaTime);
 	UpdateRealFalling();
 	//if (bIsDodging) 이거 때문에 회전이 강제되어 구르기와 캐릭터의 회전이 되지 않았음
 	//{
@@ -363,6 +364,7 @@ void ATalPlayerCharacter::StartDodge(const FInputActionValue& Value)
 	}
 
 	bUseControllerRotationYaw = false;
+	StopAttackStepMove();
 	bIsDodging = true;
 	bIsInvincible = true;
 
@@ -1013,6 +1015,7 @@ void ATalPlayerCharacter::StartAttackStep(int32 Step)
 	//기존 일반 이동과 날아있는 이동 입력 정리
 	ConsumeMovementInputVector();
 	GetCharacterMovement()->StopMovementImmediately();
+	StopAttackStepMove();
 
 
 	ClearAttackBuffer();
@@ -1167,11 +1170,51 @@ void ATalPlayerCharacter::OnWeaponOverlap(
 }
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
-	if (TalComponent)
+	if (!IsValid(TalComponent)) return;
+
+	ATalBase* PreviousTal = TalComponent->GetCurrentTal();
+	if (TalComponent->EquipTal(NewTal) && PreviousTal != NewTal)
 	{
-		TalComponent->EquipTal(NewTal);
+		ResetTalUses();
 	}
+}
+
+int32 ATalPlayerCharacter::GetRemainingSpecialArtUses() const
+{
+	ATalBase* Tal = GetCurrentTal();
+	if (!IsValid(Tal)) return 0;
+
+	const FNTPlayerSpecialArtData* ArtData =
+		UNTGameDataSingleton::Get().GetPlayerSpecialArt(Tal->GetSpecialArtID());
+	return ArtData ? FMath::Max(0, ArtData->UseLimit - SpecialArtUseCount) : 0;
+}
+
+void ATalPlayerCharacter::ResetTalUses()
+{
 	SpecialArtUseCount = 0;
+	PendingConsumedTal.Reset();
+	OnSpecialArtUsesChanged.Broadcast();
+}
+
+void ATalPlayerCharacter::RemoveConsumedTal()
+{
+	ATalBase* TalToRemove = PendingConsumedTal.Get();
+	PendingConsumedTal.Reset();
+
+	if (!IsValid(TalToRemove) || !IsValid(TalComponent)
+		|| TalComponent->GetCurrentTal() != TalToRemove)
+	{
+		return;
+	}
+
+	ATalBase* RemovedTal = TalComponent->UnequipTal();
+	if (IsValid(RemovedTal))
+	{
+		RemovedTal->Destroy();
+	}
+
+	SpecialArtUseCount = 0;
+	OnSpecialArtUsesChanged.Broadcast();
 }
 
 ATalBase* ATalPlayerCharacter::GetCurrentTal() const
@@ -1186,6 +1229,7 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 	InitialSpawnTransform = GetActorTransform();
 
 	FlaskCount = FlaskInitialCount;
+	OnFlaskCountChanged.Broadcast(FlaskCount, FlaskMaxCount);
 
 	//기본 탈 장착
 	if (TalComponent && DefaultTalClass)
@@ -1476,6 +1520,7 @@ void ATalPlayerCharacter::CloseComboWindow(int32 ExpectedStep)
 
 	ClearAttackBuffer();
 	DisableWeaponCollision();
+	StopAttackStepMove();
 
 	bCanCombo = false;
 	ComboInputPhase = EComboInputPhase::Closed;
@@ -1670,7 +1715,12 @@ bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
 	if (!bFreeUse)
 	{
 		++SpecialArtUseCount;
+		if (SpecialArtUseCount >= ArtData->UseLimit)
+		{
+			PendingConsumedTal = MyTal;
+		}
 		StatComponent->DrainSoul(SoulCost);
+		OnSpecialArtUsesChanged.Broadcast();
 	}
 
 	return true;
@@ -1816,6 +1866,7 @@ void ATalPlayerCharacter::OnSpecialArtMontageEnd(
 
 void ATalPlayerCharacter::CancelSpecialArt()
 {
+	StopAttackStepMove();
 	if (!bIsUsingSpecialArt)
 	{
 		return;
@@ -1850,6 +1901,7 @@ void ATalPlayerCharacter::CancelSpecialArt()
 
 void ATalPlayerCharacter::ResetSpecialArtState()
 {
+	StopAttackStepMove();
 	bIsSpecialArtCancelling = false;
 	bIsSpecialArtHitActive = false;
 
@@ -1866,6 +1918,7 @@ void ATalPlayerCharacter::ResetSpecialArtState()
 	CurrentSpecialArtMontage = nullptr;
 	CurrentSpecialArtComboCount = INDEX_NONE;
 	CurrentSpecialArtData = FPlayerCurrentSpecialArtData{};
+	RemoveConsumedTal();
 }
 
 void ATalPlayerCharacter::RecoverSoul(float Amount)
@@ -2605,13 +2658,15 @@ void ATalPlayerCharacter::ApplyFlaskHeal()
 	}
 
 	FlaskCount--;
+	OnFlaskCountChanged.Broadcast(FlaskCount, FlaskMaxCount);
 
 	StatComponent->HealHp(StatComponent->MaxHP * FlaskHealPercent);
 }
 
 void ATalPlayerCharacter::RechargeFlask()
 {
-	FlaskCount = FlaskMaxCount;;
+	FlaskCount = FlaskMaxCount;
+	OnFlaskCountChanged.Broadcast(FlaskCount, FlaskMaxCount);
 }
 
 void ATalPlayerCharacter::StartVictimTalchiMontage()
@@ -2733,7 +2788,7 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 	HeldStolenTal = nullptr;
 	HeldTalVictim.Reset();
 
-	SpecialArtUseCount = 0;
+	ResetTalUses();
 
 	if (IsValid(OldPlayerTal))
 	{
@@ -3647,4 +3702,103 @@ void ATalPlayerCharacter::ClearTalchiSlow()
 
 	TalchiOriginalTimeDilations.Empty();
 	TalchiSlowElapsed = 0.0f;
+}
+
+void ATalPlayerCharacter::BeginAttackStepMove(float InOverrideDistance, float InOverrideDuration)
+{
+	// 기본공격 중이 아니면 무시
+	if (!bBasicAttackActionLocked || ComboIndex <= 0) return;
+
+	if (bIsDead
+		|| bIsDodging
+		|| bIsUsingSpecialArt
+		|| bIsTalchiInProgress
+		|| StatComponent->IsGroggy()
+		|| GuardComponent->IsStaggered())
+	{
+		return;
+	}
+
+	if (bBlockAttackStepWhileFalling && GetCharacterMovement()->IsFalling())
+	{
+		return;
+	}
+
+	float Distance = InOverrideDistance;
+	if (Distance <= 0.0f)
+	{
+		const int32 Index = ComboIndex - 1;
+		Distance = ComboStepDistances.IsValidIndex(Index) ? ComboStepDistances[Index] : 0.0f;
+	}
+	if (Distance <= KINDA_SMALL_NUMBER) return;
+
+	const float Duration = FMath::Max(
+		InOverrideDuration > 0.0f ? InOverrideDuration : ComboStepDuration, 0.01f);
+
+	// 방향: 락온 중이면 타겟 쪽, 아니면 캐릭터 정면
+	FVector Dir = GetActorForwardVector();
+
+	if (bIsLockOnActive && IsValid(CurrentLockOnTarget))
+	{
+		const FVector TargetLoc = CurrentLockOnTarget->GetLockOnLocation();
+		const FVector ToTarget = (TargetLoc - GetActorLocation()).GetSafeNormal2D();
+
+		if (!ToTarget.IsNearlyZero())
+		{
+			Dir = ToTarget;
+
+			// 타겟을 뚫고 지나가지 않도록 거리 제한
+			const float Gap =
+				FVector::Dist2D(TargetLoc, GetActorLocation()) - ComboStepMinTargetGap;
+
+			Distance = FMath::Clamp(Gap, 0.0f, Distance);
+			if (Distance <= KINDA_SMALL_NUMBER) return;
+		}
+	}
+
+	AttackStepDir = Dir.GetSafeNormal2D();
+	if (AttackStepDir.IsNearlyZero()) return;
+
+	AttackStepSpeed = Distance / Duration;
+	AttackStepTimeLeft = Duration;
+	bIsAttackStepMoving = true;
+}
+
+void ATalPlayerCharacter::StopAttackStepMove()
+{
+	bIsAttackStepMoving = false;
+	AttackStepTimeLeft = 0.0f;
+	AttackStepSpeed = 0.0f;
+	AttackStepDir = FVector::ZeroVector;
+}
+
+void ATalPlayerCharacter::UpdateAttackStepMove(float DeltaTime)
+{
+	if (!bIsAttackStepMoving) return;
+
+	// 공격이 끊겼으면 즉시 중단
+	if (!bBasicAttackActionLocked
+		|| bIsDead
+		|| bIsDodging
+		|| bIsUsingSpecialArt
+		|| bIsTalchiInProgress
+		|| StatComponent->IsGroggy()
+		|| GuardComponent->IsStaggered())
+	{
+		StopAttackStepMove();
+		return;
+	}
+
+	const float StepTime = FMath::Min(DeltaTime, AttackStepTimeLeft);
+	AttackStepTimeLeft -= StepTime;
+
+	const FVector Delta = AttackStepDir * AttackStepSpeed * StepTime;
+
+	FHitResult Hit;
+	AddActorWorldOffset(Delta, true, &Hit);   // sweep: 벽/적에 막히면 멈춤
+
+	if (Hit.bBlockingHit || AttackStepTimeLeft <= 0.0f)
+	{
+		StopAttackStepMove();
+	}
 }

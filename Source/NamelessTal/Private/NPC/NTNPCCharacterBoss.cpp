@@ -7,6 +7,9 @@
 #include "Stat/StatComponent.h"
 #include "NamelessTalGameMode.h"
 #include "NPC/Components/NTHPWidgetComponent.h"
+#include "TalBase.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/World.h"
 
 //AI
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -61,6 +64,7 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 void ANTNPCCharacterBoss::BeginPlay()
 {
 	Super::BeginPlay();
+	SpawnWaitingLeftTal();
 
 	//CurrentPhase = EBossPhase::Third;
 
@@ -82,6 +86,54 @@ void ANTNPCCharacterBoss::BeginPlay()
 	// 스폰 시 깨끗한 상태로 시작하도록 명시적으로 0으로 덮어써야 함
 	SetPartsScalarParameter(TEXT("DirtAmount"), 0.0f);
 	SetPartsScalarParameter(TEXT("CutoutAmount"), 0.0f);
+}
+
+void ANTNPCCharacterBoss::SpawnWaitingLeftTal()
+{
+	if (IsValid(WaitingLeftTal) || !LeftTalClass || !GetWorld() || !IsValid(GetMesh()))
+	{
+		return;
+	}
+
+	if (!GetMesh()->DoesSocketExist(LeftTalSocketName))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Boss left Tal socket missing: %s"),
+			*LeftTalSocketName.ToString());
+		return;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	ATalBase* NewTal = GetWorld()->SpawnActor<ATalBase>(
+		LeftTalClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+	if (!IsValid(NewTal)) return;
+
+	const bool bAttached = NewTal->AttachToComponent(
+		GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		LeftTalSocketName);
+	if (!bAttached)
+	{
+		NewTal->Destroy();
+		return;
+	}
+
+	NewTal->SetActorRelativeScale3D(LeftTalWearScale);
+	WaitingLeftTal = NewTal;
+}
+
+void ANTNPCCharacterBoss::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 플레이어에게 넘어간 탈은 제거하지 않습니다.
+	if (IsValid(WaitingLeftTal) && WaitingLeftTal->GetOwner() == this)
+	{
+		WaitingLeftTal->Destroy();
+	}
+	WaitingLeftTal = nullptr;
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void ANTNPCCharacterBoss::Tick(float DeltaTime)

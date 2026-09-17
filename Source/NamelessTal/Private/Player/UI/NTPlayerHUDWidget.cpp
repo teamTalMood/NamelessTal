@@ -1,11 +1,13 @@
 #include "Player/UI/NTPlayerHUDWidget.h"
 #include "MCLOG.h"
 #include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
+#include "Components/Image.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
 #include "Player/UI/NTTalIconWidget.h"
+#include "Player/TalPlayerCharacter.h"
 #include "NPC/Components/NTHPBarWidget.h"
-
 
 void UNTPlayerHUDWidget::NativeConstruct()
 {
@@ -47,6 +49,32 @@ void UNTPlayerHUDWidget::InitializeWithStatComponent(UStatComponent* InStatCompo
 	);
 
 	RefreshAll();
+}
+
+void UNTPlayerHUDWidget::InitializeWithPlayerCharacter(ATalPlayerCharacter* InPlayerCharacter)
+{
+	if (!IsValid(InPlayerCharacter)) return;
+
+	if (IsValid(PlayerCharacter))
+	{
+		PlayerCharacter->OnFlaskCountChanged.RemoveDynamic(
+			this,
+			&UNTPlayerHUDWidget::HandleFlaskCountChanged
+		);
+	}
+
+	PlayerCharacter = InPlayerCharacter;
+
+	PlayerCharacter->OnFlaskCountChanged.AddUniqueDynamic(
+		this,
+		&UNTPlayerHUDWidget::HandleFlaskCountChanged
+	);
+
+	// 델리게이트는 값이 바뀔 때만 오므로 현재값을 한 번 직접 읽어온다
+	HandleFlaskCountChanged(
+		PlayerCharacter->GetFlaskCount(),
+		PlayerCharacter->GetFlaskMaxCount()
+	);
 }
 
 void UNTPlayerHUDWidget::InitializeWithTalComponent(UNTTalComponent* InTalComponent)
@@ -127,6 +155,21 @@ void UNTPlayerHUDWidget::HandleSoulChanged(float NewSoul, float MaxSoul)
 	}
 }
 
+void UNTPlayerHUDWidget::HandleFlaskCountChanged(int32 NewCount, int32 MaxCount)
+{
+	if (IsValid(Txt_FlaskCount))
+	{
+		Txt_FlaskCount->SetText(FText::AsNumber(NewCount));
+	}
+
+	if (IsValid(Img_Flask))
+	{
+		// 다 쓰면 아이콘을 흐리게
+		const float IconOpacity = (NewCount > 0) ? 1.0f : 0.35f;
+		Img_Flask->SetRenderOpacity(IconOpacity);
+	}
+}
+
 void UNTPlayerHUDWidget::RefreshAll()
 {
 	if (!IsValid(StatComponent)) return;
@@ -157,5 +200,16 @@ void UNTPlayerHUDWidget::NativeDestruct()
 		StatComponent = nullptr;
 	
 	}
+
+	if (IsValid(PlayerCharacter))
+	{
+		PlayerCharacter->OnFlaskCountChanged.RemoveDynamic(
+			this,
+			&UNTPlayerHUDWidget::HandleFlaskCountChanged
+		);
+
+		PlayerCharacter = nullptr;
+	}
+
 	Super::NativeDestruct();
 }

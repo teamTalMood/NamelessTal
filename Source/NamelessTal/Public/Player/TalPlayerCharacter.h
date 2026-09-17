@@ -30,6 +30,8 @@ class UUserWidget;
 class ANTNPCCharacterBase;
 class UCurveFloat;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSpecialArtUsesChanged);
+
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
 enum class EPlayerAttackPhase : uint8
@@ -66,6 +68,8 @@ struct FPlayerCurrentSpecialArtData
 	float PushBackSpeed = 0.f;
 };
 
+// 호리병 개수가 바뀔 때 HUD에 알린다
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFlaskCountChanged, int32, NewCount, int32, MaxCount);
 
 
 UCLASS()
@@ -546,6 +550,40 @@ protected:
 
 	static constexpr int32 MaxBasicAttackCombo = 4;//최대 콤보 횟수
 
+	////////////////////////////////////////////////////////////////////////////
+///////		기본공격 전진
+public:
+	// 노티파이에서 호출. 인자가 0 이하면 타별 기본값 사용
+	UFUNCTION(BlueprintCallable, Category = "Attack|Step")
+	void BeginAttackStepMove(float InOverrideDistance = -1.0f, float InOverrideDuration = -1.0f);
+
+	// 구르기/특수기/사망 등으로 공격이 끊길 때 호출
+	void StopAttackStepMove();
+
+protected:
+	void UpdateAttackStepMove(float DeltaTime);
+
+	// 인덱스 0 = 1타, 3 = 4타. 4타를 크게 주면 마무리 느낌이 산다
+	UPROPERTY(EditAnywhere, Category = "Attack|Step")
+	TArray<float> ComboStepDistances = { 60.0f, 50.0f, 80.0f, 150.0f };
+
+	// 전진에 걸리는 시간(초). 짧을수록 툭 치고 나가는 느낌
+	UPROPERTY(EditAnywhere, Category = "Attack|Step", meta = (ClampMin = "0.01"))
+	float ComboStepDuration = 0.12f;
+
+	// 락온 중일 때 타겟을 지나치지 않도록 남겨둘 간격
+	UPROPERTY(EditAnywhere, Category = "Attack|Step", meta = (ClampMin = "0.0"))
+	float ComboStepMinTargetGap = 120.0f;
+
+	// 공중에서는 전진 금지
+	UPROPERTY(EditAnywhere, Category = "Attack|Step")
+	bool bBlockAttackStepWhileFalling = true;
+
+	bool bIsAttackStepMoving = false;
+	FVector AttackStepDir = FVector::ZeroVector;
+	float AttackStepSpeed = 0.0f;
+	float AttackStepTimeLeft = 0.0f;
+
 	////////////////////////////////////////////////////////////////////////////////weapon 신버전
 	/*
 protected:
@@ -612,6 +650,12 @@ public:
 	void BeginSpecialArtHit(int32 ComboCount);
 	void EndSpecialArtHit(int32 ComboCount);
 
+	UPROPERTY(BlueprintAssignable, Category = "Tal|UI")
+	FOnSpecialArtUsesChanged OnSpecialArtUsesChanged;
+
+	UFUNCTION(BlueprintPure, Category = "Tal|UI")
+	int32 GetRemainingSpecialArtUses() const;
+
 protected:
 	UPROPERTY(EditAnywhere, Category = "SpecialAttack")
 	TObjectPtr<UInputAction> SpecialArtAction;
@@ -633,6 +677,13 @@ protected:
 	int32 CurrentSpecialArtComboCount = INDEX_NONE;
 	// 지금 장착한 탈로 특수기 몇번 썼는지
 	int32 SpecialArtUseCount = 0;
+
+	// 마지막 기술의 종료/중단 시 제거할 탈입니다.
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ATalBase> PendingConsumedTal;
+
+	void ResetTalUses();
+	void RemoveConsumedTal();
 
 	// 지금 실행 중인 스텝의 데이터
 	FPlayerCurrentSpecialArtData CurrentSpecialArtData;
@@ -915,6 +966,14 @@ public:
 
 	// 도깨비불(모닥불)에서 호출 - 최대치로 충전시키기
 	void RechargeFlask();
+
+	// 호리병 개수 변화 알림. HUD가 여기에 바인딩한다
+	UPROPERTY(BlueprintAssignable, Category = "Item")
+	FOnFlaskCountChanged OnFlaskCountChanged;
+
+	// HUD가 처음 붙을 때 현재값을 읽어가기 위한 게터
+	int32 GetFlaskCount() const { return FlaskCount; }
+	int32 GetFlaskMaxCount() const { return FlaskMaxCount; }
 
 	////////////////////////////////////////////////////////////////
 	//////////////// 히트 스톱 / 카메라 셰이크 / FOV
