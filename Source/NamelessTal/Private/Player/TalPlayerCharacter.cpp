@@ -1175,6 +1175,7 @@ void ATalPlayerCharacter::BeginPlay()//캐릭터 생성시
 	InitialSpawnTransform = GetActorTransform();
 
 	FlaskCount = FlaskInitialCount;
+	OnFlaskCountChanged.Broadcast(FlaskCount, FlaskMaxCount);
 
 	//기본 탈 장착
 	if (TalComponent && DefaultTalClass)
@@ -2594,13 +2595,15 @@ void ATalPlayerCharacter::ApplyFlaskHeal()
 	}
 
 	FlaskCount--;
+	OnFlaskCountChanged.Broadcast(FlaskCount, FlaskMaxCount);
 
 	StatComponent->HealHp(StatComponent->MaxHP * FlaskHealPercent);
 }
 
 void ATalPlayerCharacter::RechargeFlask()
 {
-	FlaskCount = FlaskMaxCount;;
+	FlaskCount = FlaskMaxCount;
+	OnFlaskCountChanged.Broadcast(FlaskCount, FlaskMaxCount);
 }
 
 void ATalPlayerCharacter::StartVictimTalchiMontage()
