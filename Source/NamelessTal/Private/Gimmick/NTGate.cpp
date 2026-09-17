@@ -8,6 +8,8 @@
 #include "MCLOG.h"
 
 #include "Interface/NTGateInteractInterface.h"
+#include "NamelessTalGameMode.h"
+#include "Player/TalPlayerCharacter.h"
 
 // Sets default values
 ANTGate::ANTGate()
@@ -60,7 +62,7 @@ void ANTGate::Tick(float DeltaTime)
 		return;
 	}
 
-	MC_LOG(LogMC, Log, TEXT("DoorOpening"));
+	//MC_LOG(LogMC, Log, TEXT("DoorOpening"));
 
 	DoorOpenElapsedTime += DeltaTime;
 	const float Alpha = FMath::Clamp(DoorOpenElapsedTime / DoorOpenDuration, 0.0f, 1.0f);
@@ -77,14 +79,27 @@ void ANTGate::Tick(float DeltaTime)
 
 void ANTGate::OnBoxCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	MC_LOG(LogMC, Log, TEXT("NTGate 콜리전 오버랩 감지"));
+	if (!Cast<ATalPlayerCharacter>(OtherActor))
+	{
+		return;
+	}
+
+	ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode());
+	if (!GameMode || !GameMode->GetIsEpicKilled())
+	{
+		return;
+	}
+
+	MC_LOG(LogMC, Log, TEXT("NTGate 콜리전 오버랩 감지 : %s"), *GetNameSafe(OverlappedComponent));
+
+	BoxCollisionFrontComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	if (bIsDoorMoving || bIsDoorOpened)
 	{
 		return;
 	}
 
-	RequestOpen(OtherActor);
+	//RequestOpen(OtherActor);
 
 	bIsDoorMoving = true;
 	DoorOpenElapsedTime = 0.0f;
@@ -106,7 +121,24 @@ void ANTGate::OnBoxCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponen
 
 void ANTGate::OnBoxCollisionEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	MC_LOG(LogMC, Log, TEXT("NTGate 콜리전 오버랩 벗어남 감지"));
+	if (!Cast<ATalPlayerCharacter>(OtherActor))
+	{
+		return;
+	}
+
+	MC_LOG(LogMC, Log, TEXT("NTGate 콜리전 오버랩 벗어남 감지 : %s"), *GetNameSafe(OverlappedComponent));
+
+	BoxCollisionBackComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	if (bIsBossRoomGate && !bBossSequenceTriggered)
+	{
+		bBossSequenceTriggered = true;
+
+		if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+		{
+			GameMode->BossPhaseStarted(EBossPhase::First);
+		}
+	}
 
 	if (bIsDoorMoving || !bIsDoorOpened)
 	{

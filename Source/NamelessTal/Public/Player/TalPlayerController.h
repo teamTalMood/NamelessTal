@@ -9,11 +9,12 @@
 
 class UNTPlayerHUDWidget;
 class UNTMessageWidget;
+class ATalPlayerCharacter;
 
 UENUM(BlueprintType)
 enum class ENTMessageStyle : uint8
 {
-	Notice UMETA(DisplayName = "¾Ë¸² ¹è³Ê"), Tutorial UMETA(DisplayName = "Æ©Åä¸®¾ó")
+	Notice UMETA(DisplayName = "ï¿½Ë¸ï¿½ ï¿½ï¿½ï¿½"), Tutorial UMETA(DisplayName = "Æ©ï¿½ä¸®ï¿½ï¿½")
 };
 
 
@@ -33,7 +34,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
 	TArray<class UInputMappingContext*> DefaultMappingContexts;
 
-	// UI °ü·Ã
+	// UI ï¿½ï¿½ï¿½ï¿½
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UNTMessageWidget> NoticeWidgetClass;
 
@@ -53,6 +54,10 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UNTPlayerHUDWidget> PlayerHUD;
 
+	uint8 bISControllerSetted : 1 = false;
+
 public : // UI
 	void ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration);
+
+	void SetControllerSettings(ATalPlayerCharacter* InPawn = nullptr);
 };

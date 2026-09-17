@@ -61,7 +61,7 @@ void ANTNPCCharacterBoss::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CurrentPhase = EBossPhase::Third;
+	//CurrentPhase = EBossPhase::Third;
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{
@@ -108,6 +108,8 @@ void ANTNPCCharacterBoss::SetPartsScalarParameter(FName ParamName, float Value)
 
 void ANTNPCCharacterBoss::StartBossSequence(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	switch (CurrentPhase)
 	{
 	case EBossPhase::First:
@@ -117,9 +119,21 @@ void ANTNPCCharacterBoss::StartBossSequence(UAnimMontage* TargetMontage, bool Is
 		CurrentPhase = EBossPhase::Third;
 		break;
 	case EBossPhase::Third:
+		CurrentPhase = EBossPhase::End;
+		break;
+	case EBossPhase::End:
 		break;
 	default:
+		CurrentPhase = EBossPhase::First;
 		break;
+	}
+
+	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
+	MC_LOG(LogMC, Log, TEXT("EnumValue : %s"), *EnumString);
+
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->BossPhaseStarted(CurrentPhase);
 	}
 }
 
@@ -190,6 +204,7 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 	bIsAttacking = false;
 	SetActorEnableCollision(false);
+	OnAICharacterAttackFinished.ExecuteIfBound();
 	OnAICharacterAttackFinished.Unbind();
 
 	StopCurrentPlayMontage();
@@ -217,6 +232,11 @@ void ANTNPCCharacterBoss::StartNextPhase()
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
+	if (CurrentPhase == EBossPhase::End)
+	{
+		return;
+	}
+
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();
 	StatComponent->SetSoulRegenBlocked(true);
@@ -227,7 +247,7 @@ void ANTNPCCharacterBoss::StartNextPhase()
 	SetCanBeDamaged(true);
 	SetActorEnableCollision(true);
 
-	ReleaseStun();
+	GetWorld()->GetTimerManager().SetTimer(PhaseStartDelayTimer, this, &ANTNPCCharacterBoss::ReleaseStun, 2.0f, false);
 
 	// Phase 진입에 따른 흙/찢어짐/핏자국 파라미터 전환 (First=스폰 상태, Second=Phase1, Third=Phase2)
 	if (CurrentPhase == EBossPhase::Second || CurrentPhase == EBossPhase::Third)

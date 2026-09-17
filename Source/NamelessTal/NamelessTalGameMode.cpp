@@ -9,6 +9,8 @@
 #include "MediaPlayer.h"
 #include "MediaSoundComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Player/UI/NTCutsceneWidget.h"
 
 ANamelessTalGameMode::ANamelessTalGameMode()
@@ -50,6 +52,14 @@ void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 		return;
 	}
 
+	PC->FlushPressedKeys();
+
+	if (ACharacter* PlayerCharacter = Cast<ACharacter>(PC->GetPawn()))
+	{
+		PlayerCharacter->GetCharacterMovement()->StopMovementImmediately();
+		PlayerCharacter->GetCharacterMovement()->DisableMovement();
+	}
+
 	if (!ActiveCutsceneWidget)
 	{
 		ActiveCutsceneWidget = CreateWidget<UNTCutsceneWidget>(PC, CutsceneWidgetClass);
@@ -70,6 +80,8 @@ void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 
 void ANamelessTalGameMode::BossPhaseStarted(EBossPhase InPhase)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	switch (InPhase)
 	{
 		case EBossPhase::First:
@@ -81,6 +93,10 @@ void ANamelessTalGameMode::BossPhaseStarted(EBossPhase InPhase)
 			{
 				Monster->Destroy();
 			}
+
+			bBossRoomEntered = true;
+			CurrentRespawnPoint = ENTRespawnPointEnum::Boss;
+			bIsBossStartSequence = true;
 			break;
 		}
 		case EBossPhase::Second:
@@ -88,6 +104,7 @@ void ANamelessTalGameMode::BossPhaseStarted(EBossPhase InPhase)
 		case EBossPhase::Third:
 			break;
 		case EBossPhase::End:
+			bIsEnding = true;
 			break;
 		default:
 			break;
@@ -101,6 +118,18 @@ void ANamelessTalGameMode::BossPhaseStarted(EBossPhase InPhase)
 
 void ANamelessTalGameMode::EndCutscene()
 {
+	if (bIsEnding)
+	{
+		if (!TitleLevelName.IsNone())
+		{
+			UGameplayStatics::OpenLevel(this, TitleLevelName);
+		}
+		else
+		{
+			MC_LOG(LogMC, Warning, TEXT("TitleLevelName not set"));
+		}
+	}
+
 	CutsceneMediaPlayer->Close();
 	CutsceneMediaPlayer->OnEndReached.RemoveDynamic(this, &ANamelessTalGameMode::EndCutscene);
 
@@ -111,11 +140,23 @@ void ANamelessTalGameMode::EndCutscene()
 
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
 	{
+		if (ACharacter* PlayerCharacter = Cast<ACharacter>(PC->GetPawn()))
+		{
+			PlayerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		}
+
+		PC->FlushPressedKeys();
 		PC->SetInputMode(FInputModeGameOnly());
 		PC->SetShowMouseCursor(false);
 	}
 
 	OnCutsceneSequenceEnded.Broadcast();
+
+	if (bIsBossStartSequence)
+	{
+		OnMonsterRespawn.Broadcast(ENTRespawnPointEnum::Boss);
+		bIsBossStartSequence = false;
+	}
 }
 
 void ANamelessTalGameMode::RespawnAllMonsters()
