@@ -13,6 +13,7 @@ class UMediaSoundComponent;
 class UNTCutsceneWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterRespawn, ENTRespawnPointEnum, OnMonsterRespawn);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCutsceneSequenceEnded);
 
 /**
  *  Simple GameMode for a third person game
@@ -30,6 +31,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnMonsterRespawn OnMonsterRespawn;
 
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnCutsceneSequenceEnded OnCutsceneSequenceEnded;
+
 	void RespawnAllMonsters();
 
 	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
@@ -38,8 +42,13 @@ public:
 	void SetIsEpicKilled(uint8 InIsEpicKilled) { bIsEpicKilled = InIsEpicKilled; }
 	const uint8 GetIsEpicKilled() { return bIsEpicKilled; }
 
+	void SetBossRoomEntered(uint8 InBossRoomEntered) { bBossRoomEntered = InBossRoomEntered; }
+	const uint8 GetBossRoomEntered() { return bBossRoomEntered; }
+
 	/** 렌더된 시퀀스 영상을 소리와 함께 전체화면 재생한다 */
 	void PlayCutscene(UMediaSource* Source);
+
+	void BossPhaseStarted(EBossPhase InPhase);
 
 protected:
 	virtual void BeginPlay() override;
@@ -51,12 +60,12 @@ protected:
 	ENTRespawnPointEnum CurrentRespawnPoint = ENTRespawnPointEnum::StartPoint;
 
 	uint8 bIsEpicKilled : 1 = false;
+	uint8 bBossRoomEntered : 1 = false;
+	uint8 bIsBossStartSequence : 1 = false;
+	uint8 bIsEnding : 1 = false;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
 	TObjectPtr<UMediaPlayer> CutsceneMediaPlayer;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
-	TObjectPtr<UMediaSource> CutsceneSource;
 
 	UPROPERTY(VisibleAnywhere, Category = "Cutscene")
 	TObjectPtr<UMediaSoundComponent> CutsceneSound;
@@ -66,6 +75,12 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UNTCutsceneWidget> ActiveCutsceneWidget;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
+	TMap<EBossPhase, TObjectPtr<UMediaSource>> CutsceneSources;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Ending")
+	FName TitleLevelName;
 
 };
 

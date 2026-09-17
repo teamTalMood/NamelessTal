@@ -43,6 +43,9 @@
 #include "TimerManager.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
+//Material
+#include "Materials/MaterialInstanceDynamic.h"
+
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
@@ -132,10 +135,36 @@ void ANTNPCCharacterBase::BeginPlay()
 
 
 	SetAttackPatternDatas();
+
+	SetupDynamicMaterials();
+}
+
+void ANTNPCCharacterBase::SetupDynamicMaterials()
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		return;
+	}
+
+	auto CreateSlotDynamicMaterial = [MeshComp](FName SlotName) -> UMaterialInstanceDynamic*
+	{
+		const int32 SlotIndex = MeshComp->GetMaterialIndex(SlotName);
+		return SlotIndex != INDEX_NONE ? MeshComp->CreateDynamicMaterialInstance(SlotIndex) : nullptr;
+	};
+
+	BodyDynamicMaterial = CreateSlotDynamicMaterial(TEXT("M_Human_Body"));
+	TopDynamicMaterial = CreateSlotDynamicMaterial(TEXT("Player_Top"));
+	PantsDynamicMaterial = CreateSlotDynamicMaterial(TEXT("Player_pant"));
+	ShoulderDynamicMaterial = CreateSlotDynamicMaterial(TEXT("M_Red_Fabric"));
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (IsValid(StatComponent))
+	{
+		StatComponent->SetTalchiRecoveryPaused(false);
+	}
 	GetWorldTimerManager().ClearTimer(ExhaustedTimerHandle);
 
 	bTalchiHeld = false;
@@ -192,6 +221,27 @@ void ANTNPCCharacterBase::Tick(float DeltaTime)
 	if (bISAttackMoving)
 	{
 		AddActorWorldOffset(AttackMoving * DeltaTime, true);
+	}
+
+	if (KnockBackRemainingTime > 0.0f)
+	{
+		KnockBackRemainingTime = FMath::Max(0.0f, KnockBackRemainingTime - DeltaTime);
+
+		// 제곱 감속: 초반에 확 밀리고 빠르게 멎는다
+		const float Ratio = (KnockBackDuration > 0.0f)
+			? (KnockBackRemainingTime / KnockBackDuration) : 0.0f;
+		const float Alpha = Ratio * Ratio;
+
+		const FVector Delta = KnockBackVelocity * Alpha * DeltaTime;
+		const FVector Before = GetActorLocation();
+
+		FHitResult Hit;
+		AddActorWorldOffset(Delta, true, &Hit);
+
+		if (KnockBackRemainingTime <= 0.0f)
+		{
+			KnockBackVelocity = FVector::ZeroVector;
+		}
 	}
 }
 
@@ -292,7 +342,44 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 
 		PendingLaunchImpulse = InDamageData.LaunchImpulse;
 
+		// 밀림 시작 이동은 Tick이관리
+		if (!InDamageData.PushBackVelocity.IsNearlyZero())
+		{
+			KnockBackVelocity = InDamageData.PushBackVelocity;
+			KnockBackRemainingTime = KnockBackDuration;
+
+			// 밀리는 동안 AI가 걸어서 되돌아오지 못하게 한다
+			if (AAIController* AIC = Cast<AAIController>(GetController()))
+			{
+				AIC->StopMovement();
+			}
+		}
+
+
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
+
+		// Normal 등급만: HP 50% 이하로 내려가면 상의/하의/어깨장식에 핏자국 노출
+		if (NPCGrade == ENPCGrade::Normal)
+		{
+			const float HPRatio = StatComponent->GetMaxHP() > 0.0f ? StatComponent->GetCurrentHP() / StatComponent->GetMaxHP() : 0.0f;
+			if (HPRatio <= 0.5f)
+			{
+				static const FName BloodAmountParam(TEXT("BloodAmount"));
+
+				if (TopDynamicMaterial)
+				{
+					TopDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+				if (PantsDynamicMaterial)
+				{
+					PantsDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+				if (ShoulderDynamicMaterial)
+				{
+					ShoulderDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+			}
+		}
 
 		// 만약 피해받고 죽었으면 피격 처리 중단
 		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)
@@ -323,15 +410,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 				StartDamaged();
 			}
 		}
-
-		// 그냥 피격체크 - 그로기가 아닐때만 데미지 애니메이션 적용
-		if (!bIsExhausting)
-		{
-			StartStun();
-			StartDamaged();
-		}
 	}
-
 	//MC_LOG(LogMC, Log, TEXT("End"));
 
 	return InDamageData.HPDamage;
@@ -364,6 +443,8 @@ void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
 	//AnimInstance->Montage_SetEndDelegate(EndDelegate, TalChiMontage);
 
 	if (bIsDead || !IsValid(StatComponent)) return;
+
+	PendingLaunchImpulse = FVector::ZeroVector;
 
 	const float Damage = StatComponent->MaxHP * 0.5f;
 
@@ -674,11 +755,12 @@ void ANTNPCCharacterBase::EndExhausted()
 	StatComponent->RestoreSoul();
 	bIsExhausting = false;
 
+	FTimerHandle Handle;//🐘
 	GetWorldTimerManager().SetTimer(
-		ExhaustedTimerHandle,
+		Handle,
 		this,
-		&ANTNPCCharacterBase::EndExhausted,
-		ExhaustedDuration,
+		&ANTNPCCharacterBase::ReleaseStun,
+		1.0f,
 		false);
 }
 
@@ -755,8 +837,12 @@ void ANTNPCCharacterBase::OnDamageMontageEnd(UAnimMontage* TargetMontage, bool I
 
 		NPCAnim->SetAnimIsExhausted(true);
 
-		FTimerHandle Handle;
-		GetWorldTimerManager().SetTimer(Handle, this, &ANTNPCCharacterBase::EndExhausted, ExhaustedDuration, false);
+		GetWorldTimerManager().SetTimer(
+			ExhaustedTimerHandle,
+			this,
+			&ANTNPCCharacterBase::EndExhausted,
+			ExhaustedDuration,
+			false);
 	}
 	else
 	{
@@ -831,6 +917,10 @@ void ANTNPCCharacterBase::HandleDeath()
 
 		MovementComponent->StopMovementImmediately();
 		MovementComponent->DisableMovement();
+
+		// 래그돌, 사망 몽타주와 밀림이 겹치지 않게 정리하기
+		KnockBackVelocity = FVector::ZeroVector;
+		KnockBackRemainingTime = 0.0f;
 	}
 
 	HpBar->SetVisibility(false);
@@ -944,13 +1034,18 @@ void ANTNPCCharacterBase::CheckRagdollSettled()
 
 bool ANTNPCCharacterBase::BeginTalchiHold()
 {
-	if (bIsDead || !bIsExhausting || bTalchiHeld)
+	if (bIsDead
+		|| !bIsExhausting
+		|| bTalchiHeld
+		|| !IsValid(StatComponent))
 	{
 		return false;
 	}
 
+
 	bTalchiHeld = true;
 	bTalchiDeferredExhaustedEnd = false;
+	StatComponent->SetTalchiRecoveryPaused(true);
 
 	FTimerManager& Timers = GetWorldTimerManager();
 
@@ -975,6 +1070,10 @@ void ANTNPCCharacterBase::EndTalchiHold()
 	}
 
 	bTalchiHeld = false;
+	if (IsValid(StatComponent))
+	{
+		StatComponent->SetTalchiRecoveryPaused(false);
+	}
 
 	const bool bResumeTimer = bTalchiPausedExhaustedTimer;
 	const bool bFinishExhausted = bTalchiDeferredExhaustedEnd;

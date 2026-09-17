@@ -11,6 +11,14 @@
 class ATalBase;
 class UNTTalComponent;
 
+UENUM(BlueprintType)
+enum class ENPCGrade : uint8
+{
+	Normal = 0,
+	Elite = 1,
+	Boss = 2
+};
+
 struct FNPCCurrentAttackData
 {
 	FName NextStepID;
@@ -144,6 +152,13 @@ protected:
 	FVector AttackMoving = FVector(0, 0, 0);
 
 	uint8 bISAttackMoving : 1 = false;
+	// 플레이어 스킬에 맞아 밀려나는 속도와 남은시간
+	FVector KnockBackVelocity = FVector::ZeroVector;
+	float KnockBackRemainingTime = 0.0f;
+
+	// 밀림 지속 시간 0초까지 감소간다에요
+	UPROPERTY(EditAnywhere, Category = "Damage")
+	float KnockBackDuration = 0.15f;
 
 	FNPCCurrentAttackData CurrentAttackData;
 
@@ -196,6 +211,29 @@ protected:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	TObjectPtr <class UStatComponent> StatComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
+	ENPCGrade NPCGrade = ENPCGrade::Normal;
+
+
+	////////////////////////////////////////
+	//
+	//   Dynamic Material (Body/Top/Pants/Shoulder - 흙/찢어짐/핏자국 파라미터 제어용)
+	//
+protected:
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> BodyDynamicMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> TopDynamicMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> PantsDynamicMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> ShoulderDynamicMaterial;
+
+	void SetupDynamicMaterials();
 
 
 	/////////////////////////////////////////

@@ -28,6 +28,7 @@ class ADdokaebiFire; // 화톳불 전방선언
 class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
 class UUserWidget;
 class ANTNPCCharacterBase;
+class UCurveFloat;
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -62,7 +63,9 @@ struct FPlayerCurrentSpecialArtData
 	int32 HPDamage = 0;
 	int32 SoulDamage = 0;
 	int32 StaggerDamage = 0;
+	float PushBackSpeed = 0.f;
 };
+
 
 
 UCLASS()
@@ -140,6 +143,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <UCapsuleComponent> WeaponCollision;
+
+	// 왼쪽 반쪽 탈입니다. 교체되지 않는 상시 장비라 TalComponent 슬롯과 별개로 둡니다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> LeftTalMesh;
 
 
 
@@ -299,9 +306,16 @@ public:
 	ATalBase* UnequipTal();//탈 벗고 반환
 	void TakeTalFrom(AActor* TargetActor);//탈바꿈
 	void StartVictimTalchiMontage();//탈취 애니메이션 시작
-	void TransferSelectedTal(); //탈 이전
 	void GrabSelectedTalToHand();
 	void EquipHeldTalToFace();
+
+	UFUNCTION(BlueprintCallable, Category = "Talchi|Camera")
+	void EnterTalchiFirstPerson();
+
+	// 1인칭 탈 구도를 콘솔에서 바로 확인하기 위한 디버그 토글입니다.
+	// 켜져 있는 동안은 디테일 패널에서 바꾼 Talchi|Mask 값이 매 프레임 반영됩니다.
+	UFUNCTION(Exec, BlueprintCallable, Category = "Talchi|Debug")
+	void NTPreviewTalchiMask();
 
 	UFUNCTION(BlueprintPure, Category = "Tal")
 	UNTTalComponent* GetTalComponent() const { return TalComponent; }
@@ -344,9 +358,125 @@ protected:
 	// 정상 종료와 중단 모두 이 함수로 정리합니다.
 	void FinishTalchi();
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera", meta = (ClampMin = "0.0", Units = "cm"))
+	float TalchiCameraDistance = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera", meta = (ClampMin = "0.0", Units = "s"))
+	float TalchiCameraBlendDuration = 0.2f;
+
+	void BeginTalchiCamera(AActor* TargetActor);
+	void UpdateTalchiCamera();
+	void RestoreTalchiCamera();
+	void RestoreTalchiFirstPerson();
+	void HideTalchiFaceMask();
+	void BeginTalchiMaskApproach();
+	void UpdateTalchiMaskApproach();
+	void EndTalchiMaskApproach();
+	void BeginTalchiLeftMaskFraming();
+	void RestoreTalchiLeftMask();
+	void SettleTalchiRightMask();
+	void RestoreTalchiRightMask();
+	FTransform GetTalchiRightMaskCoverTransform() const;
+	FTransform GetTalchiLeftMaskFrameTransform() const;
+	void UpdateTalchiMaskPreview();
+
+	// 1인칭 구간에서 왼쪽 탈이 놓일 자리입니다. TalchiCamera 로컬 기준이며
+	// X는 전방, Y는 오른쪽이라 왼쪽 절반은 Y가 음수입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FVector TalchiLeftMaskOffset = FVector(22.0f, -8.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FRotator TalchiLeftMaskRotation = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
+	float TalchiLeftMaskScale = 1.0f;
+
+	// 뺏은 오른쪽 탈이 안착할 자리입니다. 중앙 이음새가 맞도록 왼쪽과 짝을 맞춥니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FVector TalchiRightMaskOffset = FVector(22.0f, 8.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FRotator TalchiRightMaskRotation = FRotator::ZeroRotator;
+
+	// TalchiCamera 로컬 기준의 절대 스케일입니다. 어떤 탈을 빼앗아도
+	// 화면에서 같은 크기로 보이도록 원본 크기에 의존하지 않습니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
+	float TalchiRightMaskScale = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.0", Units = "s"))
+	float TalchiMaskApproachDuration = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	TObjectPtr<UCurveFloat> TalchiMaskApproachCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	bool bTalchiMaskDisableShadow = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
+	FName LeftTalSocketName = TEXT("TalSocket_L");
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ATalBase> TalchiApproachMask;
+
+	FTransform TalchiMaskApproachStart = FTransform::Identity;
+	FVector TalchiRightMaskSavedScale3D = FVector::OneVector;
+	double TalchiMaskApproachStartTime = 0.0;
+	bool bTalchiMaskApproachActive = false;
+	bool bTalchiMaskSavedCastShadow = false;
+
+	FTransform TalchiLeftMaskSavedTransform = FTransform::Identity;
+	bool bTalchiLeftMaskFramed = false;
+	bool bTalchiRightMaskSettled = false;
+
+	// 디버그 미리보기로 1인칭 구도에 들어가 있는 상태입니다.
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi|Debug")
+	bool bTalchiPreviewActive = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera")
+	FName TalchiFirstPersonHeadBone = TEXT("head");
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi|Camera")
+	bool bTalchiFirstPersonActive = false;
+
+	bool bTalchiSavedFollowCameraActive = false;
+	bool bTalchiSavedFirstPersonCameraActive = false;
+	bool bTalchiSavedMeshOwnerNoSee = false;
+	bool bTalchiSavedWeaponOwnerNoSee = false;
+	bool bTalchiSavedHeadHidden = false;
+	FName TalchiHiddenHeadBone = NAME_None;
+	TMap<TWeakObjectPtr<AActor>, bool> TalchiSavedMaskVisibility;
+
+	bool bTalchiCameraActive = false;
+	float TalchiCameraOriginalArmLength = 0.0f;
+	float TalchiCameraTargetArmLength = 0.0f;
+	float TalchiCameraActiveBlendDuration = 0.0f;
+	double TalchiCameraStartTime = 0.0;
+	bool bTalchiOriginalUseControlRotation = false;
+	bool bTalchiOriginalRotationLag = false;
+
 	// 탈취 몽타주의 종료 콜백
 	void OnTalchiMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.0", Units = "cm"))
+	float TalchiSlowRadius = 1000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.01", ClampMax = "1.0"))
+	float TalchiSlowMultiplier = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.01"))
+	float TalchiSlowUpdateInterval = 0.1f;
+
+	// NPC와 AIController의 적용 전 속도를 각각 보관합니다.
+	// 약한 참조이므로 대상의 파괴를 막지 않습니다.
+	TMap<TWeakObjectPtr<AActor>, float> TalchiOriginalTimeDilations;
+
+	float TalchiSlowElapsed = 0.0f;
+
+	void UpdateTalchiSlow();
+	void ClearTalchiSlow();
 
 	// 화면 좌표 기준으로 적 중심에서 오른쪽 위에 표시합니다.
 	UPROPERTY(EditDefaultsOnly, Category = "Talchi|UI")
@@ -512,6 +642,8 @@ protected:
 	// 스킬로 죽일 경우 시체를 날릴 impulse 계산
 	// 플레이어 정면과 대상 방향 섞어 대각선으로 날아가게(카메라에 나오게)
 	FVector ComputeSpecialArtLaunchImpulse(const AActor* Target) const;
+	FVector ComputePushBackVelocity(const AActor* Target, float Speed) const;
+
 
 	//날아가는 세기 bVelChange라 질량 무시하고 몬스터가 뭐든 일정하게 날아감
 	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch")

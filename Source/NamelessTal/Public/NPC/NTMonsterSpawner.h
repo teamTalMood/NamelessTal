@@ -30,6 +30,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	ENTRespawnPointEnum StagePoint;
 
+	UPROPERTY(EditAnywhere, Category = "Spawn")
+	uint8 bIsBossRoomSpawner : 1 = false;
+
 	UFUNCTION()
 	void SpawnNPC(ENTRespawnPointEnum InSavePoint);
 
