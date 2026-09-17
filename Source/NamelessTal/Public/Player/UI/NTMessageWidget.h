@@ -38,5 +38,6 @@ private :
 	void Hide();
 
 	FTimerHandle HideTimer;
+	FTimerHandle CollapseTimer;
 
 };
