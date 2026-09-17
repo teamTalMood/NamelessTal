@@ -222,6 +222,33 @@ void ANTNPCCharacterBase::Tick(float DeltaTime)
 	{
 		AddActorWorldOffset(AttackMoving * DeltaTime, true);
 	}
+
+	if (KnockBackRemainingTime > 0.0f)
+	{
+		KnockBackRemainingTime = FMath::Max(0.0f, KnockBackRemainingTime - DeltaTime);
+
+		// 제곱 감속: 초반에 확 밀리고 빠르게 멎는다
+		const float Ratio = (KnockBackDuration > 0.0f)
+			? (KnockBackRemainingTime / KnockBackDuration) : 0.0f;
+		const float Alpha = Ratio * Ratio;
+
+		const FVector Delta = KnockBackVelocity * Alpha * DeltaTime;
+		const FVector Before = GetActorLocation();
+
+		FHitResult Hit;
+		AddActorWorldOffset(Delta, true, &Hit);
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("[KB] Speed=%.0f 요청=%.1f 실제=%.1f 막힘=%d 막은놈=%s"),
+			KnockBackVelocity.Size(), Delta.Size(),
+			(GetActorLocation() - Before).Size(),
+			Hit.bBlockingHit ? 1 : 0, *GetNameSafe(Hit.GetActor()));
+
+		if (KnockBackRemainingTime <= 0.0f)
+		{
+			KnockBackVelocity = FVector::ZeroVector;
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -321,6 +348,20 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 
 		PendingLaunchImpulse = InDamageData.LaunchImpulse;
 
+		// 밀림 시작 이동은 Tick이관리
+		if (!InDamageData.PushBackVelocity.IsNearlyZero())
+		{
+			KnockBackVelocity = InDamageData.PushBackVelocity;
+			KnockBackRemainingTime = KnockBackDuration;
+
+			// 밀리는 동안 AI가 걸어서 되돌아오지 못하게 한다
+			if (AAIController* AIC = Cast<AAIController>(GetController()))
+			{
+				AIC->StopMovement();
+			}
+		}
+
+
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
 
 		// Normal 등급만: HP 50% 이하로 내려가면 상의/하의/어깨장식에 핏자국 노출
@@ -383,7 +424,6 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 			StartDamaged();
 		}
 	}
-
 	//MC_LOG(LogMC, Log, TEXT("End"));
 
 	return InDamageData.HPDamage;
@@ -890,6 +930,10 @@ void ANTNPCCharacterBase::HandleDeath()
 
 		MovementComponent->StopMovementImmediately();
 		MovementComponent->DisableMovement();
+
+		// 래그돌, 사망 몽타주와 밀림이 겹치지 않게 정리하기
+		KnockBackVelocity = FVector::ZeroVector;
+		KnockBackRemainingTime = 0.0f;
 	}
 
 	HpBar->SetVisibility(false);

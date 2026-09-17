@@ -1117,7 +1117,13 @@ void ATalPlayerCharacter::OnWeaponOverlap(
 
 		// 스킬로 죽이면 NPC가 이 값으로 날아가게
 		DamageData.LaunchImpulse = ComputeSpecialArtLaunchImpulse(OtherActor);
+
+		// 안 죽었으면 이값으로밀려나기
+		DamageData.PushBackVelocity = ComputePushBackVelocity(OtherActor,
+			CurrentSpecialArtData.PushBackSpeed);
+
 		DamageResult = NPCCharacter->ApplyDamage(this, DamageData);
+
 	}
 	else
 	{
@@ -1722,6 +1728,25 @@ FVector ATalPlayerCharacter::ComputeSpecialArtLaunchImpulse(const AActor* Target
 	return Dir.GetSafeNormal() * SpecialArtLaunchPower;
 }
 
+FVector ATalPlayerCharacter::ComputePushBackVelocity(const AActor* Target, float Speed) const
+{
+	if (!Target || Speed <= 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	//플레이어->NPC 방향으로 때리느 방향
+	FVector Dir = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+
+	// 완전히 겹쳐서 방향을 못 구하면 정면으로 밀어낸다
+	if (Dir.IsNearlyZero())
+	{
+		Dir = GetActorForwardVector().GetSafeNormal2D();
+	}
+
+	return Dir * Speed; // Z는 이미 0이니까 괜찮다에요
+}
+
 void ATalPlayerCharacter::BeginSpecialArtHit(int32 ComboCount)
 {
 	if (!bIsUsingSpecialArt ||
@@ -1757,6 +1782,7 @@ void ATalPlayerCharacter::BeginSpecialArtHit(int32 ComboCount)
 	CurrentSpecialArtData.HPDamage = StepData->HPDamage;
 	CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
 	CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
+	CurrentSpecialArtData.PushBackSpeed = StepData->PushBackSpeed;
 
 	CurrentSpecialArtComboCount = ComboCount;
 	bIsSpecialArtHitActive = true;
