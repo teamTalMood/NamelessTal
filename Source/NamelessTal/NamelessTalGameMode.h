@@ -11,9 +11,12 @@ class UMediaPlayer;
 class UMediaSource;
 class UMediaSoundComponent;
 class UNTCutsceneWidget;
+class UAudioComponent;
+class USoundBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterRespawn, ENTRespawnPointEnum, OnMonsterRespawn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCutsceneSequenceEnded);
+DECLARE_DELEGATE(FOnStartBossGame);
 
 /**
  *  Simple GameMode for a third person game
@@ -34,7 +37,16 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnCutsceneSequenceEnded OnCutsceneSequenceEnded;
 
+	// 보스방 입장 시퀀스 종료 시 호출. ATalPlayerController에서 바인딩
+	FOnStartBossGame OnStartBossGame;
+
 	void RespawnAllMonsters();
+
+	// 보스 HP 변경을 ATalPlayerController로 전달
+	void NotifyBossHPChanged(float CurrentHP, float MaxHP);
+
+	// 보스 넋 변경을 ATalPlayerController로 전달
+	void NotifyBossSoulChanged(float CurrentSoul, float MaxSoul);
 
 	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
 	const ENTRespawnPointEnum GetCurrentSavePoint() { return CurrentRespawnPoint; }
@@ -59,6 +71,10 @@ protected:
 protected:
 	ENTRespawnPointEnum CurrentRespawnPoint = ENTRespawnPointEnum::StartPoint;
 
+	// 저장 지점(Enum)별 리스폰 월드 좌표
+	UPROPERTY(EditDefaultsOnly, Category = "Respawn")
+	TMap<ENTRespawnPointEnum, FVector> SpawnPositions;
+
 	uint8 bIsEpicKilled : 1 = false;
 	uint8 bBossRoomEntered : 1 = false;
 	uint8 bIsBossStartSequence : 1 = false;
@@ -81,6 +97,13 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Ending")
 	FName TitleLevelName;
+
+	UPROPERTY(VisibleAnywhere, Category = "Sound")
+	TObjectPtr<UAudioComponent> BGMAudioComponent;
+
+	// 보스전 시작(OnStartBossGame) 시 BGMAudioComponent에 교체해서 재생할 보스용 BGM
+	UPROPERTY(EditDefaultsOnly, Category = "Sound")
+	TObjectPtr<USoundBase> BossBGM;
 
 };
 

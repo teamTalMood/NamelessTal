@@ -6,6 +6,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "NTTitleGameMode.generated.h"
 
+class UAudioComponent;
+
 UCLASS()
 class NAMELESSTAL_API ANTTitleGameMode : public AGameModeBase
 {
@@ -13,4 +15,10 @@ class NAMELESSTAL_API ANTTitleGameMode : public AGameModeBase
 
 public:
 	ANTTitleGameMode();
+
+protected:
+	virtual void BeginPlay() override;
+
+	UPROPERTY(VisibleAnywhere, Category = "Sound")
+	TObjectPtr<UAudioComponent> BGMAudioComponent;
 };

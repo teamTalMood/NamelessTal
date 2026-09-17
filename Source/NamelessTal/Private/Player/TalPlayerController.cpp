@@ -9,14 +9,17 @@
 #include "Player/TalPlayerCharacter.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
+#include "NamelessTalGameMode.h"
 #include "MCLOG.h"
+#include "EnhancedInputComponent.h"
+#include "Player/UI/NTPauseMenuWidget.h"
 
 
 void ATalPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	SetControllerSettings(nullptr);
 }
@@ -34,6 +37,14 @@ void ATalPlayerController::SetupInputComponent()
 		}
 	}
 
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		if (PauseAction)
+		{
+			EIC->BindAction(PauseAction, ETriggerEvent::Started,
+				this, &ATalPlayerController::TogglePauseMenu);
+		}
+	}
 }
 
 void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
@@ -100,5 +111,58 @@ void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 	PlayerHUD->InitializeWithStatComponent(StatComponent);
 	PlayerHUD->InitializeWithTalComponent(TalCharacter->GetTalComponent());
 
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->OnStartBossGame.BindUObject(this, &ATalPlayerController::HandleStartBossGame);
+		MC_LOG(LogMC, Log, TEXT("OnStartBossGame Binded"));
+	}
+
 	bISControllerSetted = true;
 }
+
+void ATalPlayerController::HandleStartBossGame()
+{
+	if (!IsValid(PlayerHUD)) return;
+
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	PlayerHUD->ShowBossHPBar();
+}
+
+void ATalPlayerController::UpdateBossHP(float CurrentHP, float MaxHP)
+{
+	if (!IsValid(PlayerHUD)) return;
+
+	PlayerHUD->UpdateBossHPBar(CurrentHP, MaxHP);
+}
+
+void ATalPlayerController::UpdateBossSoul(float CurrentSoul, float MaxSoul)
+{
+	if (!IsValid(PlayerHUD)) return;
+
+	PlayerHUD->UpdateBossSoulBar(CurrentSoul, MaxSoul);
+}
+
+void ATalPlayerController::TogglePauseMenu()
+{
+	if (PauseMenu && PauseMenu->IsInViewport())
+	{
+		PauseMenu->CloseMenu();
+		return;
+	}
+
+	if (!PauseMenu)
+	{
+		if (!PauseMenuClass)
+		{
+			return;
+		}
+		PauseMenu = CreateWidget<UNTPauseMenuWidget>(this, PauseMenuClass);
+	}
+
+	if (PauseMenu)
+	{
+		PauseMenu->OpenMenu();
+	}
+}
+

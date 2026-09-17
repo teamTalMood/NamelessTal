@@ -14,41 +14,35 @@ void UNTHPBarWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_HP")));
-	ensure(HpProgressBar);
-
-	SoulProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_Soul")));
-	ensure(SoulProgressBar);
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 }
 
 void UNTHPBarWidget::UpdateHpBar(float NewCurrentHp, float InMaxHP)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	ensure(InMaxHP > 0.0f);
-	if (HpProgressBar)
+	if (PB_HP)
 	{
-		HpProgressBar->SetPercent(NewCurrentHp / InMaxHP);
+		PB_HP->SetPercent(NewCurrentHp / InMaxHP);
 	}
 	else
 	{
-		MC_LOG(LogMC, Error, TEXT("No HpProgressBar!!"));
+		MC_LOG(LogMC, Error, TEXT("No PB_HP!!"));
 	}
 }
 
 void UNTHPBarWidget::UpdateSoulBar(float NewCurrentSoul, float InMaxSoul)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	ensure(InMaxSoul > 0.0f);
-	if (SoulProgressBar)
+	if (PB_Soul)
 	{
-		SoulProgressBar->SetPercent(NewCurrentSoul / InMaxSoul);
+		PB_Soul->SetPercent(NewCurrentSoul / InMaxSoul);
 	}
 	else
 	{
-		MC_LOG(LogMC, Error, TEXT("No SoulProgressBar!!"));
+		MC_LOG(LogMC, Error, TEXT("No PB_Soul!!"));
 	}
 }

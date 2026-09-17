@@ -21,6 +21,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/LocalPlayer.h"
 
+#include "Player/UI/NTDdokaebiFireWidget.h"
 
 // Sets default values
 ADdokaebiFire::ADdokaebiFire()
@@ -62,12 +63,14 @@ void ADdokaebiFire::TriggerRest(AActor* User)
 
 	if (ATalPlayerCharacter* PlayerCharacter = Cast<ATalPlayerCharacter>(User))
 	{
+		// 호리병 충전은 메뉴의 Btn_Upgrade가 담당한다
+		// 여기서 미리 채우면 메뉴가 뜬 시점에 이미 가득 차 있어서 버튼이 무의미
 		PlayerCharacter->SetLastBonfire(this);
-		PlayerCharacter->RechargeFlask();
 	}
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{
+		GameMode->SetCurrentSavePoint(FireSavePoint);
 		GameMode->RespawnAllMonsters();
 	}
 
@@ -79,6 +82,35 @@ void ADdokaebiFire::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void ADdokaebiFire::OpenRestMenu()
+{
+	if (!RestMenuClass)
+	{
+		return;
+	}
+
+	APawn* Pawn = Cast<APawn>(OverlappingPlayer);
+	APlayerController* PC = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
+
+	if (PC == nullptr)
+	{
+		return;
+	}
+
+	if (!RestMenu)
+	{
+		RestMenu = CreateWidget<UNTDdokaebiFireWidget>(PC, RestMenuClass);
+	}
+	if (!RestMenu)
+	{
+		return;
+	}
+
+	RestMenu->SetLocationName(LocationName);
+	RestMenu->OpenMenu();
+
 }
 
 void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,	bool bFromSweep, const FHitResult& SweepResult)
@@ -150,5 +182,5 @@ void ADdokaebiFire::OnInteract()
 	}
 
 	TriggerRest(OverlappingPlayer);
-
+	OpenRestMenu();
 }

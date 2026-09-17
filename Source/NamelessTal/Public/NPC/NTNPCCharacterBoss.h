@@ -84,12 +84,22 @@ protected:
 	UFUNCTION()
 	void StartNextPhase();
 
+	// StatComponent->OnHPChanged 바인딩. 보스 HP 변경을 게임모드로 전달
+	UFUNCTION()
+	void NotifyGameModeHPChanged(float NewHP, float MaxHP);
+
+	// StatComponent->OnSoulChanged 바인딩. 보스 넋 변경을 게임모드로 전달
+	UFUNCTION()
+	void NotifyGameModeSoulChanged(float NewSoul, float MaxSoul);
+
 	virtual void BeginAttack() override;
 
 	// Top/Pants/Shoulder 다이나믹 머티리얼에 동일한 스칼라 파라미터를 한번에 적용
 	void SetPartsScalarParameter(FName ParamName, float Value);
 
 	void StartBossSequence(UAnimMontage* TargetMontage, bool IsProperlyEnded);
+
+	virtual void SetupCharacterWidget(class UNTHPBarWidget* InUserWidget) override;
 
 	FTimerHandle PhaseStartDelayTimer;
 };

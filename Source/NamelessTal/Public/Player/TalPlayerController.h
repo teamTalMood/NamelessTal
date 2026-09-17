@@ -9,6 +9,7 @@
 
 class UNTPlayerHUDWidget;
 class UNTMessageWidget;
+class UNTPauseMenuWidget;
 class ATalPlayerCharacter;
 
 UENUM(BlueprintType)
@@ -53,6 +54,14 @@ protected:
 	TSubclassOf<UNTPlayerHUDWidget> PlayerHUDClass;
 	UPROPERTY()
 	TObjectPtr<UNTPlayerHUDWidget> PlayerHUD;
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UNTPauseMenuWidget> PauseMenuClass;
+
+	UPROPERTY()
+	TObjectPtr<UNTPauseMenuWidget> PauseMenu;
+
+	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
+	TObjectPtr<class UInputAction> PauseAction;
 
 	uint8 bISControllerSetted : 1 = false;
 
@@ -60,4 +69,16 @@ public : // UI
 	void ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration);
 
 	void SetControllerSettings(ATalPlayerCharacter* InPawn = nullptr);
+
+public: // Boss HP
+	// GameMode의 OnStartBossGame 델리게이트에 바인딩되는 핸들러
+	void HandleStartBossGame();
+
+	// GameMode -> Controller -> HUD -> HPBarWidget 순으로 보스 HP 갱신
+	void UpdateBossHP(float CurrentHP, float MaxHP);
+
+	// GameMode -> Controller -> HUD -> HPBarWidget 순으로 보스 넋 갱신
+	void UpdateBossSoul(float CurrentSoul, float MaxSoul);
+
+	void TogglePauseMenu();
 };
