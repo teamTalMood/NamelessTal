@@ -43,6 +43,9 @@
 #include "TimerManager.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
+//Material
+#include "Materials/MaterialInstanceDynamic.h"
+
 
 // Sets default values
 ANTNPCCharacterBase::ANTNPCCharacterBase()
@@ -132,6 +135,28 @@ void ANTNPCCharacterBase::BeginPlay()
 
 
 	SetAttackPatternDatas();
+
+	SetupDynamicMaterials();
+}
+
+void ANTNPCCharacterBase::SetupDynamicMaterials()
+{
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		return;
+	}
+
+	auto CreateSlotDynamicMaterial = [MeshComp](FName SlotName) -> UMaterialInstanceDynamic*
+	{
+		const int32 SlotIndex = MeshComp->GetMaterialIndex(SlotName);
+		return SlotIndex != INDEX_NONE ? MeshComp->CreateDynamicMaterialInstance(SlotIndex) : nullptr;
+	};
+
+	BodyDynamicMaterial = CreateSlotDynamicMaterial(TEXT("M_Human_Body"));
+	TopDynamicMaterial = CreateSlotDynamicMaterial(TEXT("Player_Top"));
+	PantsDynamicMaterial = CreateSlotDynamicMaterial(TEXT("Player_pant"));
+	ShoulderDynamicMaterial = CreateSlotDynamicMaterial(TEXT("M_Red_Fabric"));
 }
 
 void ANTNPCCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -297,6 +322,29 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 		PendingLaunchImpulse = InDamageData.LaunchImpulse;
 
 		StatComponent->ApplyDamage(InDamageData.HPDamage);
+
+		// Normal 등급만: HP 50% 이하로 내려가면 상의/하의/어깨장식에 핏자국 노출
+		if (NPCGrade == ENPCGrade::Normal)
+		{
+			const float HPRatio = StatComponent->GetMaxHP() > 0.0f ? StatComponent->GetCurrentHP() / StatComponent->GetMaxHP() : 0.0f;
+			if (HPRatio <= 0.5f)
+			{
+				static const FName BloodAmountParam(TEXT("BloodAmount"));
+
+				if (TopDynamicMaterial)
+				{
+					TopDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+				if (PantsDynamicMaterial)
+				{
+					PantsDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+				if (ShoulderDynamicMaterial)
+				{
+					ShoulderDynamicMaterial->SetScalarParameterValue(BloodAmountParam, 1.0f);
+				}
+			}
+		}
 
 		// 만약 피해받고 죽었으면 피격 처리 중단
 		if (StatComponent->CurrentHP - InDamageData.HPDamage <= 0)

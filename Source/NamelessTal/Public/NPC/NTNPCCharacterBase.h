@@ -11,6 +11,14 @@
 class ATalBase;
 class UNTTalComponent;
 
+UENUM(BlueprintType)
+enum class ENPCGrade : uint8
+{
+	Normal = 0,
+	Elite = 1,
+	Boss = 2
+};
+
 struct FNPCCurrentAttackData
 {
 	FName NextStepID;
@@ -196,6 +204,29 @@ protected:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stat")
 	TObjectPtr <class UStatComponent> StatComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stat")
+	ENPCGrade NPCGrade = ENPCGrade::Normal;
+
+
+	////////////////////////////////////////
+	//
+	//   Dynamic Material (Body/Top/Pants/Shoulder - 흙/찢어짐/핏자국 파라미터 제어용)
+	//
+protected:
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> BodyDynamicMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> TopDynamicMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> PantsDynamicMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> ShoulderDynamicMaterial;
+
+	void SetupDynamicMaterials();
 
 
 	/////////////////////////////////////////
