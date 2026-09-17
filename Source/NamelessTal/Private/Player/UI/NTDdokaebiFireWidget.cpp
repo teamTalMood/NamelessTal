@@ -2,6 +2,10 @@
 
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "Player/TalPlayerCharacter.h"
+
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 void UNTDdokaebiFireWidget::NativeConstruct()
 {
@@ -12,6 +16,7 @@ void UNTDdokaebiFireWidget::NativeConstruct()
 		Btn_Upgrade->OnClicked.AddUniqueDynamic(this, &UNTDdokaebiFireWidget::HandleUpgradeClicked);
 		Btn_Upgrade->OnHovered.AddUniqueDynamic(this, &UNTDdokaebiFireWidget::HandleUpgradeHovered);
 	}
+
 
 	if (IsValid(Btn_Leave))
 	{
@@ -28,15 +33,28 @@ void UNTDdokaebiFireWidget::SetLocationName(const FText& InName)
 	}
 }
 
+// 위 버튼(Btn_Upgrade) : 호리병 개수를 최대치로 채운다.
 void UNTDdokaebiFireWidget::HandleUpgradeClicked()
 {
-	// 호리병 강화는 아직 미구현. 시스템이 생기면 여기에 연결한다.
-	UE_LOG(LogTemp, Warning, TEXT("호리병 강화 선택됨"));
+	ATalPlayerCharacter* Player = Cast<ATalPlayerCharacter>(GetOwningPlayerPawn());
+	if (!IsValid(Player))
+	{
+		return;
+	}
+
+	Player->RechargeFlask();
+
+	// 확인용. 동작 검증 끝나면 지워도 된다.
+	UE_LOG(LogTemp, Warning, TEXT("호리병 충전 완료"));
 }
 
+
+// 아래 버튼(Btn_Leave) : 게임을 종료한다.
 void UNTDdokaebiFireWidget::HandleLeaveClicked()
 {
-	CloseMenu();
+	// 종료 전에 일시정지를 반드시 푼다. 멈춘 채로 QuitGame하면 종료가 막힐 수 있다.
+	UGameplayStatics::SetGamePaused(this, false);
+	UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, false);
 }
 
 void UNTDdokaebiFireWidget::HandleUpgradeHovered() { MoveSelectorTo(Btn_Upgrade); }
