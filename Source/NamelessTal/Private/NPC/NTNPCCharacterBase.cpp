@@ -410,13 +410,6 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 				StartDamaged();
 			}
 		}
-
-		// 그냥 피격체크 - 그로기가 아닐때만 데미지 애니메이션 적용
-		if (!bIsExhausting)
-		{
-			StartStun();
-			StartDamaged();
-		}
 	}
 	//MC_LOG(LogMC, Log, TEXT("End"));
 
