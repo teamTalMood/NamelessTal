@@ -30,6 +30,8 @@ class UUserWidget;
 class ANTNPCCharacterBase;
 class UCurveFloat;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSpecialArtUsesChanged);
+
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
 enum class EPlayerAttackPhase : uint8
@@ -645,6 +647,12 @@ public:
 	void BeginSpecialArtHit(int32 ComboCount);
 	void EndSpecialArtHit(int32 ComboCount);
 
+	UPROPERTY(BlueprintAssignable, Category = "Tal|UI")
+	FOnSpecialArtUsesChanged OnSpecialArtUsesChanged;
+
+	UFUNCTION(BlueprintPure, Category = "Tal|UI")
+	int32 GetRemainingSpecialArtUses() const;
+
 protected:
 	UPROPERTY(EditAnywhere, Category = "SpecialAttack")
 	TObjectPtr<UInputAction> SpecialArtAction;
@@ -666,6 +674,13 @@ protected:
 	int32 CurrentSpecialArtComboCount = INDEX_NONE;
 	// 지금 장착한 탈로 특수기 몇번 썼는지
 	int32 SpecialArtUseCount = 0;
+
+	// 마지막 기술의 종료/중단 시 제거할 탈입니다.
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ATalBase> PendingConsumedTal;
+
+	void ResetTalUses();
+	void RemoveConsumedTal();
 
 	// 지금 실행 중인 스텝의 데이터
 	FPlayerCurrentSpecialArtData CurrentSpecialArtData;

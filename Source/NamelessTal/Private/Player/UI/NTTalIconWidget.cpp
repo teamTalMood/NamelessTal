@@ -6,13 +6,13 @@
 #include "Engine/Texture2D.h"
 #include "Components/NTTalComponent.h"
 #include "TalBase.h"
+#include "Components/TextBlock.h"
+#include "Player/TalPlayerCharacter.h"
 
 
 
 void UNTTalIconWidget::InitializeWithTalComponent(UNTTalComponent* InTalComponent)
 {
-	if (!IsValid(InTalComponent)) return;
-
 	//이미 다른 컴포넌트르 구독중이면 먼저 끊기
 	if (IsValid(TalComponent))
 	{
@@ -20,13 +20,31 @@ void UNTTalIconWidget::InitializeWithTalComponent(UNTTalComponent* InTalComponen
 			&UNTTalIconWidget::HandleTalChanged);
 	}
 
-	TalComponent = InTalComponent;
+	if (ATalPlayerCharacter* OldOwner = TalOwnerCharacter.Get())
+	{
+		OldOwner->OnSpecialArtUsesChanged.RemoveDynamic(
+			this, &UNTTalIconWidget::RefreshRemainingUses);
+	}
 
-	TalComponent->OnTalChanged.AddUniqueDynamic(
-		this, &UNTTalIconWidget::HandleTalChanged);
-	
+	TalComponent = nullptr;
+	TalOwnerCharacter.Reset();
+	if (IsValid(InTalComponent))
+	{
+		TalComponent = InTalComponent;
+		TalComponent->OnTalChanged.AddUniqueDynamic(
+			this, &UNTTalIconWidget::HandleTalChanged);
 
-	HandleTalChanged(TalComponent->GetCurrentTal());
+		ATalPlayerCharacter* OwnerCharacter =
+			Cast<ATalPlayerCharacter>(InTalComponent->GetOwner());
+		TalOwnerCharacter = OwnerCharacter;
+		if (OwnerCharacter)
+		{
+			OwnerCharacter->OnSpecialArtUsesChanged.AddUniqueDynamic(
+				this, &UNTTalIconWidget::RefreshRemainingUses);
+		}
+	}
+
+	HandleTalChanged(IsValid(TalComponent) ? TalComponent->GetCurrentTal() : nullptr);
 
 }
 
@@ -34,6 +52,24 @@ void UNTTalIconWidget::HandleTalChanged(ATalBase* NewTal)
 {
 
 	SetTalIcon(IsValid(NewTal) ? NewTal->GetTalIcon() : nullptr);
+	RefreshRemainingUses();
+}
+
+void UNTTalIconWidget::RefreshRemainingUses()
+{
+	if (!IsValid(Text_RemainingUses)) return;
+
+	ATalPlayerCharacter* OwnerCharacter = TalOwnerCharacter.Get();
+	if (!IsValid(OwnerCharacter) || !IsValid(TalComponent)
+		|| !IsValid(TalComponent->GetCurrentTal()))
+	{
+		Text_RemainingUses->SetVisibility(ESlateVisibility::Hidden);
+		return;
+	}
+
+	Text_RemainingUses->SetText(
+		FText::AsNumber(OwnerCharacter->GetRemainingSpecialArtUses()));
+	Text_RemainingUses->SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 
 
@@ -57,6 +93,13 @@ void UNTTalIconWidget::SetTalIcon(UTexture2D* InTexture)
 
 void UNTTalIconWidget::NativeDestruct()
 {
+	if (ATalPlayerCharacter* OwnerCharacter = TalOwnerCharacter.Get())
+	{
+		OwnerCharacter->OnSpecialArtUsesChanged.RemoveDynamic(
+			this, &UNTTalIconWidget::RefreshRemainingUses);
+	}
+	TalOwnerCharacter.Reset();
+
 	if (IsValid(TalComponent))
 	{
 		TalComponent->OnTalChanged.RemoveDynamic(
