@@ -252,7 +252,11 @@ protected:
 
 	uint8 bIsExhausting : 1 = false;
 
+	FTimerHandle ExhaustedTimerHandle;
 
+	bool bTalchiHeld = false;
+	bool bTalchiPausedExhaustedTimer = false;
+	bool bTalchiDeferredExhaustedEnd = false;
 	////////////////////////////////////////
 	//
 	//   Tal
@@ -313,4 +317,13 @@ protected:
 	UFUNCTION()
 	void CheckRagdollSettled();
 
+
+	/////////////////////////////
+	//탈취
+	public:
+		// 탈취 대상의 그로기 회복을 잠급니다.
+		bool BeginTalchiHold();
+
+		// 탈취 종료·중단 시 잠금을 해제합니다.
+		void EndTalchiHold();
 };
