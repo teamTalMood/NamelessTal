@@ -543,6 +543,40 @@ protected:
 
 	static constexpr int32 MaxBasicAttackCombo = 4;//최대 콤보 횟수
 
+	////////////////////////////////////////////////////////////////////////////
+///////		기본공격 전진
+public:
+	// 노티파이에서 호출. 인자가 0 이하면 타별 기본값 사용
+	UFUNCTION(BlueprintCallable, Category = "Attack|Step")
+	void BeginAttackStepMove(float InOverrideDistance = -1.0f, float InOverrideDuration = -1.0f);
+
+	// 구르기/특수기/사망 등으로 공격이 끊길 때 호출
+	void StopAttackStepMove();
+
+protected:
+	void UpdateAttackStepMove(float DeltaTime);
+
+	// 인덱스 0 = 1타, 3 = 4타. 4타를 크게 주면 마무리 느낌이 산다
+	UPROPERTY(EditAnywhere, Category = "Attack|Step")
+	TArray<float> ComboStepDistances = { 60.0f, 50.0f, 80.0f, 150.0f };
+
+	// 전진에 걸리는 시간(초). 짧을수록 툭 치고 나가는 느낌
+	UPROPERTY(EditAnywhere, Category = "Attack|Step", meta = (ClampMin = "0.01"))
+	float ComboStepDuration = 0.12f;
+
+	// 락온 중일 때 타겟을 지나치지 않도록 남겨둘 간격
+	UPROPERTY(EditAnywhere, Category = "Attack|Step", meta = (ClampMin = "0.0"))
+	float ComboStepMinTargetGap = 120.0f;
+
+	// 공중에서는 전진 금지
+	UPROPERTY(EditAnywhere, Category = "Attack|Step")
+	bool bBlockAttackStepWhileFalling = true;
+
+	bool bIsAttackStepMoving = false;
+	FVector AttackStepDir = FVector::ZeroVector;
+	float AttackStepSpeed = 0.0f;
+	float AttackStepTimeLeft = 0.0f;
+
 	////////////////////////////////////////////////////////////////////////////////weapon 신버전
 	/*
 protected:
