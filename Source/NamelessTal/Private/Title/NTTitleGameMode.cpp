@@ -2,6 +2,8 @@
 
 #include "Title/NTTitlePlayerController.h"
 #include "Components/AudioComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "MCLOG.h"
 
 ANTTitleGameMode::ANTTitleGameMode()
 {
@@ -19,4 +21,15 @@ void ANTTitleGameMode::BeginPlay()
 	{
 		BGMAudioComponent->Play();
 	}
+}
+
+void ANTTitleGameMode::StartGame()
+{
+	if (StartLevel.IsNull())
+	{
+		MC_LOG(LogMC, Warning, TEXT("StartLevel not set"));
+		return;
+	}
+
+	UGameplayStatics::OpenLevelBySoftObjectPtr(this, StartLevel);
 }

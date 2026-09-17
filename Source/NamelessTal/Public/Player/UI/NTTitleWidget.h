@@ -20,9 +20,6 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> Btn_Start;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Level")
-	FName StartLevelName;
-
 private:
 	UFUNCTION()
 	void HandleStartClicked();
