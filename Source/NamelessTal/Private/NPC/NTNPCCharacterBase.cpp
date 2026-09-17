@@ -429,6 +429,7 @@ float ANTNPCCharacterBase::ApplyDamage(AActor* DamageCauser, const FNPCApplyDama
 				StartDamaged();
 			}
 		}
+
 	}
 	//MC_LOG(LogMC, Log, TEXT("End"));
 

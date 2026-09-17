@@ -765,7 +765,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	{
 		const bool bParried = GuardComponent->TryParry();
 
-		if (bParried && bCanParry)
+		if (bParried)
 		{
 			LastParriedTarget = DamageCauser;
 			OpenParryCounterWindow();
