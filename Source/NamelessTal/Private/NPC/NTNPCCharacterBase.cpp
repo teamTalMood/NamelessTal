@@ -238,12 +238,6 @@ void ANTNPCCharacterBase::Tick(float DeltaTime)
 		FHitResult Hit;
 		AddActorWorldOffset(Delta, true, &Hit);
 
-		UE_LOG(LogTemp, Warning,
-			TEXT("[KB] Speed=%.0f 요청=%.1f 실제=%.1f 막힘=%d 막은놈=%s"),
-			KnockBackVelocity.Size(), Delta.Size(),
-			(GetActorLocation() - Before).Size(),
-			Hit.bBlockingHit ? 1 : 0, *GetNameSafe(Hit.GetActor()));
-
 		if (KnockBackRemainingTime <= 0.0f)
 		{
 			KnockBackVelocity = FVector::ZeroVector;
