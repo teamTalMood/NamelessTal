@@ -28,6 +28,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Tal")
 	FName GetTalSocketName() const { return TalSocketName; }
 
+	// 장착할 소켓을 바꿉니다.
+	// 이미 장착된 탈은 옮기지 않으므로 반드시 EquipTal() 직전에 호출해야 합니다.
+	UFUNCTION(BlueprintCallable, Category = "Tal")
+	void SetTalSocketName(FName InSocketName) { TalSocketName = InSocketName; }
+
 	UFUNCTION(BlueprintCallable, Category = "Tal")
 	bool EquipTal(ATalBase* NewTal);
 

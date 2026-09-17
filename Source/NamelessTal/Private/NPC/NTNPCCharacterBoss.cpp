@@ -8,6 +8,7 @@
 #include "NamelessTalGameMode.h"
 #include "NPC/Components/NTHPWidgetComponent.h"
 #include "TalBase.h"
+#include "Components/NTTalComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 
@@ -122,6 +123,46 @@ void ANTNPCCharacterBoss::SpawnWaitingLeftTal()
 
 	NewTal->SetActorRelativeScale3D(LeftTalWearScale);
 	WaitingLeftTal = NewTal;
+}
+
+void ANTNPCCharacterBoss::ActivateLeftTal()
+{
+	if (!IsValid(TalComponent) || !IsValid(WaitingLeftTal))
+	{
+		return;
+	}
+
+	if (!IsValid(GetMesh()) || !GetMesh()->DoesSocketExist(LeftTalSocketName))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Boss left Tal socket missing: %s"),
+			*LeftTalSocketName.ToString());
+		return;
+	}
+
+	// 탈취 없이 HP만 깎여 페이즈가 넘어온 경우, 남아 있는 이전 탈을 정리합니다.
+	// Destroy() 전에 UnequipTal()을 호출해야 OnTalChanged(nullptr)이 정상 전파됩니다.
+	if (TalComponent->GetCurrentTal())
+	{
+		if (ATalBase* RemovedTal = TalComponent->UnequipTal())
+		{
+			RemovedTal->Destroy();
+		}
+	}
+
+	// 왼쪽 반쪽은 원점이 달라 전용 소켓을 사용합니다.
+	// EquipTal()은 항상 TalSocketName으로 스냅하므로 등록 직전에 바꿔야 합니다.
+	TalComponent->SetTalSocketName(LeftTalSocketName);
+
+	if (TalComponent->EquipTal(WaitingLeftTal))
+	{
+		// 이후로는 TalComponent가 관리하므로 대기 참조를 비웁니다.
+		WaitingLeftTal = nullptr;
+	}
+	else
+	{
+		// 실패 시 참조를 유지해야 EndPlay()에서 정리됩니다.
+		UE_LOG(LogTemp, Warning, TEXT("Boss left Tal equip failed."));
+	}
 }
 
 void ANTNPCCharacterBoss::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -326,6 +367,19 @@ void ANTNPCCharacterBoss::StartNextPhase()
 
 	SetCanBeDamaged(true);
 	SetActorEnableCollision(true);
+
+	// HandleDeath()가 페이즈 종료 때 껐던 락온을 되살립니다.
+	// CurrentPhase == End면 위에서 return하므로 진짜 사망 시에는 실행되지 않습니다.
+	if (UNTLockOnTargetComponent* LockOnTarget = FindComponentByClass<UNTLockOnTargetComponent>())
+	{
+		LockOnTarget->SetLockOnEnabled(true);
+	}
+
+	// 2페이즈부터 왼쪽 탈을 탈취 대상으로 등록합니다.
+	if (CurrentPhase == EBossPhase::Second)
+	{
+		ActivateLeftTal();
+	}
 
 	GetWorld()->GetTimerManager().SetTimer(PhaseStartDelayTimer, this, &ANTNPCCharacterBoss::ReleaseStun, 2.0f, false);
 

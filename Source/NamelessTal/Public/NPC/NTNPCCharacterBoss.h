@@ -74,6 +74,9 @@ protected:
 
 	void SpawnWaitingLeftTal();
 
+	// 2페이즈 진입 시 대기 중인 왼쪽 탈을 탈취 대상으로 등록합니다.
+	void ActivateLeftTal();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AOE")
 	TSubclassOf<ANTOkJangPan> OkJangPanClass;
 
