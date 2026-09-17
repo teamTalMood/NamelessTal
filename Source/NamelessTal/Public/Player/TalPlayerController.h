@@ -9,6 +9,7 @@
 
 class UNTPlayerHUDWidget;
 class UNTMessageWidget;
+class UNTPauseMenuWidget;
 
 UENUM(BlueprintType)
 enum class ENTMessageStyle : uint8
@@ -52,7 +53,17 @@ protected:
 	TSubclassOf<UNTPlayerHUDWidget> PlayerHUDClass;
 	UPROPERTY()
 	TObjectPtr<UNTPlayerHUDWidget> PlayerHUD;
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UNTPauseMenuWidget> PauseMenuClass;
+
+	UPROPERTY()
+	TObjectPtr<UNTPauseMenuWidget> PauseMenu;
+
+	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
+	TObjectPtr<class UInputAction> PauseAction;
 
 public : // UI
 	void ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration);
+
+	void TogglePauseMenu();
 };

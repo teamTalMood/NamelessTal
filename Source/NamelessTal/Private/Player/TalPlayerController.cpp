@@ -10,6 +10,8 @@
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
 #include "MCLOG.h"
+#include "EnhancedInputComponent.h"
+#include "Player/UI/NTPauseMenuWidget.h"
 
 
 void ATalPlayerController::BeginPlay()
@@ -76,6 +78,15 @@ void ATalPlayerController::SetupInputComponent()
 		}
 	}
 
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		if (PauseAction)
+		{
+			EIC->BindAction(PauseAction, ETriggerEvent::Started,
+				this, &ATalPlayerController::TogglePauseMenu);
+		}
+	}
+
 }
 
 void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
@@ -87,3 +98,27 @@ void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title
 
 	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
 }
+
+void ATalPlayerController::TogglePauseMenu()
+{
+	if (PauseMenu && PauseMenu->IsInViewport())
+	{
+		PauseMenu->CloseMenu();
+		return;
+	}
+
+	if (!PauseMenu)
+	{
+		if (!PauseMenuClass)
+		{
+			return;
+		}
+		PauseMenu = CreateWidget<UNTPauseMenuWidget>(this, PauseMenuClass);
+	}
+
+	if (PauseMenu)
+	{
+		PauseMenu->OpenMenu();
+	}
+}
+
