@@ -152,6 +152,13 @@ protected:
 	FVector AttackMoving = FVector(0, 0, 0);
 
 	uint8 bISAttackMoving : 1 = false;
+	// 플레이어 스킬에 맞아 밀려나는 속도와 남은시간
+	FVector KnockBackVelocity = FVector::ZeroVector;
+	float KnockBackRemainingTime = 0.0f;
+
+	// 밀림 지속 시간 0초까지 감소간다에요
+	UPROPERTY(EditAnywhere, Category = "Damage")
+	float KnockBackDuration = 0.15f;
 
 	FNPCCurrentAttackData CurrentAttackData;
 

@@ -63,7 +63,9 @@ struct FPlayerCurrentSpecialArtData
 	int32 HPDamage = 0;
 	int32 SoulDamage = 0;
 	int32 StaggerDamage = 0;
+	float PushBackSpeed = 0.f;
 };
+
 
 
 UCLASS()
@@ -640,6 +642,8 @@ protected:
 	// 스킬로 죽일 경우 시체를 날릴 impulse 계산
 	// 플레이어 정면과 대상 방향 섞어 대각선으로 날아가게(카메라에 나오게)
 	FVector ComputeSpecialArtLaunchImpulse(const AActor* Target) const;
+	FVector ComputePushBackVelocity(const AActor* Target, float Speed) const;
+
 
 	//날아가는 세기 bVelChange라 질량 무시하고 몬스터가 뭐든 일정하게 날아감
 	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch")
