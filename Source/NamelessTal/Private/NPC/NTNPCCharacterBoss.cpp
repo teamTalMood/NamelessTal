@@ -39,6 +39,7 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 	PhasePatternDatas.Add(EBossPhase::First, FNPCAttackPatternList());
 	PhasePatternDatas.Add(EBossPhase::Second, FNPCAttackPatternList());
 	PhasePatternDatas.Add(EBossPhase::Third, FNPCAttackPatternList());
+	PhasePatternDatas.Add(EBossPhase::End, FNPCAttackPatternList());
 
 	PhaseHP.Add(EBossPhase::First, 260);
 	PhaseHP.Add(EBossPhase::Second, 195);
@@ -318,6 +319,13 @@ void ANTNPCCharacterBoss::HandleDeath()
 	{
 		StartBossSequence(nullptr, false);
 		return;
+	}
+
+	// 여기부터는 진짜 사망. BT를 멈추지 않으면 CurrentPhase가 End로 바뀐 뒤에도
+	// NTBTS_SelectPattern이 계속 돌면서 PhasePatternDatas[End]를 찾아 크래시난다
+	if (BTComponent)
+	{
+		BTComponent->StopLogic(TEXT("Boss Dead"));
 	}
 
 	if (DeathMontage)

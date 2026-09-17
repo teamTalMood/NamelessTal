@@ -2,6 +2,7 @@
 
 #include "Components/Button.h"
 #include "Kismet/GameplayStatics.h"
+#include "Title/NTTitleGameMode.h"
 #include "MCLOG.h"
 
 void UNTTitleWidget::NativeConstruct()
@@ -16,11 +17,12 @@ void UNTTitleWidget::NativeConstruct()
 
 void UNTTitleWidget::HandleStartClicked()
 {
-	if (StartLevelName.IsNone())
+	ANTTitleGameMode* GameMode = Cast<ANTTitleGameMode>(UGameplayStatics::GetGameMode(this));
+	if (!GameMode)
 	{
-		MC_LOG(LogMC, Warning, TEXT("StartLevelName not set"));
+		MC_LOG(LogMC, Warning, TEXT("No ANTTitleGameMode"));
 		return;
 	}
 
-	UGameplayStatics::OpenLevel(this, StartLevelName);
+	GameMode->StartGame();
 }
