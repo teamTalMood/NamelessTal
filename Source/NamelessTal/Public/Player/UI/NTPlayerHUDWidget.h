@@ -24,8 +24,11 @@ public:
 
 	void ShowWidgetMessage(const FText& Title, const FText& Body, float Duration);
 
-	// 보스방 입장 시퀀스 종료(OnStartBossGame) 시 호출. PB_Boss_HP를 찾아 BossHPBarWidget 초기화
+	// 게임 시작(NativeConstruct) 시 호출. PB_Boss_HP를 찾아 BossHPBarWidget 초기화, Collapsed로 숨겨둠
 	void InitBossHPBar();
+
+	// 보스방 입장 시퀀스 종료(OnStartBossGame) 시 호출. BossHPBarWidget을 보이게 전환
+	void ShowBossHPBar();
 
 	// 게임모드로부터 전달받은 보스 HP를 BossHPBarWidget에 반영
 	void UpdateBossHPBar(float CurrentHP, float MaxHP);
