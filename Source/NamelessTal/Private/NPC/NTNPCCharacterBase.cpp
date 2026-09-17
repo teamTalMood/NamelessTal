@@ -73,6 +73,7 @@ ANTNPCCharacterBase::ANTNPCCharacterBase()
 
 	// Stat
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
+	StatComponent->bIsPlayer = false;
 	StatComponent->SetSoulRegenBlocked(true);
 
 	// Lock On

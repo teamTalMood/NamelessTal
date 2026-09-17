@@ -147,7 +147,7 @@ void ATalPlayerController::HandleStartBossGame()
 
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	PlayerHUD->InitBossHPBar();
+	PlayerHUD->ShowBossHPBar();
 }
 
 void ATalPlayerController::UpdateBossHP(float CurrentHP, float MaxHP)

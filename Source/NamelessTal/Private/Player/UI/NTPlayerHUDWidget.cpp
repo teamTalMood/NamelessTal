@@ -13,6 +13,8 @@ void UNTPlayerHUDWidget::NativeConstruct()
 
 	WDG_Message = Cast<UNTMessageWidget>(GetWidgetFromName(TEXT("WBP_Notice")));
 	ensure(WDG_Message);
+
+	InitBossHPBar();
 }
 
 void UNTPlayerHUDWidget::InitializeWithStatComponent(UStatComponent* InStatComponent)
@@ -72,12 +74,21 @@ void UNTPlayerHUDWidget::InitBossHPBar()
 
 	if (IsValid(BossHPBarWidget))
 	{
-		BossHPBarWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+		BossHPBarWidget->SetVisibility(ESlateVisibility::Collapsed);
 	}
 	else
 	{
 		MC_LOG(LogMC, Error, TEXT("No PB_Boss_HP widget found!!"));
 	}
+}
+
+void UNTPlayerHUDWidget::ShowBossHPBar()
+{
+	if (!IsValid(BossHPBarWidget)) return;
+
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	BossHPBarWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 
 void UNTPlayerHUDWidget::UpdateBossHPBar(float CurrentHP, float MaxHP)

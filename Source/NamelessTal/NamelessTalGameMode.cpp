@@ -13,11 +13,15 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Player/UI/NTCutsceneWidget.h"
 #include "Player/TalPlayerController.h"
+#include "Components/AudioComponent.h"
 
 ANamelessTalGameMode::ANamelessTalGameMode()
 {
 	// stub
 	CutsceneSound = CreateDefaultSubobject<UMediaSoundComponent>(TEXT("CutsceneSound"));
+
+	BGMAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("BGMAudioComponent"));
+	BGMAudioComponent->bAutoActivate = false;
 
 	CutsceneSources.Add(EBossPhase::First, nullptr);
 	CutsceneSources.Add(EBossPhase::Second, nullptr);
@@ -35,6 +39,11 @@ void ANamelessTalGameMode::BeginPlay()
 	{
 		CutsceneSound->SetMediaPlayer(CutsceneMediaPlayer);
 	}
+
+	if (BGMAudioComponent)
+	{
+		BGMAudioComponent->Play();
+	}
 }
 
 void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
@@ -45,6 +54,11 @@ void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 	{
 		MC_LOG(LogMC, Warning, TEXT("PlayCutscene missing MediaPlayer/Source/WidgetClass"));
 		return;
+	}
+
+	if (BGMAudioComponent)
+	{
+		BGMAudioComponent->Stop();
 	}
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
@@ -158,7 +172,17 @@ void ANamelessTalGameMode::EndCutscene()
 		OnMonsterRespawn.Broadcast(ENTRespawnPointEnum::Boss);
 		bIsBossStartSequence = false;
 
+		if (BGMAudioComponent && BossBGM)
+		{
+			BGMAudioComponent->SetSound(BossBGM);
+		}
+
 		OnStartBossGame.ExecuteIfBound();
+	}
+
+	if (BGMAudioComponent)
+	{
+		BGMAudioComponent->Play();
 	}
 }
 
