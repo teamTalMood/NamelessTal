@@ -67,13 +67,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AOE")
 	TSubclassOf<ANTOkJangPan> OkJangPanClass;
 
+	// BossRing 소켓에 붙는 빈 피벗. HeadringMesh는 피벗의 자식으로 붙고, 회전은 이 피벗에서 함
+	// (HeadringMesh 자체의 피봇이 메시 중심이 아니라 메시를 직접 돌리면 어긋남)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
+	TObjectPtr<class USceneComponent> HeadringPivotComponent;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
 	TObjectPtr<class UStaticMeshComponent> HeadringMesh;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
 	TObjectPtr<class UStaticMeshComponent> HeadringHolderMesh;
 
-	// HeadringMesh의 로컬 Z축(Yaw) 회전 속도(도/초). Phase 진입 시 PhaseHeadringRotationSpeed값으로 갱신됨
+	// HeadringPivotComponent의 로컬 Y축(Pitch) 회전 속도(도/초). Phase 진입 시 PhaseHeadringRotationSpeed값으로 갱신됨
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
 	float HeadringRotationSpeed = 0.0f;
 

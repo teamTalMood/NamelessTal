@@ -19,6 +19,7 @@
 //Material
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SceneComponent.h"
 
 
 ANTNPCCharacterBoss::ANTNPCCharacterBoss()
@@ -41,13 +42,14 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 	PhaseHeadringRotationSpeed.Add(EBossPhase::Second, 180.0f);
 	PhaseHeadringRotationSpeed.Add(EBossPhase::Third, 360.0f);
 
+	HeadringPivotComponent = CreateDefaultSubobject<USceneComponent>(TEXT("HeadringPivot"));
+	HeadringPivotComponent->SetupAttachment(GetMesh(), TEXT("BossRing"));
+
 	HeadringMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadringMesh"));
-	HeadringMesh->SetupAttachment(GetMesh(), TEXT("head"));
-	HeadringMesh->SetRelativeLocationAndRotation(FVector(0.177, -4.579, -26.254), FRotator(-3.267f, -0.283f, 4.954f));
+	HeadringMesh->SetupAttachment(HeadringPivotComponent);
 
 	HeadringHolderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadringHolderMesh"));
-	HeadringHolderMesh->SetupAttachment(GetMesh(), TEXT("head"));
-	HeadringHolderMesh->SetRelativeLocationAndRotation(FVector(0.177, -4.578, -26.254), FRotator(0.f, 0.f, 4.946f));
+	HeadringHolderMesh->SetupAttachment(GetMesh(), TEXT("BossRing"));
 }
 
 void ANTNPCCharacterBoss::BeginPlay()
@@ -72,9 +74,9 @@ void ANTNPCCharacterBoss::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (HeadringMesh)
+	if (HeadringPivotComponent)
 	{
-		HeadringMesh->AddLocalRotation(FRotator(0.0f, HeadringRotationSpeed * DeltaTime, 0.0f));
+		HeadringPivotComponent->AddLocalRotation(FRotator(HeadringRotationSpeed * DeltaTime, 0.0f, 0.0f));
 	}
 }
 
