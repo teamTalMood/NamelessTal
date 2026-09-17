@@ -34,6 +34,8 @@
 #include "TimerManager.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundWave.h"
+#include "UObject/ConstructorHelpers.h"
 
 //tal 헤더들 추가
 #include "TalBase.h"
@@ -69,7 +71,7 @@
 #include "Game/NTGameDataSingleton.h"
 
 // 화롯불 안쓰고 죽을때를 대비해 처음으로 돌아갈때를 대비하기 위해 사용
-#include "NamelessTalGameMode.h" 
+#include "NamelessTalGameMode.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
@@ -78,6 +80,13 @@
 
 ATalPlayerCharacter::ATalPlayerCharacter()
 {
+	// Sound
+	static ConstructorHelpers::FObjectFinder<USoundWave> HitSoundAsset(TEXT("/Game/EditedAssets/Sound/SFX_007_Weak1.SFX_007_Weak1"));
+	if (HitSoundAsset.Succeeded())
+	{
+		HitSound = HitSoundAsset.Object;
+	}
+
 	//Cmaera Component Set
 	CameraTarget = CreateDefaultSubobject<USceneComponent>(TEXT("CameraTarget"));
 	CameraTarget->SetupAttachment(RootComponent);
@@ -149,7 +158,7 @@ ATalPlayerCharacter::ATalPlayerCharacter()
 void ATalPlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
+
 
 	// 카운터 창 만료시 (슬로모션과 무관하게 독립 판정)
 	if (bParryCounterReady && GetWorld()->GetRealTimeSeconds()
@@ -198,7 +207,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 			CameraManager->ViewPitchMax = SafePitchMax;
 		}
 	}
-	
+
 	const bool bParryCameraMoving =
 		CombatFeelComponent &&
 		CombatFeelComponent->IsParryCameraMoving();
@@ -688,7 +697,7 @@ float ATalPlayerCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 			else
 			{
 				// 블렌드 스페이스
-				// 
+				//
 				//AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
 				PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_hit"));
 			}
@@ -753,7 +762,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	{
 		const bool bParried = GuardComponent->TryParry();
 
-		if (bParried)
+		if (bParried && bCanParry)
 		{
 			LastParriedTarget = DamageCauser;
 			OpenParryCounterWindow();
@@ -798,7 +807,7 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 			else
 			{
 				// 블렌드 스페이스
-				// 
+				//
 				//AnimInstance->Montage_JumpToSection(TEXT("Guard_hit"), GuardMontage);
 				PlayAnimMontage(GuardMontage, 1.0f, TEXT("Guard_hit"));
 			}
@@ -851,6 +860,11 @@ float ATalPlayerCharacter::ApplyDamage(AActor* DamageCauser, const float InDamag
 	StatComponent->ApplyDamage(InDamage);
 	StatComponent->DrainSoul(10.0f);
 	// 실제로 받은 데미지 적용되었는지 호출자(공격자)에게 알려주는 용도
+
+	// 여기다가 피격음 호출
+	UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation());
+
+
 	return InDamage;
 }
 
@@ -1684,7 +1698,7 @@ FVector ATalPlayerCharacter::ComputeSpecialArtLaunchImpulse(const AActor* Target
 	FVector Dir = FMath::Lerp(
 		Forward, ToTarget, FMath::Clamp(SpecialArtLaunchRadialBlend, 0.0f, 1.0f)).GetSafeNormal2D();
 
-	// 정면과 대상 방향 반대면 합 0 그때는 정면으로 
+	// 정면과 대상 방향 반대면 합 0 그때는 정면으로
 	if (Dir.IsNearlyZero())
 	{
 		Dir = Forward;
@@ -2427,12 +2441,15 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 		AnimInstance->Montage_Stop(0.0f, DeathMontage);
 	}
 
-	const FTransform TargetTransform = LastBonfire.IsValid()
-		? LastBonfire->GetActorTransform() : InitialSpawnTransform;
+	ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode());
 
-	SetActorLocation(TargetTransform.GetLocation());
+	const FVector RespawnLocation = GameMode ? GameMode->GetRespawnLocation() : InitialSpawnTransform.GetLocation();
+	const FQuat RespawnRotation = LastBonfire.IsValid()
+		? LastBonfire->GetActorTransform().GetRotation() : InitialSpawnTransform.GetRotation();
 
-	SetActorRotation(TargetTransform.GetRotation());
+	SetActorLocation(RespawnLocation);
+
+	SetActorRotation(RespawnRotation);
 
 	SetActorEnableCollision(true);
 
@@ -2445,7 +2462,7 @@ void ATalPlayerCharacter::RespawnAtBonfire()
 	StatComponent->RestoreFull();
 	RechargeFlask();
 
-	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	if (GameMode)
 	{
 		GameMode->RespawnAllMonsters();
 	}
@@ -2707,7 +2724,7 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 
 		return;
 	}
-	
+
 	//얼굴 장착 성공
 	// 1인칭 연출 중이면 화면 오른쪽 자리에 그대로 붙여 둡니다.
 	SettleTalchiRightMask();
