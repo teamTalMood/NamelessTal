@@ -20,6 +20,8 @@ ANamelessTalGameMode::ANamelessTalGameMode()
 void ANamelessTalGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CutsceneSound && CutsceneMediaPlayer)
 	{
@@ -28,12 +30,14 @@ void ANamelessTalGameMode::BeginPlay()
 
 	if (CutsceneSource)
 	{
-		//PlayCutscene(CutsceneSource);
+		PlayCutscene(CutsceneSource);
 	}
 }
 
 void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 {
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	if (!CutsceneMediaPlayer || !Source || !CutsceneWidgetClass)
 	{
 		MC_LOG(LogMC, Warning, TEXT("PlayCutscene missing MediaPlayer/Source/WidgetClass"));
@@ -77,8 +81,10 @@ void ANamelessTalGameMode::EndCutscene()
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
 	{
 		PC->SetInputMode(FInputModeGameOnly());
-		PC->SetShowMouseCursor(true);
+		PC->SetShowMouseCursor(false);
 	}
+
+	OnMonsterRespawn.Broadcast(CurrentRespawnPoint);
 }
 
 void ANamelessTalGameMode::RespawnAllMonsters()

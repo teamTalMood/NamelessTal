@@ -38,6 +38,9 @@ public:
 	void SetIsEpicKilled(uint8 InIsEpicKilled) { bIsEpicKilled = InIsEpicKilled; }
 	const uint8 GetIsEpicKilled() { return bIsEpicKilled; }
 
+	void SetBossRoomEntered(uint8 InBossRoomEntered) { bBossRoomEntered = InBossRoomEntered; }
+	const uint8 GetBossRoomEntered() { return bBossRoomEntered; }
+
 	/** 렌더된 시퀀스 영상을 소리와 함께 전체화면 재생한다 */
 	void PlayCutscene(UMediaSource* Source);
 
@@ -51,6 +54,7 @@ protected:
 	ENTRespawnPointEnum CurrentRespawnPoint = ENTRespawnPointEnum::StartPoint;
 
 	uint8 bIsEpicKilled : 1 = false;
+	uint8 bBossRoomEntered : 1 = false;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
 	TObjectPtr<UMediaPlayer> CutsceneMediaPlayer;
