@@ -19,9 +19,12 @@ public class NamelessTal : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
+			"SlateCore",
 			"NavigationSystem", "AIModule", "GameplayTasks",
             "MotionWarping",
-			"AnimGraphRuntime"
+			"AnimGraphRuntime",
+			"Niagara",
+			"MediaAssets"
         });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

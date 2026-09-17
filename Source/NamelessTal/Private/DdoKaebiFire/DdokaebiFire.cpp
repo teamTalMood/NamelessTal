@@ -28,20 +28,15 @@ ADdokaebiFire::ADdokaebiFire()
 	//틱사용 안함
 	PrimaryActorTick.bCanEverTick = false;
 
-	//Root Mesh = FireMesh로 
-	FireMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FireMesh"));
-	RootComponent = FireMesh;
-
 	FireInteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("FireInteractionRange"));
-	FireInteractionRange->SetupAttachment(RootComponent);
+	RootComponent = FireInteractionRange;
+	//FireInteractionRange->SetupAttachment(RootComponent);
 	FireInteractionRange->SetSphereRadius(200.0f);
 	FireInteractionRange->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	FireInteractionRange->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 
-	FireInteractionRange->OnComponentBeginOverlap.AddDynamic(this,
-		&ADdokaebiFire::OnRangeBeginOverlap);
-	FireInteractionRange->OnComponentEndOverlap.AddDynamic(this,
-		&ADdokaebiFire::OnRangeEndOverlap);
+	FireInteractionRange->OnComponentBeginOverlap.AddDynamic(this, &ADdokaebiFire::OnRangeBeginOverlap);
+	FireInteractionRange->OnComponentEndOverlap.AddDynamic(this, &ADdokaebiFire::OnRangeEndOverlap);
 }
 
 void ADdokaebiFire::TriggerRest(AActor* User)
@@ -86,9 +81,7 @@ void ADdokaebiFire::BeginPlay()
 	
 }
 
-void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	bool bFromSweep, const FHitResult& SweepResult)
+void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,	bool bFromSweep, const FHitResult& SweepResult)
 {
 	UE_LOG(LogTemp, Warning, TEXT("범위 진입 감지! OtherActor: %s"), *GetNameSafe(OtherActor));
 	APawn* Pawn = Cast<APawn>(OtherActor);
@@ -125,8 +118,7 @@ void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent
 
 }
 
-void ADdokaebiFire::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+void ADdokaebiFire::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent,	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
 
 	UE_LOG(LogTemp, Warning, TEXT("범위 나감 감지! OtherActor: %s"), *GetNameSafe(OtherActor));

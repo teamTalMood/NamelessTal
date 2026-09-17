@@ -5,6 +5,7 @@
 #include "MCLOG.h"
 #include "NPC/NTNPCCharacterBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Title/NTSavePointEnum.h"
 #include "NamelessTalGameMode.h"
 
 
@@ -27,10 +28,13 @@ void ANTMonsterSpawner::BeginPlay()
 		GameMode->OnMonsterRespawn.AddDynamic(this, &ANTMonsterSpawner::SpawnNPC);
 	}
 
-	SpawnNPC(StagePoint);
+	if (!bIsBossRoomSpawner)
+	{
+		SpawnNPC(StagePoint);
+	}
 }
 
-void ANTMonsterSpawner::SpawnNPC(int32 InSavePoint)
+void ANTMonsterSpawner::SpawnNPC(ENTRespawnPointEnum InSavePoint)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
@@ -40,8 +44,11 @@ void ANTMonsterSpawner::SpawnNPC(int32 InSavePoint)
 		return;
 	}
 
-	FVector SpawnLocation = GetActorLocation() + SpawnOffset;
-	GetWorld()->SpawnActor<ANTNPCCharacterBase>(MonsterClass, SpawnLocation, GetActorRotation());
+	if ((InSavePoint != ENTRespawnPointEnum::Boss) == !bIsBossRoomSpawner)
+	{
+		FVector SpawnLocation = GetActorLocation() + SpawnOffset + FVector(0, 0, 100.f);
+		GetWorld()->SpawnActor<ANTNPCCharacterBase>(MonsterClass, SpawnLocation, GetActorRotation());
+	}
 }
 
 // Called every frame

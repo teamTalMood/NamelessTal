@@ -22,10 +22,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
 	int32 ComboCount = 0;
 
-	// 이어서 실행할 타격의 StepID. Null이면 기술 종료
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
-	FName NextStepID;
-
 	// 몬스터에게 가하는 HP 데미지
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
 	int32 HPDamage = 0;
@@ -38,23 +34,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
 	int32 StaggerDamage = 0;
 
-	// 이 단계 시작부터 공격판정 발생까지의 시간(초)
+	// 이 타격이 NPC를 밀어내는 속도 0이면 밀지않기
+	// 타격 순간 플레이어가 계산하기
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
-	float CastTime = 0.f;
-
-	// 공격판정 종료 후 다음 단계 또는 조작 가능한 상태로 넘어가기까지의 시간(초)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
-	float RecoveryTime = 0.f;
-
-	// 사용중 플레이어가 바라보는 방향으로 이동하는 거리(m). 제자리 공격이면 0
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
-	float MoveDistance = 0.f;
-
-	// 플레이어가 사용할 몽타주 이름
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
-	FName MontageName;
-
-	// 해당 타격의 기획 의도 및 참고사항
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialArtStep")
-	FString Memo;
+	float PushBackSpeed = 0.f;
 };

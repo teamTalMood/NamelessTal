@@ -21,10 +21,11 @@ protected:
 	virtual void NativeConstruct() override;
 
 public:
-	FORCEINLINE void SetMaxHp(float NewMaxHp) { MaxHp = NewMaxHp; }
+	UFUNCTION()
+	void UpdateHpBar(float NewCurrentHp, float InMaxHP);
 
 	UFUNCTION()
-	void UpdateHpBar(float NewCurrentHp, float MaxHP);
+	void UpdateSoulBar(float NewCurrentSoul, float InMaxSoul);
 
 	FORCEINLINE void SetOwiningActor(AActor* NewOwner) { OwningActor = NewOwner; }
 
@@ -33,7 +34,7 @@ protected:
 	TObjectPtr<class UProgressBar> HpProgressBar;
 
 	UPROPERTY()
-	float MaxHp;
+	TObjectPtr<class UProgressBar> SoulProgressBar;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<AActor> OwningActor;

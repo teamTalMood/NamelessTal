@@ -32,6 +32,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Talchi|Animation")
 	UAnimMontage* GetVictimTalchiMontage() const;
 
+	//플레이어가 적의 탈취 가능 부채꼴 안에 있는지 확인
+	UFUNCTION(BlueprintPure, Category = "Talchi|Range")
+	bool IsInsideTalchiSector(const AActor* PlayerActor) const;
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi")
 	bool bTalchiEnabled = true;
@@ -41,4 +45,13 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Animation")
 	TObjectPtr<UAnimMontage> VictimTalchiMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Range", meta =(ClampMin = "0.0"))
+	float TalchiRadius = 300.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Range", meta=(ClampMin = "0.0", ClampMax = "360.0"))
+	float TalchiFullAngle = 120.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Range", meta=(ClampMin = "0.0"))
+	float TalchiMaxHeightDifference = 150.0f;
 };

@@ -33,8 +33,8 @@ void UABATalPCAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		);
 		// 회피중?
 		bIsDodging = TalPlayerCharacter->IsDodging();
-		// 가드중?
-		bIsGuarding = TalPlayerCharacter->IsGuarding();
+		// 가드중? -> 애니메이션은 입력 즉시 반응 (판정은 0.1초 뒤부터)
+		bIsGuarding = TalPlayerCharacter->IsGuardInputHeld();
 		// 낙하중?
 		bIsFalling = TalPlayerCharacter->IsRealFalling();
 		bIsGrounded = !TalPlayerCharacter->GetCharacterMovement()->IsFalling();

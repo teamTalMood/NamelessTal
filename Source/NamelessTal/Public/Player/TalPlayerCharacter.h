@@ -26,6 +26,9 @@ class UNTLockOnTargetComponent; //락온 전방선언
 class UMotionWarpingComponent; //모션워핑 전방선언
 class ADdokaebiFire; // 화톳불 전방선언
 class UAnimSequenceBase; // 부활 모션을 위한 애니메이션베이스
+class UUserWidget;
+class ANTNPCCharacterBase;
+class UCurveFloat;
 
 //플레이어 공격 규칙 타입
 UENUM(BlueprintType)
@@ -57,15 +60,12 @@ enum class EBufferedCombatAction : uint8
 // 
 struct FPlayerCurrentSpecialArtData
 {
-	FName NextStepID;
-	int32 HPDamage;
-	int32 SoulDamage;
-	int32 StaggerDamage;
-	float CastTime;
-	float RecoveryTime;
-	float MoveDistance;
-	FName MontageName;
+	int32 HPDamage = 0;
+	int32 SoulDamage = 0;
+	int32 StaggerDamage = 0;
+	float PushBackSpeed = 0.f;
 };
+
 
 
 UCLASS()
@@ -87,6 +87,7 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	virtual float TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	float ApplyDamage(AActor* DamageCauser, const float InDamage, const float InAttackDrain, const float InGuardDrain, const bool bCanParry);
@@ -142,6 +143,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr <UCapsuleComponent> WeaponCollision;
+
+	// 왼쪽 반쪽 탈입니다. 교체되지 않는 상시 장비라 TalComponent 슬롯과 별개로 둡니다.
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Tal", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> LeftTalMesh;
 
 
 
@@ -301,9 +306,16 @@ public:
 	ATalBase* UnequipTal();//탈 벗고 반환
 	void TakeTalFrom(AActor* TargetActor);//탈바꿈
 	void StartVictimTalchiMontage();//탈취 애니메이션 시작
-	void TransferSelectedTal(); //탈 이전
 	void GrabSelectedTalToHand();
 	void EquipHeldTalToFace();
+
+	UFUNCTION(BlueprintCallable, Category = "Talchi|Camera")
+	void EnterTalchiFirstPerson();
+
+	// 1인칭 탈 구도를 콘솔에서 바로 확인하기 위한 디버그 토글입니다.
+	// 켜져 있는 동안은 디테일 패널에서 바꾼 Talchi|Mask 값이 매 프레임 반영됩니다.
+	UFUNCTION(Exec, BlueprintCallable, Category = "Talchi|Debug")
+	void NTPreviewTalchiMask();
 
 	UFUNCTION(BlueprintPure, Category = "Tal")
 	UNTTalComponent* GetTalComponent() const { return TalComponent; }
@@ -311,11 +323,173 @@ public:
 protected:
 	void Interact();//탈바꿈
 
+	bool CanTalchiTarget(AActor* TargetActor) const;
+	AActor* FindBestTalchiTarget() const;
+
+	void UpdateTalchiPrompt(float DeltaTime);
+	void HideTalchiPrompt();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Talchi|UI")
+	TSubclassOf<UUserWidget> TalchiPromptWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> TalchiPromptWidget;
+
+	// 화면 안내용 대상입니다. 실제 탈취 대상과 구분합니다.
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AActor> FocusedTalchiTarget;
+
+	// 탈취 몽타주 재생 중에는 안내와 재입력을 막기 위해 사용합니다.
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActiveTalchiMontage;
+
+	// 얼굴 장착 후에도 종료 시점까지 유지할 대상
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ANTNPCCharacterBase> ActiveTalchiVictim;
+
+	// 중단 시 적의 탈취 몽타주도 정리하기 위해 보관
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> ActiveVictimTalchiMontage;
+
+	// 회피 무적과 별도로 관리하는 탈취 진행 상태
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi")
+	bool bIsTalchiInProgress = false;
+
+	// 정상 종료와 중단 모두 이 함수로 정리합니다.
+	void FinishTalchi();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera", meta = (ClampMin = "0.0", Units = "cm"))
+	float TalchiCameraDistance = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera", meta = (ClampMin = "0.0", Units = "s"))
+	float TalchiCameraBlendDuration = 0.2f;
+
+	void BeginTalchiCamera(AActor* TargetActor);
+	void UpdateTalchiCamera();
+	void RestoreTalchiCamera();
+	void RestoreTalchiFirstPerson();
+	void HideTalchiFaceMask();
+	void BeginTalchiMaskApproach();
+	void UpdateTalchiMaskApproach();
+	void EndTalchiMaskApproach();
+	void BeginTalchiLeftMaskFraming();
+	void RestoreTalchiLeftMask();
+	void SettleTalchiRightMask();
+	void RestoreTalchiRightMask();
+	FTransform GetTalchiRightMaskCoverTransform() const;
+	FTransform GetTalchiLeftMaskFrameTransform() const;
+	void UpdateTalchiMaskPreview();
+
+	// 1인칭 구간에서 왼쪽 탈이 놓일 자리입니다. TalchiCamera 로컬 기준이며
+	// X는 전방, Y는 오른쪽이라 왼쪽 절반은 Y가 음수입니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FVector TalchiLeftMaskOffset = FVector(22.0f, -8.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FRotator TalchiLeftMaskRotation = FRotator::ZeroRotator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
+	float TalchiLeftMaskScale = 1.0f;
+
+	// 뺏은 오른쪽 탈이 안착할 자리입니다. 중앙 이음새가 맞도록 왼쪽과 짝을 맞춥니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FVector TalchiRightMaskOffset = FVector(22.0f, 8.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	FRotator TalchiRightMaskRotation = FRotator::ZeroRotator;
+
+	// TalchiCamera 로컬 기준의 절대 스케일입니다. 어떤 탈을 빼앗아도
+	// 화면에서 같은 크기로 보이도록 원본 크기에 의존하지 않습니다.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.01"))
+	float TalchiRightMaskScale = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask", meta = (ClampMin = "0.0", Units = "s"))
+	float TalchiMaskApproachDuration = 0.25f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	TObjectPtr<UCurveFloat> TalchiMaskApproachCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Mask")
+	bool bTalchiMaskDisableShadow = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tal")
+	FName LeftTalSocketName = TEXT("TalSocket_L");
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ATalBase> TalchiApproachMask;
+
+	FTransform TalchiMaskApproachStart = FTransform::Identity;
+	FVector TalchiRightMaskSavedScale3D = FVector::OneVector;
+	double TalchiMaskApproachStartTime = 0.0;
+	bool bTalchiMaskApproachActive = false;
+	bool bTalchiMaskSavedCastShadow = false;
+
+	FTransform TalchiLeftMaskSavedTransform = FTransform::Identity;
+	bool bTalchiLeftMaskFramed = false;
+	bool bTalchiRightMaskSettled = false;
+
+	// 디버그 미리보기로 1인칭 구도에 들어가 있는 상태입니다.
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi|Debug")
+	bool bTalchiPreviewActive = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Camera")
+	FName TalchiFirstPersonHeadBone = TEXT("head");
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Talchi|Camera")
+	bool bTalchiFirstPersonActive = false;
+
+	bool bTalchiSavedFollowCameraActive = false;
+	bool bTalchiSavedFirstPersonCameraActive = false;
+	bool bTalchiSavedMeshOwnerNoSee = false;
+	bool bTalchiSavedWeaponOwnerNoSee = false;
+	bool bTalchiSavedHeadHidden = false;
+	FName TalchiHiddenHeadBone = NAME_None;
+	TMap<TWeakObjectPtr<AActor>, bool> TalchiSavedMaskVisibility;
+
+	bool bTalchiCameraActive = false;
+	float TalchiCameraOriginalArmLength = 0.0f;
+	float TalchiCameraTargetArmLength = 0.0f;
+	float TalchiCameraActiveBlendDuration = 0.0f;
+	double TalchiCameraStartTime = 0.0;
+	bool bTalchiOriginalUseControlRotation = false;
+	bool bTalchiOriginalRotationLag = false;
+
+	// 탈취 몽타주의 종료 콜백
+	void OnTalchiMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.0", Units = "cm"))
+	float TalchiSlowRadius = 1000.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.01", ClampMax = "1.0"))
+	float TalchiSlowMultiplier = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Talchi|Slow",
+		meta = (ClampMin = "0.01"))
+	float TalchiSlowUpdateInterval = 0.1f;
+
+	// NPC와 AIController의 적용 전 속도를 각각 보관합니다.
+	// 약한 참조이므로 대상의 파괴를 막지 않습니다.
+	TMap<TWeakObjectPtr<AActor>, float> TalchiOriginalTimeDilations;
+
+	float TalchiSlowElapsed = 0.0f;
+
+	void UpdateTalchiSlow();
+	void ClearTalchiSlow();
+
+	// 화면 좌표 기준으로 적 중심에서 오른쪽 위에 표시합니다.
+	UPROPERTY(EditDefaultsOnly, Category = "Talchi|UI")
+	FVector2D TalchiPromptScreenOffset = FVector2D(60.0f, -30.0f);
+
+	float TalchiSearchElapsed = 0.1f;
+
 	UPROPERTY(Transient)
 	TWeakObjectPtr<UNTTalChiTargetComponent> SelectedTalChiTarget;
 
 	UPROPERTY(Transient)
 	TObjectPtr<ATalBase> HeldStolenTal;
+	TWeakObjectPtr<AActor> HeldTalVictim;//훔친탈의 주인
 
 	////////////////////////////////////////
 	//
@@ -358,7 +532,7 @@ protected:
 	// 이번 공격(한번의 콜리전) 동안 맞은 대상들 목록
 	// 콜리전 켜지면 비워주고 맞으면 추가해준다
 	TArray<AActor*> HitActors;
-	
+
 	void StartAttackStep(int32 Step);//공격의 시작
 	void StartNextCombo();//현재 공격의 다음 콤보를 시작
 
@@ -431,51 +605,63 @@ protected:
 	///////////////////////////////////////////////////////////////////////////
 	///////////////////////////////////////////////////////////////////////////
 	////////////////////		특수기
+public:
+	void BeginSpecialArtHit(int32 ComboCount);
+	void EndSpecialArtHit(int32 ComboCount);
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "SpecialAttack")
 	TObjectPtr<UInputAction> SpecialArtAction;
 
 	// 특수기 이름표 -> 에셋 매핑
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpecialAttack")
-	TMap<FName, TObjectPtr<UAnimMontage>> SpecialArtMontages;
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimMontage> CurrentSpecialArtMontage = nullptr;
+
 
 	// 지금 실행중인 특수기 ID
-	FName CurrentSpecialArtID;
+	FName CurrentSpecialArtID = NAME_None;
 
 	// 지금 특수기 사용중인가?
 	bool bIsUsingSpecialArt = false;
+	bool bIsSpecialArtHitActive = false;
+	bool bIsSpecialArtCancelling = false;
 
+
+	int32 CurrentSpecialArtComboCount = INDEX_NONE;
 	// 지금 장착한 탈로 특수기 몇번 썼는지
 	int32 SpecialArtUseCount = 0;
-
-	// 특수기 후딜 타이머
-	FTimerHandle SpecialArtRecoveryTimer;
-
-	// 특수기 돌진 중인지
-	bool bIsSpecialArtMoving = false;
-
-	// 특수기 돌진 속도 (초당 이동량)
-	FVector SpecialArtMoveVelocity = FVector::ZeroVector;
-
-	//특수기 돌진 종료 타이머
-	FTimerHandle SpecialArtMoveTimer;
 
 	// 지금 실행 중인 스텝의 데이터
 	FPlayerCurrentSpecialArtData CurrentSpecialArtData;
 
 	void UseSpecialAttack(const FInputActionValue& Value);
 
+	// 실제 본체로 발동성공시 true(패링)
+	bool TryUseSpecialAttack(bool bFreeUse);
+
+	// 스킬로 죽일 경우 시체를 날릴 impulse 계산
+	// 플레이어 정면과 대상 방향 섞어 대각선으로 날아가게(카메라에 나오게)
+	FVector ComputeSpecialArtLaunchImpulse(const AActor* Target) const;
+	FVector ComputePushBackVelocity(const AActor* Target, float Speed) const;
+
+
+	//날아가는 세기 bVelChange라 질량 무시하고 몬스터가 뭐든 일정하게 날아감
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch")
+	float SpecialArtLaunchPower = 1200.0f; // 날아가는 거리 값
+
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float SpecialArtLaunchRadialBlend = 0.4f; // 날아가는 대각선 비율
+
+	// 위쪽 성분 0이면 바닥에 끌리고 크면 붕뜨게 된다
+	UPROPERTY(EditAnywhere, Category = "SpecialAttack | Launch", meta = (ClampMin = "0.0", ClampMax = "2.0"))
+	float SpecialArtLaunchUpRatio = 0.35f; // 19도 정도 위로 뜨게 
+
 	void StartSpecialArtStep(FName StepID);
 
 	// 몽타주 종료 콜백 함수
-	void OnSpecialArtMontageEnd(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void OnSpecialArtMontageEnd(class UAnimMontage* Montage, bool bInterrupted);
 	void CancelSpecialArt();
-	
-	void EndSpecialArtRecovery();
-
-	// 돌진기 관련 함수
-	void EndSpecialArtMove();
+	void ResetSpecialArtState();
 
 
 	////////////////////////////////////////////////////////////////////////////
@@ -492,7 +678,7 @@ public:
 		return StatComponent;
 	}
 
-public :
+public:
 	void RecoverSoul(float AMount);
 
 	////////////////////////////////////////////////////////////////////////////
@@ -513,8 +699,6 @@ protected:
 	void StartGuard(const FInputActionValue& Value);
 	void StopGuard(const FInputActionValue& Value);
 
-	UPROPERTY(EditAnywhere, Category = "Guard")
-	float ParrySlowMoTimeDilation = 0.15f;
 
 	// 패링 성공 시 바라볼 대상
 	TWeakObjectPtr<AActor> LastParriedTarget;
@@ -523,14 +707,21 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	float ParryFaceRotationSpeed = 720.0f;
 
-	UPROPERTY(EditAnywhere, Category = "Guard")
-	float ParrySlowMoRealDuration = 1.0f;
+	//패링 성공 직후 좌클릭으로 카운터 쓸 수 있는 상태인지
+	bool bParryCounterReady = false;
 
-	bool bParrySlowMoActive = false;
-	float ParrySlowMoEndRealTime = 0.0f;
+	// 카운터 창 길이(실시간) , 슬로우 모션 길이와 별개로 튜닝하기
+	UPROPERTY(EditAnywhere, Category = "Guard")
+	float ParryCounterWindowDuration = 1.5f;
+
+	// 카운터 창 만료 시간
+	float ParryCounterEndRealTime = 0.0f;
+
 
 	UPROPERTY(EditAnywhere, Category = "Guard")
 	UAnimMontage* ParryMontage;
+
+
 
 	// 정면 120도 범위 절반
 	UPROPERTY(EditAnywhere, Category = "Guard")
@@ -565,11 +756,25 @@ public:
 	// 가드 중인지 ( 내부접근하기 Guardcomponent) 
 	bool IsGuarding() const;
 
+	// 누르고 있는중인가요
+	bool IsGuardInputHeld() const;
 
-////////////////////////////////////////////////////////////////////////////
-///////		락온 시스템
+	// 패링으로 강공격을 누를 수 있는 순간인지 확인하긴
+	bool IsInParryCounterWindow() const;
+
+	//창을 여는 유일통로 (만료시간까지 적기)
+	void OpenParryCounterWindow();
+
+	// 창을 닫는 유일통로
+	void CloseParryCounterWindow();
+
+	// 슬로우 모션 해제 + 스티거 해제 + 강공격 발동
+	void TriggerParryCounter();
+
+	////////////////////////////////////////////////////////////////////////////
+	///////		락온 시스템
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin ="0.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", UTMin = "0.0"))
 	float LockOnCameraInterpSpeed = 8.0f; //카메라 락온시 회전 보간속도
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "LockOn|Camera", meta = (ClampMin = "0.0", ClampMax = "1.0", UTMin = "0.0", UIMax = "1.0"))
@@ -643,11 +848,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float LandingSpeedMultiplier = 0.5f;
 
-public :
+public:
 	bool IsRealFalling() const { return bIsRealFalling; }
 
 	void SetLastBonfire(ADdokaebiFire* Bonfire) { LastBonfire = Bonfire; }
-protected : 
+protected:
 	// 낙하 높이 설정하기 
 	UPROPERTY(EditAnywhere, Category = "Movement")
 	float MinFallHeightToPlayAnim = 200.0f;
@@ -659,15 +864,15 @@ protected :
 	void UpdateRealFalling();
 	void EndLandingRecovery();
 
-private :
+private:
 	bool bIsRealFalling = false;
 	bool bWasRealFallingThisAirtime = false;
 	bool bIsLandingRecovering = false;
 	FTimerHandle LandingRecoveryTimeHandle;
 
 
-///////////////////////////////////////////////
-////////	호리병
+	///////////////////////////////////////////////
+	////////	호리병
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Item")
@@ -707,6 +912,12 @@ public:
 
 	// 도깨비불(모닥불)에서 호출 - 최대치로 충전시키기
 	void RechargeFlask();
+
+	////////////////////////////////////////////////////////////////
+	//////////////// 히트 스톱 / 카메라 셰이크 / FOV
+	protected:
+		UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+		TObjectPtr<class UNTCombatFeelComponent> CombatFeelComponent;
 
 
 };

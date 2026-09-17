@@ -7,7 +7,7 @@
 
 UNTHPBarWidget::UNTHPBarWidget(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	MaxHp = -1.0f;
+
 }
 
 void UNTHPBarWidget::NativeConstruct()
@@ -18,19 +18,37 @@ void UNTHPBarWidget::NativeConstruct()
 
 	HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_HP")));
 	ensure(HpProgressBar);
+
+	SoulProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_Soul")));
+	ensure(SoulProgressBar);
 }
 
-void UNTHPBarWidget::UpdateHpBar(float NewCurrentHp, float MaxHP)
+void UNTHPBarWidget::UpdateHpBar(float NewCurrentHp, float InMaxHP)
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	ensure(MaxHp > 0.0f);
+	ensure(InMaxHP > 0.0f);
 	if (HpProgressBar)
 	{
-		HpProgressBar->SetPercent(NewCurrentHp / MaxHp);
+		HpProgressBar->SetPercent(NewCurrentHp / InMaxHP);
 	}
 	else
 	{
 		MC_LOG(LogMC, Error, TEXT("No HpProgressBar!!"));
+	}
+}
+
+void UNTHPBarWidget::UpdateSoulBar(float NewCurrentSoul, float InMaxSoul)
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	ensure(InMaxSoul > 0.0f);
+	if (SoulProgressBar)
+	{
+		SoulProgressBar->SetPercent(NewCurrentSoul / InMaxSoul);
+	}
+	else
+	{
+		MC_LOG(LogMC, Error, TEXT("No SoulProgressBar!!"));
 	}
 }

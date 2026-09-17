@@ -22,6 +22,9 @@ public:
 	//패링 판정에 들어가는지 체크(TakeDamage에서 호출)
 	bool IsGuarding() const { return bIsGuarding; }
 
+	// 버튼을 누르고 있는지 (애니메이션용)
+	bool IsGuardInputHeld() const { return bIsGuardInputHeld; }
+
 	// 가드 / 패링간 이동속도 받아오기
 	float GetGuardWalkSpeed() const { return GuardWalkSpeed; }
 
@@ -86,4 +89,9 @@ private:
 
 	// 가드 후 (공격/구르기/스프린트 차단 시간)
 	float StaggerEndTime = -100.0f;
+
+	// 입력즉시 true 떼면 즉시 false
+	bool bIsGuardInputHeld = false;
+
+
 };
