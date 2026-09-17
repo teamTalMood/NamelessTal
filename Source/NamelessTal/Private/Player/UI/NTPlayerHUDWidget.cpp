@@ -8,6 +8,8 @@
 #include "Player/UI/NTTalIconWidget.h"
 #include "Player/TalPlayerCharacter.h"
 #include "NPC/Components/NTHPBarWidget.h"
+#include "TimerManager.h"
+#include "Animation/WidgetAnimation.h"
 
 void UNTPlayerHUDWidget::NativeConstruct()
 {
@@ -15,6 +17,13 @@ void UNTPlayerHUDWidget::NativeConstruct()
 
 	WDG_Message = Cast<UNTMessageWidget>(GetWidgetFromName(TEXT("WBP_Notice")));
 	ensure(WDG_Message);
+
+	// WBP에서 Collapsed로 두는 걸 잊어도 시작할 때 확실히 숨긴다
+	if (IsValid(Img_DeathFade))
+	{
+		Img_DeathFade->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
 
 	InitBossHPBar();
 }
@@ -92,6 +101,57 @@ void UNTPlayerHUDWidget::ShowWidgetMessage(const FText& Title, const FText& Body
 	}
 
 	WDG_Message->Show(Title, Body, Duration);
+}
+
+void UNTPlayerHUDWidget::ShowDeathScreen()
+{
+	if (!IsValid(Img_DeathFade))
+	{
+		return;
+	}
+
+	// 걷어내는 중이었다면 취소한다
+	GetWorld()->GetTimerManager().ClearTimer(DeathFadeTimer);
+
+	Img_DeathFade->SetVisibility(ESlateVisibility::HitTestInvisible);
+
+	if (Anim_DeathFade)
+	{
+		StopAnimation(Anim_DeathFade);
+		PlayAnimation(Anim_DeathFade);
+	}
+	else
+	{
+		// 애니메이션이 없으면 즉시 완전한 검정
+		Img_DeathFade->SetRenderOpacity(1.0f);
+	}
+}
+
+void UNTPlayerHUDWidget::HideDeathScreen()
+{
+	if (!IsValid(Img_DeathFade))
+	{
+		return;
+	}
+
+	if (!Anim_DeathFade)
+	{
+		Img_DeathFade->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+
+	// 등장 애니메이션을 역재생해 서서히 걷어낸다
+	PlayAnimationReverse(Anim_DeathFade);
+
+	GetWorld()->GetTimerManager().SetTimer(
+		DeathFadeTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+			{
+				if (IsValid(Img_DeathFade))
+				{
+					Img_DeathFade->SetVisibility(ESlateVisibility::Collapsed);
+				}
+			}),
+		Anim_DeathFade->GetEndTime(), false);
 }
 
 void UNTPlayerHUDWidget::InitBossHPBar()
