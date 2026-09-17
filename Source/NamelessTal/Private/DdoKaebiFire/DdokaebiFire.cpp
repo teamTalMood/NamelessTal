@@ -21,6 +21,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Engine/LocalPlayer.h"
 
+#include "Player/UI/NTDdokaebiFireWidget.h"
 
 // Sets default values
 ADdokaebiFire::ADdokaebiFire()
@@ -79,6 +80,35 @@ void ADdokaebiFire::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void ADdokaebiFire::OpenRestMenu()
+{
+	if (!RestMenuClass)
+	{
+		return;
+	}
+
+	APawn* Pawn = Cast<APawn>(OverlappingPlayer);
+	APlayerController* PC = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
+
+	if (PC == nullptr)
+	{
+		return;
+	}
+
+	if (!RestMenu)
+	{
+		RestMenu = CreateWidget<UNTDdokaebiFireWidget>(PC, RestMenuClass);
+	}
+	if (!RestMenu)
+	{
+		return;
+	}
+
+	RestMenu->SetLocationName(LocationName);
+	RestMenu->OpenMenu();
+
 }
 
 void ADdokaebiFire::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,	bool bFromSweep, const FHitResult& SweepResult)
@@ -150,5 +180,5 @@ void ADdokaebiFire::OnInteract()
 	}
 
 	TriggerRest(OverlappingPlayer);
-
+	OpenRestMenu();
 }

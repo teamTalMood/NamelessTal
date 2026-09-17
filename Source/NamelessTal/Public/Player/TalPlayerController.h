@@ -9,6 +9,7 @@
 
 class UNTPlayerHUDWidget;
 class UNTMessageWidget;
+class UNTPauseMenuWidget;
 class ATalPlayerCharacter;
 
 UENUM(BlueprintType)
@@ -53,6 +54,14 @@ protected:
 	TSubclassOf<UNTPlayerHUDWidget> PlayerHUDClass;
 	UPROPERTY()
 	TObjectPtr<UNTPlayerHUDWidget> PlayerHUD;
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UNTPauseMenuWidget> PauseMenuClass;
+
+	UPROPERTY()
+	TObjectPtr<UNTPauseMenuWidget> PauseMenu;
+
+	UPROPERTY(EditAnywhere, Category = "Input|Input Mappings")
+	TObjectPtr<class UInputAction> PauseAction;
 
 	uint8 bISControllerSetted : 1 = false;
 
@@ -70,4 +79,6 @@ public: // Boss HP
 
 	// GameMode -> Controller -> HUD -> HPBarWidget 순으로 보스 넋 갱신
 	void UpdateBossSoul(float CurrentSoul, float MaxSoul);
+
+	void TogglePauseMenu();
 };
