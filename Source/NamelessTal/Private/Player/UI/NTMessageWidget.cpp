@@ -8,11 +8,6 @@
 
 void UNTMessageWidget::Show(const FText& Title, const FText& Body, float Duration)
 {
-	// 배너 디자인엔 제목이 없을 수 없습니다요
-	if (IsValid(Txt_Title))
-	{
-		Txt_Title->SetText(Title);
-	}
 
 	if (IsValid(Txt_Body))
 	{
@@ -28,8 +23,6 @@ void UNTMessageWidget::Show(const FText& Title, const FText& Body, float Duratio
 
 void UNTMessageWidget::NativeConstruct()
 {
-	Txt_Title = Cast<UTextBlock>(GetWidgetFromName(TEXT("Txt_Title")));
-	ensure(Txt_Title);
 
 	Txt_Body = Cast<UTextBlock>(GetWidgetFromName(TEXT("Txt_Body")));
 	ensure(Txt_Body);
