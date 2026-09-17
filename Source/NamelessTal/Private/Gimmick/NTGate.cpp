@@ -40,9 +40,6 @@ ANTGate::ANTGate()
 	PlayerInteractPointComponent->SetupAttachment(GateFrameMeshComponent, TEXT("Socket_PlayerInteract"));
 
 	BoxCollisionFrontComponent->OnComponentBeginOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionBeginOverlap);
-	BoxCollisionFrontComponent->OnComponentEndOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionEndOverlap);
-
-	BoxCollisionBackComponent->OnComponentBeginOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionBeginOverlap);
 	BoxCollisionBackComponent->OnComponentEndOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionEndOverlap);
 }
 
