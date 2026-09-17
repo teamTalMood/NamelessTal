@@ -31,7 +31,10 @@ public:
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gate")
-	TObjectPtr<class UBoxComponent> BoxCollisionComponent;
+	TObjectPtr<class UBoxComponent> BoxCollisionFrontComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gate")
+	TObjectPtr<class UBoxComponent> BoxCollisionBackComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Gate")
 	TObjectPtr<class UStaticMeshComponent> GateFrameMeshComponent;

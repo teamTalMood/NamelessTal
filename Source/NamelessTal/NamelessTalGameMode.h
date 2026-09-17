@@ -13,6 +13,7 @@ class UMediaSoundComponent;
 class UNTCutsceneWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterRespawn, ENTRespawnPointEnum, OnMonsterRespawn);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCutsceneSequenceEnded);
 
 /**
  *  Simple GameMode for a third person game
@@ -30,6 +31,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnMonsterRespawn OnMonsterRespawn;
 
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnCutsceneSequenceEnded OnCutsceneSequenceEnded;
+
 	void RespawnAllMonsters();
 
 	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
@@ -43,6 +47,8 @@ public:
 
 	/** 렌더된 시퀀스 영상을 소리와 함께 전체화면 재생한다 */
 	void PlayCutscene(UMediaSource* Source);
+
+	void BossPhaseStarted(EBossPhase InPhase);
 
 protected:
 	virtual void BeginPlay() override;
@@ -59,9 +65,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
 	TObjectPtr<UMediaPlayer> CutsceneMediaPlayer;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
-	TObjectPtr<UMediaSource> CutsceneSource;
-
 	UPROPERTY(VisibleAnywhere, Category = "Cutscene")
 	TObjectPtr<UMediaSoundComponent> CutsceneSound;
 
@@ -70,6 +73,9 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UNTCutsceneWidget> ActiveCutsceneWidget;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
+	TMap<EBossPhase, TObjectPtr<UMediaSource>> CutsceneSources;
 
 };
 

@@ -15,11 +15,14 @@ ANTGate::ANTGate()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
-	BoxCollisionComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollision"));
-	RootComponent = BoxCollisionComponent;
-
 	GateFrameMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("GateFrameMesh"));
-	GateFrameMeshComponent->SetupAttachment(RootComponent);
+	RootComponent = GateFrameMeshComponent;
+
+	BoxCollisionFrontComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionFront"));
+	BoxCollisionFrontComponent->SetupAttachment(GateFrameMeshComponent);
+
+	BoxCollisionBackComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollisionBack"));
+	BoxCollisionBackComponent->SetupAttachment(GateFrameMeshComponent);
 
 	GateHingeLComponent = CreateDefaultSubobject<USceneComponent>(TEXT("GateHingeL"));
 	GateHingeLComponent->SetupAttachment(GateFrameMeshComponent, TEXT("Socket_Door_L"));
@@ -36,8 +39,11 @@ ANTGate::ANTGate()
 	PlayerInteractPointComponent = CreateDefaultSubobject<USceneComponent>(TEXT("PlayerInteractPoint"));
 	PlayerInteractPointComponent->SetupAttachment(GateFrameMeshComponent, TEXT("Socket_PlayerInteract"));
 
-	BoxCollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionBeginOverlap);
-	BoxCollisionComponent->OnComponentEndOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionEndOverlap);
+	BoxCollisionFrontComponent->OnComponentBeginOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionBeginOverlap);
+	BoxCollisionFrontComponent->OnComponentEndOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionEndOverlap);
+
+	BoxCollisionBackComponent->OnComponentBeginOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionBeginOverlap);
+	BoxCollisionBackComponent->OnComponentEndOverlap.AddDynamic(this, &ANTGate::OnBoxCollisionEndOverlap);
 }
 
 // Called when the game starts or when spawned

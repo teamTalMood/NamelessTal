@@ -28,7 +28,7 @@ void ANTMonsterSpawner::BeginPlay()
 		GameMode->OnMonsterRespawn.AddDynamic(this, &ANTMonsterSpawner::SpawnNPC);
 	}
 
-	SpawnNPC(StagePoint);
+	//SpawnNPC(StagePoint);
 }
 
 void ANTMonsterSpawner::SpawnNPC(ENTRespawnPointEnum InSavePoint)

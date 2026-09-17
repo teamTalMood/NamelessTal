@@ -15,6 +15,11 @@ ANamelessTalGameMode::ANamelessTalGameMode()
 {
 	// stub
 	CutsceneSound = CreateDefaultSubobject<UMediaSoundComponent>(TEXT("CutsceneSound"));
+
+	CutsceneSources.Add(EBossPhase::First, nullptr);
+	CutsceneSources.Add(EBossPhase::Second, nullptr);
+	CutsceneSources.Add(EBossPhase::Third, nullptr);
+	CutsceneSources.Add(EBossPhase::End, nullptr);
 }
 
 void ANamelessTalGameMode::BeginPlay()
@@ -26,11 +31,6 @@ void ANamelessTalGameMode::BeginPlay()
 	if (CutsceneSound && CutsceneMediaPlayer)
 	{
 		CutsceneSound->SetMediaPlayer(CutsceneMediaPlayer);
-	}
-
-	if (CutsceneSource)
-	{
-		PlayCutscene(CutsceneSource);
 	}
 }
 
@@ -68,6 +68,37 @@ void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 	CutsceneMediaPlayer->Play();
 }
 
+void ANamelessTalGameMode::BossPhaseStarted(EBossPhase InPhase)
+{
+	switch (InPhase)
+	{
+		case EBossPhase::First:
+		{
+			TArray<AActor*> Monsters;
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), ANTNPCCharacterBase::StaticClass(), Monsters);
+
+			for (AActor* Monster : Monsters)
+			{
+				Monster->Destroy();
+			}
+			break;
+		}
+		case EBossPhase::Second:
+			break;
+		case EBossPhase::Third:
+			break;
+		case EBossPhase::End:
+			break;
+		default:
+			break;
+	}
+
+	if (CutsceneSources[InPhase])
+	{
+		PlayCutscene(CutsceneSources[InPhase]);
+	}
+}
+
 void ANamelessTalGameMode::EndCutscene()
 {
 	CutsceneMediaPlayer->Close();
@@ -84,7 +115,7 @@ void ANamelessTalGameMode::EndCutscene()
 		PC->SetShowMouseCursor(false);
 	}
 
-	OnMonsterRespawn.Broadcast(CurrentRespawnPoint);
+	OnCutsceneSequenceEnded.Broadcast();
 }
 
 void ANamelessTalGameMode::RespawnAllMonsters()

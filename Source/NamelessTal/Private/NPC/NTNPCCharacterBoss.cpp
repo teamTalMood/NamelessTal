@@ -5,6 +5,7 @@
 #include "MCLOG.h"
 #include "Game/NTGameDataSingleton.h"
 #include "Stat/StatComponent.h"
+#include "NamelessTalGameMode.h"
 
 //AI
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -62,6 +63,11 @@ void ANTNPCCharacterBoss::BeginPlay()
 
 	CurrentPhase = EBossPhase::Third;
 
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->OnCutsceneSequenceEnded.AddDynamic(this, &ANTNPCCharacterBoss::StartNextPhase);
+	}
+
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();
 	StatComponent->SetSoulRegenBlocked(true);
@@ -97,6 +103,23 @@ void ANTNPCCharacterBoss::SetPartsScalarParameter(FName ParamName, float Value)
 	if (ShoulderDynamicMaterial)
 	{
 		ShoulderDynamicMaterial->SetScalarParameterValue(ParamName, Value);
+	}
+}
+
+void ANTNPCCharacterBoss::StartBossSequence(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+{
+	switch (CurrentPhase)
+	{
+	case EBossPhase::First:
+		CurrentPhase = EBossPhase::Second;
+		break;
+	case EBossPhase::Second:
+		CurrentPhase = EBossPhase::Third;
+		break;
+	case EBossPhase::Third:
+		break;
+	default:
+		break;
 	}
 }
 
@@ -178,7 +201,7 @@ void ANTNPCCharacterBoss::HandleDeath()
 			AnimInstance->Montage_Play(DeathMontage);
 
 			FOnMontageEnded EndDelegate;
-			EndDelegate.BindUObject(this, &ANTNPCCharacterBoss::StartNextPhase);
+			EndDelegate.BindUObject(this, &ANTNPCCharacterBoss::StartBossSequence);
 			AnimInstance->Montage_SetEndDelegate(EndDelegate, DeathMontage);
 		}
 	}
@@ -190,23 +213,9 @@ void ANTNPCCharacterBoss::HandleDeath()
 	MC_LOG(LogSY, Warning, TEXT("NPC DEAD : %s"), *GetName());
 }
 
-void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsProperlyEnded)
+void ANTNPCCharacterBoss::StartNextPhase()
 {
 	MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	switch (CurrentPhase)
-	{
-	case EBossPhase::First:
-		CurrentPhase = EBossPhase::Second;
-		break;
-	case EBossPhase::Second:
-		CurrentPhase = EBossPhase::Third;
-		break;
-	case EBossPhase::Third:
-		break;
-	default:
-		break;
-	}
 
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();

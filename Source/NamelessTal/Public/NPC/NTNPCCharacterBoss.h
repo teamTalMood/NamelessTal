@@ -5,17 +5,10 @@
 #include "CoreMinimal.h"
 #include "NPC/NTNPCCharacterBase.h"
 #include "NPC/NTNPCAttackPatternData.h"
+#include "Title/NTSavePointEnum.h"
 #include "NTNPCCharacterBoss.generated.h"
 
 class ANTOkJangPan;
-
-UENUM(BlueprintType)
-enum class EBossPhase : uint8
-{
-	First = 0,
-	Second = 1,
-	Third = 2
-};
 
 USTRUCT(BlueprintType)
 struct FNPCAttackPatternList
@@ -89,10 +82,12 @@ protected:
 	virtual void HandleDeath() override;
 
 	UFUNCTION()
-	void StartNextPhase(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
+	void StartNextPhase();
 
 	virtual void BeginAttack() override;
 
 	// Top/Pants/Shoulder 다이나믹 머티리얼에 동일한 스칼라 파라미터를 한번에 적용
 	void SetPartsScalarParameter(FName ParamName, float Value);
+
+	void StartBossSequence(UAnimMontage* TargetMontage, bool IsProperlyEnded);
 };
