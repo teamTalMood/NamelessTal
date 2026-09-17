@@ -4,9 +4,6 @@
 #include "Components/TextBlock.h"
 #include "Player/TalPlayerCharacter.h"
 
-#include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetSystemLibrary.h"
-
 void UNTDdokaebiFireWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -49,12 +46,10 @@ void UNTDdokaebiFireWidget::HandleUpgradeClicked()
 }
 
 
-// 아래 버튼(Btn_Leave) : 게임을 종료한다.
+// 아래 버튼(Btn_Leave) : 메뉴를 닫고 게임으로 돌아간다.
 void UNTDdokaebiFireWidget::HandleLeaveClicked()
 {
-	// 종료 전에 일시정지를 반드시 푼다. 멈춘 채로 QuitGame하면 종료가 막힐 수 있다.
-	UGameplayStatics::SetGamePaused(this, false);
-	UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, false);
+	CloseMenu();
 }
 
 void UNTDdokaebiFireWidget::HandleUpgradeHovered() { MoveSelectorTo(Btn_Upgrade); }
