@@ -16,7 +16,46 @@ void ATalPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	SetControllerSettings(nullptr);
+}
+
+void ATalPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+
+	// Add Input Mapping Contexts
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+	{
+		for (UInputMappingContext* CurrentContext : DefaultMappingContexts)
+		{
+			Subsystem->AddMappingContext(CurrentContext, 0);
+		}
+	}
+
+}
+
+void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
+{
+	if (PlayerHUD == nullptr)
+	{
+		return;
+	}
+
+	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
+}
+
+void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
 	if (!IsLocalController()) return;
+
+	if (bISControllerSetted) return;
+
+	SetInputMode(FInputModeGameOnly());
+	SetShowMouseCursor(false);
 
 	// 메시지 위젯은 숨긴채로 미리 만들어두기!
 	if (NoticeWidgetClass)
@@ -44,7 +83,7 @@ void ATalPlayerController::BeginPlay()
 
 	if (!PlayerHUDClass) return;
 
-	ATalPlayerCharacter* TalCharacter = Cast<ATalPlayerCharacter>(GetPawn());
+	ATalPlayerCharacter* TalCharacter = InPawn ? InPawn : Cast<ATalPlayerCharacter>(GetPawn());
 	if (!IsValid(TalCharacter)) return;
 
 	UStatComponent* StatComponent = TalCharacter->GetStatComponent();
@@ -61,29 +100,5 @@ void ATalPlayerController::BeginPlay()
 	PlayerHUD->InitializeWithStatComponent(StatComponent);
 	PlayerHUD->InitializeWithTalComponent(TalCharacter->GetTalComponent());
 
-}
-
-void ATalPlayerController::SetupInputComponent()
-{
-	Super::SetupInputComponent();
-
-	// Add Input Mapping Contexts
-	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
-	{
-		for (UInputMappingContext* CurrentContext : DefaultMappingContexts)
-		{
-			Subsystem->AddMappingContext(CurrentContext, 0);
-		}
-	}
-
-}
-
-void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
-{
-	if (PlayerHUD == nullptr)
-	{
-		return;
-	}
-
-	PlayerHUD->ShowWidgetMessage(Title, Body, Duration);
+	bISControllerSetted = true;
 }

@@ -61,6 +61,8 @@ protected:
 
 	uint8 bIsEpicKilled : 1 = false;
 	uint8 bBossRoomEntered : 1 = false;
+	uint8 bIsBossStartSequence : 1 = false;
+	uint8 bIsEnding : 1 = false;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
 	TObjectPtr<UMediaPlayer> CutsceneMediaPlayer;
@@ -76,6 +78,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Cutscene")
 	TMap<EBossPhase, TObjectPtr<UMediaSource>> CutsceneSources;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Ending")
+	FName TitleLevelName;
 
 };
 

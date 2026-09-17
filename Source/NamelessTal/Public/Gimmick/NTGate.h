@@ -58,6 +58,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gate")
 	uint8 bGateOpenFront : 1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gate")
+	uint8 bIsBossRoomGate : 1;
+
 	UFUNCTION()
 	void OnBoxCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
@@ -73,6 +76,7 @@ protected:
 	bool bIsDoorMoving = false;
 	float DoorOpenElapsedTime = 0.0f;
 	bool bIsDoorOpened = false;
+	bool bBossSequenceTriggered = false;
 
 	FRotator GateMeshLStartRotation;
 	FRotator GateMeshRStartRotation;

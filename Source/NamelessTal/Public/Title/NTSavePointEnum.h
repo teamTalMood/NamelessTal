@@ -14,6 +14,7 @@ enum class ENTRespawnPointEnum : uint8
 	StartPoint = 0,
 	FrontBossRoom = 10,
 	DownEpicRoom = 20,
+	Boss = 30,
 };
 
 UENUM(BlueprintType)

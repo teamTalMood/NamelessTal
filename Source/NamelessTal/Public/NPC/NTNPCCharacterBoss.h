@@ -90,4 +90,6 @@ protected:
 	void SetPartsScalarParameter(FName ParamName, float Value);
 
 	void StartBossSequence(UAnimMontage* TargetMontage, bool IsProperlyEnded);
+
+	FTimerHandle PhaseStartDelayTimer;
 };
