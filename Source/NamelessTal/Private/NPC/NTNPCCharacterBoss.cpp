@@ -16,9 +16,15 @@
 #include "NPC/Boss/NTOkJangPan.h"
 #include "Components/CapsuleComponent.h"
 
+//Material
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Components/StaticMeshComponent.h"
+
 
 ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 {
+	NPCGrade = ENPCGrade::Boss;
+
 	PatternsNames.Add(EBossPhase::First, TEXT(""));
 	PatternsNames.Add(EBossPhase::Second, TEXT(""));
 	PatternsNames.Add(EBossPhase::Third, TEXT(""));
@@ -30,6 +36,18 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 	PhaseHP.Add(EBossPhase::First, 260);
 	PhaseHP.Add(EBossPhase::Second, 195);
 	PhaseHP.Add(EBossPhase::Third, 195);
+
+	PhaseHeadringRotationSpeed.Add(EBossPhase::First, 90.0f);
+	PhaseHeadringRotationSpeed.Add(EBossPhase::Second, 180.0f);
+	PhaseHeadringRotationSpeed.Add(EBossPhase::Third, 360.0f);
+
+	HeadringMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadringMesh"));
+	HeadringMesh->SetupAttachment(GetMesh(), TEXT("head"));
+	HeadringMesh->SetRelativeLocationAndRotation(FVector(0.177, -4.579, -26.254), FRotator(-3.267f, -0.283f, 4.954f));
+
+	HeadringHolderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadringHolderMesh"));
+	HeadringHolderMesh->SetupAttachment(GetMesh(), TEXT("head"));
+	HeadringHolderMesh->SetRelativeLocationAndRotation(FVector(0.177, -4.578, -26.254), FRotator(0.f, 0.f, 4.946f));
 }
 
 void ANTNPCCharacterBoss::BeginPlay()
@@ -41,6 +59,39 @@ void ANTNPCCharacterBoss::BeginPlay()
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();
 	StatComponent->SetSoulRegenBlocked(true);
+
+	HeadringRotationSpeed = PhaseHeadringRotationSpeed[CurrentPhase];
+
+	// 보스 공용 파츠(Top/Pants/Shoulder)는 기본값이 이미 더러운 상태(Dirt=1,Cutout=1)라
+	// 스폰 시 깨끗한 상태로 시작하도록 명시적으로 0으로 덮어써야 함
+	SetPartsScalarParameter(TEXT("DirtAmount"), 0.0f);
+	SetPartsScalarParameter(TEXT("CutoutAmount"), 0.0f);
+}
+
+void ANTNPCCharacterBoss::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (HeadringMesh)
+	{
+		HeadringMesh->AddLocalRotation(FRotator(0.0f, HeadringRotationSpeed * DeltaTime, 0.0f));
+	}
+}
+
+void ANTNPCCharacterBoss::SetPartsScalarParameter(FName ParamName, float Value)
+{
+	if (TopDynamicMaterial)
+	{
+		TopDynamicMaterial->SetScalarParameterValue(ParamName, Value);
+	}
+	if (PantsDynamicMaterial)
+	{
+		PantsDynamicMaterial->SetScalarParameterValue(ParamName, Value);
+	}
+	if (ShoulderDynamicMaterial)
+	{
+		ShoulderDynamicMaterial->SetScalarParameterValue(ParamName, Value);
+	}
 }
 
 float ANTNPCCharacterBoss::ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData)
@@ -156,10 +207,24 @@ void ANTNPCCharacterBoss::StartNextPhase(UAnimMontage* TargetMontage, bool IsPro
 	StatComponent->SetSoulRegenBlocked(true);
 	bIsDead = false;
 
+	HeadringRotationSpeed = PhaseHeadringRotationSpeed[CurrentPhase];
+
 	SetCanBeDamaged(true);
 	SetActorEnableCollision(true);
 
 	ReleaseStun();
+
+	// Phase 진입에 따른 흙/찢어짐/핏자국 파라미터 전환 (First=스폰 상태, Second=Phase1, Third=Phase2)
+	if (CurrentPhase == EBossPhase::Second || CurrentPhase == EBossPhase::Third)
+	{
+		SetPartsScalarParameter(TEXT("DirtAmount"), 1.0f);
+		SetPartsScalarParameter(TEXT("CutoutAmount"), 1.0f);
+	}
+
+	if (CurrentPhase == EBossPhase::Third)
+	{
+		SetPartsScalarParameter(TEXT("BloodAmount"), 1.0f);
+	}
 
 	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
 	MC_LOG(LogMC, Log, TEXT("End : %s"), *EnumString);

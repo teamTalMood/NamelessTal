@@ -46,6 +46,7 @@ protected:
 
 public:
 	virtual float ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData) override;
+	virtual void Tick(float DeltaTime) override;
 
 protected:
 	virtual void SetAttackPatternDatas() override;
@@ -66,6 +67,19 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AOE")
 	TSubclassOf<ANTOkJangPan> OkJangPanClass;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
+	TObjectPtr<class UStaticMeshComponent> HeadringMesh;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
+	TObjectPtr<class UStaticMeshComponent> HeadringHolderMesh;
+
+	// HeadringMesh의 로컬 Z축(Yaw) 회전 속도(도/초). Phase 진입 시 PhaseHeadringRotationSpeed값으로 갱신됨
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Accessory")
+	float HeadringRotationSpeed = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Accessory")
+	TMap<EBossPhase, float> PhaseHeadringRotationSpeed;
+
 protected:
 	virtual void HandleDeath() override;
 
@@ -73,4 +87,7 @@ protected:
 	void StartNextPhase(class UAnimMontage* TargetMontage, bool IsProperlyEnded);
 
 	virtual void BeginAttack() override;
+
+	// Top/Pants/Shoulder 다이나믹 머티리얼에 동일한 스칼라 파라미터를 한번에 적용
+	void SetPartsScalarParameter(FName ParamName, float Value);
 };
