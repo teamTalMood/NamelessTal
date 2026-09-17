@@ -37,6 +37,14 @@ void ATalPlayerController::SetupInputComponent()
 		}
 	}
 
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		if (PauseAction)
+		{
+			EIC->BindAction(PauseAction, ETriggerEvent::Started,
+				this, &ATalPlayerController::TogglePauseMenu);
+		}
+	}
 }
 
 void ATalPlayerController::ShowMessage(ENTMessageStyle Style, const FText& Title, const FText& Body, float Duration)
@@ -124,15 +132,6 @@ void ATalPlayerController::HandleStartBossGame()
 void ATalPlayerController::UpdateBossHP(float CurrentHP, float MaxHP)
 {
 	if (!IsValid(PlayerHUD)) return;
-
-	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
-	{
-		if (PauseAction)
-		{
-			EIC->BindAction(PauseAction, ETriggerEvent::Started,
-				this, &ATalPlayerController::TogglePauseMenu);
-		}
-	}
 
 	PlayerHUD->UpdateBossHPBar(CurrentHP, MaxHP);
 }
