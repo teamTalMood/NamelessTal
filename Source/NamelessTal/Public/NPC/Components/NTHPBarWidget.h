@@ -30,11 +30,12 @@ public:
 	FORCEINLINE void SetOwiningActor(AActor* NewOwner) { OwningActor = NewOwner; }
 
 protected:
-	UPROPERTY()
-	TObjectPtr<class UProgressBar> HpProgressBar;
+	// 위젯 트리의 "PB_HP" / "PB_Soul"과 이름이 일치해야 컴파일 타임에 자동 바인딩됨
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<class UProgressBar> PB_HP;
 
-	UPROPERTY()
-	TObjectPtr<class UProgressBar> SoulProgressBar;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<class UProgressBar> PB_Soul;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<AActor> OwningActor;

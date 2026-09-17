@@ -15,32 +15,20 @@ void UNTHPBarWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
-
-	HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_HP")));
-	ensure(HpProgressBar);
-
-	SoulProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_Soul")));
-	ensure(SoulProgressBar);
 }
 
 void UNTHPBarWidget::UpdateHpBar(float NewCurrentHp, float InMaxHP)
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	// WidgetComponent/중첩 UserWidget은 NativeConstruct보다 먼저 Update가 호출될 수 있어 재시도
-	if (!HpProgressBar)
-	{
-		HpProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_HP")));
-	}
-
 	ensure(InMaxHP > 0.0f);
-	if (HpProgressBar)
+	if (PB_HP)
 	{
-		HpProgressBar->SetPercent(NewCurrentHp / InMaxHP);
+		PB_HP->SetPercent(NewCurrentHp / InMaxHP);
 	}
 	else
 	{
-		MC_LOG(LogMC, Error, TEXT("No HpProgressBar!!"));
+		MC_LOG(LogMC, Error, TEXT("No PB_HP!!"));
 	}
 }
 
@@ -48,19 +36,13 @@ void UNTHPBarWidget::UpdateSoulBar(float NewCurrentSoul, float InMaxSoul)
 {
 	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
-	// WidgetComponent/중첩 UserWidget은 NativeConstruct보다 먼저 Update가 호출될 수 있어 재시도
-	if (!SoulProgressBar)
-	{
-		SoulProgressBar = Cast<UProgressBar>(GetWidgetFromName(TEXT("PB_Soul")));
-	}
-
 	ensure(InMaxSoul > 0.0f);
-	if (SoulProgressBar)
+	if (PB_Soul)
 	{
-		SoulProgressBar->SetPercent(NewCurrentSoul / InMaxSoul);
+		PB_Soul->SetPercent(NewCurrentSoul / InMaxSoul);
 	}
 	else
 	{
-		MC_LOG(LogMC, Error, TEXT("No SoulProgressBar!!"));
+		MC_LOG(LogMC, Error, TEXT("No PB_Soul!!"));
 	}
 }
