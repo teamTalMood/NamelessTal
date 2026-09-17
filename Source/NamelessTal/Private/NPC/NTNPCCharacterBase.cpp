@@ -417,6 +417,8 @@ void ANTNPCCharacterBase::TalChiNPC(FNPCTalchiData InTalchiData)
 
 	if (bIsDead || !IsValid(StatComponent)) return;
 
+	PendingLaunchImpulse = FVector::ZeroVector;
+
 	const float Damage = StatComponent->MaxHP * 0.5f;
 
 	StatComponent->ApplyDamage(Damage);
