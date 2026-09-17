@@ -45,11 +45,15 @@ ANTNPCCharacterBoss::ANTNPCCharacterBoss()
 	HeadringPivotComponent = CreateDefaultSubobject<USceneComponent>(TEXT("HeadringPivot"));
 	HeadringPivotComponent->SetupAttachment(GetMesh(), TEXT("BossRing"));
 
+	// Boss_Headring/Boss_HeadringHolder 에셋 자체의 피봇이 메시 중심이 아니라 캐릭터 발밑 원점에 있어서
+	// (에셋의 로컬 바운즈 중심을 구해 반대로 밀어) 시각적 중심을 부착 지점으로 옮겨줌
 	HeadringMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadringMesh"));
 	HeadringMesh->SetupAttachment(HeadringPivotComponent);
+	HeadringMesh->SetRelativeLocation(FVector(-0.646f, 22.360f, -169.215f));
 
 	HeadringHolderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadringHolderMesh"));
 	HeadringHolderMesh->SetupAttachment(GetMesh(), TEXT("BossRing"));
+	HeadringHolderMesh->SetRelativeLocation(FVector(-0.886f, 22.937f, -167.820f));
 }
 
 void ANTNPCCharacterBoss::BeginPlay()
