@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Player/UI/NTMessageWidget.h"
@@ -11,7 +11,7 @@
 void UNTMessageWidget::Show(const FText& Title, const FText& Body, float Duration)
 {
 	GetWorld()->GetTimerManager().ClearTimer(CollapseTimer);
-	StopAnimation(Anim_Hide);
+	StopAnimation(Anim_Show);
 
 	if (IsValid(Txt_Body))
 	{
@@ -25,7 +25,7 @@ void UNTMessageWidget::Show(const FText& Title, const FText& Body, float Duratio
 		PlayAnimation(Anim_Show);
 	}
 
-	// °°Àº ÇÚµé·Î ´Ù½Ã °É¸é ±âÁ¸ Å¸ÀÌ¸Ó´Â ¾Ë¾Æ¼­ Ãë¼Ò
+	// ê°™ì€ í•¸ë“¤ë¡œ ë‹¤ì‹œ ê±¸ë©´ ê¸°ì¡´ íƒ€ì´ë¨¸ëŠ” ì•Œì•„ì„œ ì·¨ì†Œ
 	GetWorld()->GetTimerManager().SetTimer(HideTimer, this, 	&UNTMessageWidget::Hide, Duration, false);
 
 }
@@ -39,21 +39,19 @@ void UNTMessageWidget::NativeConstruct()
 
 void UNTMessageWidget::Hide()
 {
-
-	if (!Anim_Hide)
+	if (!Anim_Show)
 	{
-
 		SetVisibility(ESlateVisibility::Collapsed);
 		return;
 	}
 
-	PlayAnimation(Anim_Hide);
+	// ë“±ìž¥ ì• ë‹ˆë©”ì´ì…˜ì„ ê±°ê¾¸ë¡œ ìž¬ìƒ
+	PlayAnimationReverse(Anim_Show);
+
 	GetWorld()->GetTimerManager().SetTimer(
 		CollapseTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
 			{
 				SetVisibility(ESlateVisibility::Collapsed);
 			}),
-			Anim_Hide->GetEndTime(), false);
-	
+		Anim_Show->GetEndTime(), false);
 }
-

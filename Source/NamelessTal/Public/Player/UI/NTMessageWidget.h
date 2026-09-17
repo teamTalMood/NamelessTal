@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -18,7 +18,7 @@ class NAMELESSTAL_API UNTMessageWidget : public UUserWidget
 
 
 public:
-	// ¸Ş½ÃÁö ¶ç¿ì°í Duration(3)ÃÊ µÚ ÀÚµ¿À¸·Î ¼û±ä´Ù
+	// ë©”ì‹œì§€ ë„ìš°ê³  Duration(3)ì´ˆ ë’¤ ìë™ìœ¼ë¡œ ìˆ¨ê¸´ë‹¤
 	void Show(const FText& Title, const FText& Body, float Duration);
 
 protected:
@@ -30,9 +30,6 @@ protected:
 
 	UPROPERTY(meta = (BindWidgetAnim), Transient)
 	TObjectPtr<UWidgetAnimation> Anim_Show;
-
-	UPROPERTY(meta = (BindWidgetAnim), Transient)
-	TObjectPtr<UWidgetAnimation> Anim_Hide;
 
 private :
 	void Hide();
