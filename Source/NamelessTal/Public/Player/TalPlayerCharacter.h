@@ -68,6 +68,8 @@ struct FPlayerCurrentSpecialArtData
 	float PushBackSpeed = 0.f;
 };
 
+// 호리병 개수가 바뀔 때 HUD에 알린다
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnFlaskCountChanged, int32, NewCount, int32, MaxCount);
 
 
 UCLASS()
@@ -961,6 +963,14 @@ public:
 
 	// 도깨비불(모닥불)에서 호출 - 최대치로 충전시키기
 	void RechargeFlask();
+
+	// 호리병 개수 변화 알림. HUD가 여기에 바인딩한다
+	UPROPERTY(BlueprintAssignable, Category = "Item")
+	FOnFlaskCountChanged OnFlaskCountChanged;
+
+	// HUD가 처음 붙을 때 현재값을 읽어가기 위한 게터
+	int32 GetFlaskCount() const { return FlaskCount; }
+	int32 GetFlaskMaxCount() const { return FlaskMaxCount; }
 
 	////////////////////////////////////////////////////////////////
 	//////////////// 히트 스톱 / 카메라 셰이크 / FOV

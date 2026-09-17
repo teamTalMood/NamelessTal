@@ -131,6 +131,7 @@ void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 	PlayerHUD->AddToViewport();
 	PlayerHUD->InitializeWithStatComponent(StatComponent);
 	PlayerHUD->InitializeWithTalComponent(TalCharacter->GetTalComponent());
+	PlayerHUD->InitializeWithPlayerCharacter(TalCharacter);
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{
