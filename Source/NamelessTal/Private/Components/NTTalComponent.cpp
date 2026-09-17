@@ -6,6 +6,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
+#include "UObject/UnrealType.h"
 
 UNTTalComponent::UNTTalComponent()
 {
@@ -48,6 +49,8 @@ bool UNTTalComponent::EquipTal(ATalBase* NewTal)
 
 	NewTal->SetOwner(GetOwner());
 	CurrentTal = NewTal;
+
+	ApplyTalWearScale();
 
 	OnTalChanged.Broadcast(CurrentTal);
 
@@ -108,3 +111,29 @@ bool UNTTalComponent::SpawnDefaultTal(TSubclassOf<ATalBase> TalClass)
 
 	return true;
 }
+
+void UNTTalComponent::ApplyTalWearScale()
+{
+	ATalBase* Tal = GetCurrentTal();
+	USceneComponent* TalRoot = IsValid(Tal) ? Tal->GetRootComponent() : nullptr;
+
+	if (!TalRoot) return;
+
+	// 탈 자체 크기가 아니라 착용자 기준으로 통일합니다.
+	TalRoot->SetRelativeScale3D(TalWearScale);
+}
+
+#if WITH_EDITOR
+void UNTTalComponent::PostEditChangeProperty(
+	FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// 디테일 패널에서 값을 바꾸면 쓰고 있는 탈에 바로 반영합니다.
+	if (PropertyChangedEvent.GetMemberPropertyName()
+		== GET_MEMBER_NAME_CHECKED(UNTTalComponent, TalWearScale))
+	{
+		ApplyTalWearScale();
+	}
+}
+#endif

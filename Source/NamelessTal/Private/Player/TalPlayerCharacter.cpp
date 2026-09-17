@@ -39,7 +39,6 @@
 #include "TalBase.h"
 #include "Components/NTTalComponent.h"
 #include "NPC/Components/NTTalChiTargetComponent.h"
-#include "DrawDebugHelpers.h"//디버그용
 
 //무기헤더
 #include "Player/TalWeapon.h"
@@ -206,6 +205,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 
 	UpdateTalchiCamera();
 	UpdateTalchiMaskApproach();
+	UpdateTalchiMaskPreview();
 
 	if (bIsLockOnActive && !bParryCameraMoving && !bIsTalchiInProgress)
 	{
@@ -1117,7 +1117,13 @@ void ATalPlayerCharacter::OnWeaponOverlap(
 
 		// 스킬로 죽이면 NPC가 이 값으로 날아가게
 		DamageData.LaunchImpulse = ComputeSpecialArtLaunchImpulse(OtherActor);
+
+		// 안 죽었으면 이값으로밀려나기
+		DamageData.PushBackVelocity = ComputePushBackVelocity(OtherActor,
+			CurrentSpecialArtData.PushBackSpeed);
+
 		DamageResult = NPCCharacter->ApplyDamage(this, DamageData);
+
 	}
 	else
 	{
@@ -1199,7 +1205,8 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
 		|| bIsDodging
 		|| bIsUsingFlask
 		|| bIsUsingSpecialArt
-		|| bIsLandingRecovering)
+		|| bIsLandingRecovering
+		|| bTalchiPreviewActive)
 	{
 		return;
 	}
@@ -1235,40 +1242,7 @@ void ATalPlayerCharacter::TakeTalFrom(AActor* TargetActor)
     // 아래부터는 기존 코드를 유지합니다.
 
 	const FTransform TargetTransform = TargetPoint->GetTalchiTransform();
-	const FVector TargetLocation = TargetTransform.GetLocation();
 
-	///////////////////////
-	//디버그용이랑 지울것들
-	DrawDebugSphere(
-		GetWorld(),
-		TargetLocation,
-		15.0f,
-		12,
-		FColor::Green,
-		false,
-		2.0f
-	);
-	// 초록 화살표: 도착 후 바라볼 방향
-	DrawDebugDirectionalArrow(
-		GetWorld(),
-		TargetLocation,
-		TargetLocation + TargetTransform.GetRotation().GetForwardVector() * 80.0f,
-		15.0f,
-		FColor::Green,
-		false,
-		2.0f,
-		0,
-		2.0f
-	);
-	UE_LOG(
-		LogTemp,
-		Log,
-		TEXT("TalChi selected: %s / Position: %s"),
-		*GetNameSafe(TargetActor),
-		*TargetLocation.ToString()
-	);
-
-	/////////////////////////////////
 	//탈취 몽타주 시작
 	static const FName TalchiWarpTargetName(TEXT("TalchiTarget"));
 
@@ -1722,6 +1696,25 @@ FVector ATalPlayerCharacter::ComputeSpecialArtLaunchImpulse(const AActor* Target
 	return Dir.GetSafeNormal() * SpecialArtLaunchPower;
 }
 
+FVector ATalPlayerCharacter::ComputePushBackVelocity(const AActor* Target, float Speed) const
+{
+	if (!Target || Speed <= 0.0f)
+	{
+		return FVector::ZeroVector;
+	}
+
+	//플레이어->NPC 방향으로 때리느 방향
+	FVector Dir = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+
+	// 완전히 겹쳐서 방향을 못 구하면 정면으로 밀어낸다
+	if (Dir.IsNearlyZero())
+	{
+		Dir = GetActorForwardVector().GetSafeNormal2D();
+	}
+
+	return Dir * Speed; // Z는 이미 0이니까 괜찮다에요
+}
+
 void ATalPlayerCharacter::BeginSpecialArtHit(int32 ComboCount)
 {
 	if (!bIsUsingSpecialArt ||
@@ -1757,6 +1750,7 @@ void ATalPlayerCharacter::BeginSpecialArtHit(int32 ComboCount)
 	CurrentSpecialArtData.HPDamage = StepData->HPDamage;
 	CurrentSpecialArtData.SoulDamage = StepData->SoulDamage;
 	CurrentSpecialArtData.StaggerDamage = StepData->StaggerDamage;
+	CurrentSpecialArtData.PushBackSpeed = StepData->PushBackSpeed;
 
 	CurrentSpecialArtComboCount = ComboCount;
 	bIsSpecialArtHitActive = true;
@@ -2652,58 +2646,6 @@ void ATalPlayerCharacter::StartVictimTalchiMontage()
 
 	MC_LOG(LogSY, Warning, TEXT("적탈취 모션 시작"));
 }
-void ATalPlayerCharacter::TransferSelectedTal()
-{
-	if (!bIsTalchiInProgress)
-	{
-		return;
-	}
-	if (!IsValid(TalComponent) || !SelectedTalChiTarget.IsValid()) return;
-
-	AActor* TargetActor = SelectedTalChiTarget->GetOwner();
-
-	if (!IsValid(TargetActor)) return;
-
-	UNTTalComponent* TargetTalComponent = TargetActor->FindComponentByClass<UNTTalComponent>();
-
-	if (!IsValid(TargetTalComponent)) return;
-
-	ATalBase* TargetTal = TargetTalComponent->GetCurrentTal();
-
-	if (!IsValid(TargetTal)) return;
-
-	ATalBase* OldPlayerTal = TalComponent->UnequipTal();
-	ATalBase* StolenTal = TargetTalComponent->UnequipTal();
-
-	if (!IsValid(StolenTal))
-	{
-		if (IsValid(OldPlayerTal))
-		{
-			TalComponent->EquipTal(OldPlayerTal);
-		}
-
-		return;
-	}
-
-	if (TalComponent->EquipTal(StolenTal))
-	{
-		if (IsValid(OldPlayerTal))
-		{
-			OldPlayerTal->Destroy();
-		}
-
-		return;
-	}
-
-	const bool bEnemyRestored = TargetTalComponent->EquipTal(StolenTal);
-
-	bool bPlayerRestored = true;
-	if (IsValid(OldPlayerTal))
-	{
-		bPlayerRestored = TalComponent->EquipTal(OldPlayerTal);
-	}
-}
-
 void ATalPlayerCharacter::GrabSelectedTalToHand()
 {
 	if (!bIsTalchiInProgress)
@@ -3072,7 +3014,7 @@ void ATalPlayerCharacter::OnTalchiMontageEnded(
 
 void ATalPlayerCharacter::EnterTalchiFirstPerson()
 {
-	if (!bIsTalchiInProgress || bTalchiFirstPersonActive || !IsLocallyControlled()
+	if ((!bIsTalchiInProgress && !bTalchiPreviewActive) || bTalchiFirstPersonActive || !IsLocallyControlled()
 		|| !IsValid(TalchiCamera) || !IsValid(FollowCamera) || !IsValid(GetMesh()))
 	{
 		return;
@@ -3104,13 +3046,25 @@ void ATalPlayerCharacter::EnterTalchiFirstPerson()
 	}
 	if (IsValid(WeaponMesh)) WeaponMesh->SetOwnerNoSee(true);
 
-	// 교체될 예전 오른쪽 탈을 치워 빼앗은 탈이 들어올 자리를 비웁니다.
-	HideTalchiFaceMask();
+	if (!bTalchiPreviewActive)
+	{
+		// 교체될 예전 오른쪽 탈을 치워 빼앗은 탈이 들어올 자리를 비웁니다.
+		HideTalchiFaceMask();
+	}
 
 	FollowCamera->Deactivate();
 	TalchiCamera->Activate();
 	BeginTalchiLeftMaskFraming();
-	BeginTalchiMaskApproach();
+
+	if (bTalchiPreviewActive)
+	{
+		// 미리보기에는 빼앗은 탈이 없으므로 지금 쓰고 있는 탈을 그 자리에 놓습니다.
+		SettleTalchiRightMask();
+	}
+	else
+	{
+		BeginTalchiMaskApproach();
+	}
 }
 
 // 기본 니어 클립이 10cm라 그보다 가까우면 탈이 잘려 보입니다.
@@ -3121,7 +3075,21 @@ FTransform ATalPlayerCharacter::GetTalchiRightMaskCoverTransform() const
 	FVector CoverOffset = TalchiRightMaskOffset;
 	CoverOffset.X = FMath::Max(CoverOffset.X, TalchiMaskMinCoverDistance);
 
-	return FTransform(TalchiRightMaskRotation, CoverOffset, TalchiRightMaskCoverScale3D);
+	return FTransform(
+		TalchiRightMaskRotation,
+		CoverOffset,
+		FVector(FMath::Max(0.01f, TalchiRightMaskScale)));
+}
+
+FTransform ATalPlayerCharacter::GetTalchiLeftMaskFrameTransform() const
+{
+	FVector LeftOffset = TalchiLeftMaskOffset;
+	LeftOffset.X = FMath::Max(LeftOffset.X, TalchiMaskMinCoverDistance);
+
+	return FTransform(
+		TalchiLeftMaskRotation,
+		LeftOffset,
+		TalchiLeftMaskSavedTransform.GetScale3D() * FMath::Max(0.01f, TalchiLeftMaskScale));
 }
 
 void ATalPlayerCharacter::BeginTalchiLeftMaskFraming()
@@ -3139,13 +3107,7 @@ void ATalPlayerCharacter::BeginTalchiLeftMaskFraming()
 
 	bTalchiLeftMaskFramed = true;
 
-	FVector LeftOffset = TalchiLeftMaskOffset;
-	LeftOffset.X = FMath::Max(LeftOffset.X, TalchiMaskMinCoverDistance);
-
-	LeftTalMesh->SetRelativeTransform(FTransform(
-		TalchiLeftMaskRotation,
-		LeftOffset,
-		TalchiLeftMaskSavedTransform.GetScale3D() * FMath::Max(0.01f, TalchiLeftMaskScale)));
+	LeftTalMesh->SetRelativeTransform(GetTalchiLeftMaskFrameTransform());
 }
 
 void ATalPlayerCharacter::RestoreTalchiLeftMask()
@@ -3167,6 +3129,8 @@ void ATalPlayerCharacter::SettleTalchiRightMask()
 	ATalBase* Mask = GetCurrentTal();
 	USceneComponent* MaskRoot = IsValid(Mask) ? Mask->GetRootComponent() : nullptr;
 	if (!MaskRoot) return;
+
+	TalchiRightMaskSavedScale3D = MaskRoot->GetRelativeScale3D();
 
 	// 장착 때문에 얼굴 소켓으로 끌려간 탈을 연출 구도로 되돌립니다.
 	if (!Mask->AttachToComponent(
@@ -3191,6 +3155,73 @@ void ATalPlayerCharacter::RestoreTalchiRightMask()
 		GetMesh(),
 		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 		TalComponent->GetTalSocketName());
+
+	// 연출용으로 덮어썼던 스케일을 되돌립니다.
+	if (USceneComponent* MaskRoot = Mask->GetRootComponent())
+	{
+		MaskRoot->SetRelativeScale3D(TalchiRightMaskSavedScale3D);
+	}
+}
+
+void ATalPlayerCharacter::UpdateTalchiMaskPreview()
+{
+	if (!bTalchiPreviewActive) return;
+
+	// 미리보기 중에는 디테일 패널에서 바꾼 값이 바로 보이도록 매 프레임 다시 적용합니다.
+	if (bTalchiLeftMaskFramed && IsValid(LeftTalMesh))
+	{
+		LeftTalMesh->SetRelativeTransform(GetTalchiLeftMaskFrameTransform());
+	}
+
+	if (!bTalchiRightMaskSettled) return;
+
+	ATalBase* Mask = GetCurrentTal();
+	USceneComponent* MaskRoot = IsValid(Mask) ? Mask->GetRootComponent() : nullptr;
+	if (!MaskRoot) return;
+
+	MaskRoot->SetRelativeTransform(GetTalchiRightMaskCoverTransform());
+}
+
+void ATalPlayerCharacter::NTPreviewTalchiMask()
+{
+	if (bTalchiPreviewActive)
+	{
+		bTalchiPreviewActive = false;
+		RestoreTalchiFirstPerson();
+
+		MC_LOG(LogSY, Warning, TEXT("탈 미리보기 종료"));
+		return;
+	}
+
+	// 실제 탈취 연출과 겹치면 양쪽 복구가 서로 꼬입니다.
+	if (bIsTalchiInProgress || bTalchiFirstPersonActive)
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈 미리보기 실패: 탈취 연출이 진행 중입니다"));
+		return;
+	}
+
+	// 오른쪽 자리에는 지금 쓰고 있는 탈을 세워 구도를 확인합니다.
+	if (!IsValid(GetCurrentTal()))
+	{
+		MC_LOG(LogSY, Warning, TEXT("탈 미리보기 실패: 착용 중인 탈이 없습니다"));
+		return;
+	}
+
+	bTalchiPreviewActive = true;
+	EnterTalchiFirstPerson();
+
+	if (!bTalchiFirstPersonActive)
+	{
+		// 진입에 실패했다면 상태를 남기지 않습니다.
+		bTalchiPreviewActive = false;
+
+		MC_LOG(LogSY, Warning, TEXT("탈 미리보기 실패: 1인칭 진입에 실패했습니다"));
+		return;
+	}
+
+	UpdateTalchiMaskPreview();
+
+	MC_LOG(LogSY, Warning, TEXT("탈 미리보기 시작"));
 }
 
 void ATalPlayerCharacter::BeginTalchiMaskApproach()
@@ -3215,8 +3246,6 @@ void ATalPlayerCharacter::BeginTalchiMaskApproach()
 
 	TalchiApproachMask = Mask;
 	TalchiMaskApproachStart = MaskRoot->GetRelativeTransform();
-	TalchiRightMaskCoverScale3D =
-		TalchiMaskApproachStart.GetScale3D() * FMath::Max(0.01f, TalchiRightMaskScale);
 	TalchiMaskApproachStartTime = GetWorld()->GetRealTimeSeconds();
 	bTalchiMaskApproachActive = true;
 
