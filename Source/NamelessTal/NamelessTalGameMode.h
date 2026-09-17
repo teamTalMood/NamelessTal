@@ -14,6 +14,7 @@ class UNTCutsceneWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterRespawn, ENTRespawnPointEnum, OnMonsterRespawn);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCutsceneSequenceEnded);
+DECLARE_DELEGATE(FOnStartBossGame);
 
 /**
  *  Simple GameMode for a third person game
@@ -34,7 +35,16 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Events")
 	FOnCutsceneSequenceEnded OnCutsceneSequenceEnded;
 
+	// 보스방 입장 시퀀스 종료 시 호출. ATalPlayerController에서 바인딩
+	FOnStartBossGame OnStartBossGame;
+
 	void RespawnAllMonsters();
+
+	// 보스 HP 변경을 ATalPlayerController로 전달
+	void NotifyBossHPChanged(float CurrentHP, float MaxHP);
+
+	// 보스 넋 변경을 ATalPlayerController로 전달
+	void NotifyBossSoulChanged(float CurrentSoul, float MaxSoul);
 
 	void SetCurrentSavePoint(ENTRespawnPointEnum InCurrentSavePoint) { CurrentRespawnPoint = InCurrentSavePoint; }
 	const ENTRespawnPointEnum GetCurrentSavePoint() { return CurrentRespawnPoint; }

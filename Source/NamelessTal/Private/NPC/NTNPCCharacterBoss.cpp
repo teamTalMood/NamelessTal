@@ -6,6 +6,7 @@
 #include "Game/NTGameDataSingleton.h"
 #include "Stat/StatComponent.h"
 #include "NamelessTalGameMode.h"
+#include "NPC/Components/NTHPWidgetComponent.h"
 
 //AI
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -68,6 +69,9 @@ void ANTNPCCharacterBoss::BeginPlay()
 		GameMode->OnCutsceneSequenceEnded.AddDynamic(this, &ANTNPCCharacterBoss::StartNextPhase);
 	}
 
+	StatComponent->OnHPChanged.AddUniqueDynamic(this, &ANTNPCCharacterBoss::NotifyGameModeHPChanged);
+	StatComponent->OnSoulChanged.AddUniqueDynamic(this, &ANTNPCCharacterBoss::NotifyGameModeSoulChanged);
+
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];
 	StatComponent->RestoreFull();
 	StatComponent->SetSoulRegenBlocked(true);
@@ -108,7 +112,7 @@ void ANTNPCCharacterBoss::SetPartsScalarParameter(FName ParamName, float Value)
 
 void ANTNPCCharacterBoss::StartBossSequence(UAnimMontage* TargetMontage, bool IsProperlyEnded)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	switch (CurrentPhase)
 	{
@@ -129,7 +133,7 @@ void ANTNPCCharacterBoss::StartBossSequence(UAnimMontage* TargetMontage, bool Is
 	}
 
 	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
-	MC_LOG(LogMC, Log, TEXT("EnumValue : %s"), *EnumString);
+	//MC_LOG(LogMC, Log, TEXT("EnumValue : %s"), *EnumString);
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{
@@ -137,9 +141,17 @@ void ANTNPCCharacterBoss::StartBossSequence(UAnimMontage* TargetMontage, bool Is
 	}
 }
 
+void ANTNPCCharacterBoss::SetupCharacterWidget(UNTHPBarWidget* InUserWidget)
+{
+	if (HpBar)
+	{
+		HpBar->SetVisibility(false);
+	}
+}
+
 float ANTNPCCharacterBoss::ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	float ResultDamage = Super::ApplyDamage(DamageCauser, InDamageData);
 
@@ -185,7 +197,7 @@ TArray<FNPCAttackPatternSelectData>& ANTNPCCharacterBoss::GetAttackPatternDatas(
 
 void ANTNPCCharacterBoss::HandleDeath()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (bIsDead)
 	{
@@ -209,6 +221,12 @@ void ANTNPCCharacterBoss::HandleDeath()
 
 	StopCurrentPlayMontage();
 
+	if (CurrentPhase != EBossPhase::Third)
+	{
+		StartBossSequence(nullptr, false);
+		return;
+	}
+
 	if (DeathMontage)
 	{
 		if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
@@ -220,17 +238,27 @@ void ANTNPCCharacterBoss::HandleDeath()
 			AnimInstance->Montage_SetEndDelegate(EndDelegate, DeathMontage);
 		}
 	}
-	else
-	{
-		MC_LOG(LogSY, Warning, TEXT("DeathMontage is not assigned : %s"), *GetName());
-	}
+}
 
-	MC_LOG(LogSY, Warning, TEXT("NPC DEAD : %s"), *GetName());
+void ANTNPCCharacterBoss::NotifyGameModeHPChanged(float NewHP, float MaxHP)
+{
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->NotifyBossHPChanged(NewHP, MaxHP);
+	}
+}
+
+void ANTNPCCharacterBoss::NotifyGameModeSoulChanged(float NewSoul, float MaxSoul)
+{
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->NotifyBossSoulChanged(NewSoul, MaxSoul);
+	}
 }
 
 void ANTNPCCharacterBoss::StartNextPhase()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CurrentPhase == EBossPhase::End)
 	{
@@ -262,7 +290,7 @@ void ANTNPCCharacterBoss::StartNextPhase()
 	}
 
 	FString EnumString = StaticEnum<EBossPhase>()->GetNameByValue(static_cast<int64>(CurrentPhase)).ToString();
-	MC_LOG(LogMC, Log, TEXT("End : %s"), *EnumString);
+	//MC_LOG(LogMC, Log, TEXT("End : %s"), *EnumString);
 }
 
 void ANTNPCCharacterBoss::BeginAttack()

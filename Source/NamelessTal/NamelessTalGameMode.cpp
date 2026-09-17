@@ -12,6 +12,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Player/UI/NTCutsceneWidget.h"
+#include "Player/TalPlayerController.h"
 
 ANamelessTalGameMode::ANamelessTalGameMode()
 {
@@ -28,7 +29,7 @@ void ANamelessTalGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (CutsceneSound && CutsceneMediaPlayer)
 	{
@@ -38,7 +39,7 @@ void ANamelessTalGameMode::BeginPlay()
 
 void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	if (!CutsceneMediaPlayer || !Source || !CutsceneWidgetClass)
 	{
@@ -80,7 +81,7 @@ void ANamelessTalGameMode::PlayCutscene(UMediaSource* Source)
 
 void ANamelessTalGameMode::BossPhaseStarted(EBossPhase InPhase)
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	switch (InPhase)
 	{
@@ -156,12 +157,30 @@ void ANamelessTalGameMode::EndCutscene()
 	{
 		OnMonsterRespawn.Broadcast(ENTRespawnPointEnum::Boss);
 		bIsBossStartSequence = false;
+
+		OnStartBossGame.ExecuteIfBound();
+	}
+}
+
+void ANamelessTalGameMode::NotifyBossHPChanged(float CurrentHP, float MaxHP)
+{
+	if (ATalPlayerController* PC = Cast<ATalPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+	{
+		PC->UpdateBossHP(CurrentHP, MaxHP);
+	}
+}
+
+void ANamelessTalGameMode::NotifyBossSoulChanged(float CurrentSoul, float MaxSoul)
+{
+	if (ATalPlayerController* PC = Cast<ATalPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+	{
+		PC->UpdateBossSoul(CurrentSoul, MaxSoul);
 	}
 }
 
 void ANamelessTalGameMode::RespawnAllMonsters()
 {
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	TArray<AActor*> Monsters;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ANTNPCCharacterBase::StaticClass(), Monsters);
