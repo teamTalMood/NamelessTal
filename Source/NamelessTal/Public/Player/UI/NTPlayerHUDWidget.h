@@ -30,6 +30,12 @@ public:
 
 	void ShowWidgetMessage(const FText& Title, const FText& Body, float Duration);
 
+	// 사망 시 화면을 검게 덮는다. 부활할 때까지 유지된다
+	void ShowDeathScreen();
+
+	// 부활 시 검정을 걷어낸다
+	void HideDeathScreen();
+
 	// 게임 시작(NativeConstruct) 시 호출. PB_Boss_HP를 찾아 BossHPBarWidget 초기화, Collapsed로 숨겨둠
 	void InitBossHPBar();
 
@@ -61,6 +67,14 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Txt_FlaskCount;
 
+	// 사망 시 화면을 덮는 검정. 계층에서 HUD 요소들보다 아래(= 위에 그려지는 쪽)에 둔다
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> Img_DeathFade;
+
+	// 없으면 페이드 없이 즉시 전환된다. 나중에 만들면 자동으로 적용됨
+	UPROPERTY(meta = (BindWidgetAnimOptional), Transient)
+	TObjectPtr<UWidgetAnimation> Anim_DeathFade;
+
 	UPROPERTY()
 	TObjectPtr<class UNTMessageWidget> WDG_Message;
 
@@ -89,4 +103,7 @@ private:
 	void HandleFlaskCountChanged(int32 NewCount, int32 MaxCount);
 
 	void RefreshAll();
+
+	// 페이드 아웃 끝난뒤 검정을 Collapsed로 되돌리기 위한 타이머
+	FTimerHandle DeathFadeTimer;
 };

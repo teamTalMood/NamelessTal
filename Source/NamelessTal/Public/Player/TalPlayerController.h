@@ -76,6 +76,12 @@ public: // UI
 	// 지역 트리거 이탈 시 호출
 	void HideAreaNotice();
 
+	// 사망 시 화면 암전. 부활할 때까지 유지된다
+	void ShowDeathScreen();
+
+	// 부활 시 암전 해제
+	void HideDeathScreen();
+
 	void SetControllerSettings(ATalPlayerCharacter* InPawn = nullptr);
 
 public: // Boss HP
