@@ -28,6 +28,7 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+
 protected:
 	// Collision 겹침 감지 용도 (상호 작용 가능 거리)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
@@ -42,6 +43,18 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Interact")
 	ENTRespawnPointEnum FireSavePoint = ENTRespawnPointEnum::StartPoint;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Interact")
+	TSubclassOf<class UNTDdokaebiFireWidget> RestMenuClass;
+
+	// 화면에 띄울 장소 이름. 예: 사찰 입구
+	UPROPERTY(EditAnywhere, Category = "Interact")
+	FText LocationName;
+
+	UPROPERTY()
+	TObjectPtr<class UNTDdokaebiFireWidget> RestMenu;
+
+	void OpenRestMenu();
 
 protected:
 	// 화톳불안에 누가 있는지 기억하는 변수

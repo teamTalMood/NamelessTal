@@ -11,6 +11,8 @@
 #include "Player/UI/NTMessageWidget.h"
 #include "NamelessTalGameMode.h"
 #include "MCLOG.h"
+#include "EnhancedInputComponent.h"
+#include "Player/UI/NTPauseMenuWidget.h"
 
 
 void ATalPlayerController::BeginPlay()
@@ -123,6 +125,15 @@ void ATalPlayerController::UpdateBossHP(float CurrentHP, float MaxHP)
 {
 	if (!IsValid(PlayerHUD)) return;
 
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		if (PauseAction)
+		{
+			EIC->BindAction(PauseAction, ETriggerEvent::Started,
+				this, &ATalPlayerController::TogglePauseMenu);
+		}
+	}
+
 	PlayerHUD->UpdateBossHPBar(CurrentHP, MaxHP);
 }
 
@@ -132,3 +143,27 @@ void ATalPlayerController::UpdateBossSoul(float CurrentSoul, float MaxSoul)
 
 	PlayerHUD->UpdateBossSoulBar(CurrentSoul, MaxSoul);
 }
+
+void ATalPlayerController::TogglePauseMenu()
+{
+	if (PauseMenu && PauseMenu->IsInViewport())
+	{
+		PauseMenu->CloseMenu();
+		return;
+	}
+
+	if (!PauseMenu)
+	{
+		if (!PauseMenuClass)
+		{
+			return;
+		}
+		PauseMenu = CreateWidget<UNTPauseMenuWidget>(this, PauseMenuClass);
+	}
+
+	if (PauseMenu)
+	{
+		PauseMenu->OpenMenu();
+	}
+}
+
