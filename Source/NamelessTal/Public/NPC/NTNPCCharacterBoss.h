@@ -9,6 +9,7 @@
 #include "NTNPCCharacterBoss.generated.h"
 
 class ANTOkJangPan;
+class ATalBase;
 
 USTRUCT(BlueprintType)
 struct FNPCAttackPatternList
@@ -36,6 +37,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 	virtual float ApplyDamage(AActor* DamageCauser, const FNPCApplyDamageData InDamageData) override;
@@ -56,6 +58,21 @@ protected:
 	TMap<EBossPhase, int32> PhaseHP;
 
 	EBossPhase CurrentPhase = EBossPhase::First;
+
+	// 얼굴에 붙어 있지만 아직 탈취 대상으로 등록하지 않은 왼쪽 탈입니다.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Tal")
+	TSubclassOf<ATalBase> LeftTalClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Tal")
+	FName LeftTalSocketName = TEXT("BossTalSocket_L");
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Boss|Tal")
+	FVector LeftTalWearScale = FVector::OneVector;
+
+	UPROPERTY(Transient)
+	TObjectPtr<ATalBase> WaitingLeftTal;
+
+	void SpawnWaitingLeftTal();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AOE")
 	TSubclassOf<ANTOkJangPan> OkJangPanClass;
