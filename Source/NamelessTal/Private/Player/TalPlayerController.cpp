@@ -9,6 +9,7 @@
 #include "Player/TalPlayerCharacter.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
+#include "NamelessTalGameMode.h"
 #include "MCLOG.h"
 
 
@@ -16,7 +17,7 @@ void ATalPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	MC_LOG(LogMC, Log, TEXT("Begin"));
+	//MC_LOG(LogMC, Log, TEXT("Begin"));
 
 	SetControllerSettings(nullptr);
 }
@@ -100,5 +101,34 @@ void ATalPlayerController::SetControllerSettings(ATalPlayerCharacter* InPawn)
 	PlayerHUD->InitializeWithStatComponent(StatComponent);
 	PlayerHUD->InitializeWithTalComponent(TalCharacter->GetTalComponent());
 
+	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		GameMode->OnStartBossGame.BindUObject(this, &ATalPlayerController::HandleStartBossGame);
+		MC_LOG(LogMC, Log, TEXT("OnStartBossGame Binded"));
+	}
+
 	bISControllerSetted = true;
+}
+
+void ATalPlayerController::HandleStartBossGame()
+{
+	if (!IsValid(PlayerHUD)) return;
+
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	PlayerHUD->InitBossHPBar();
+}
+
+void ATalPlayerController::UpdateBossHP(float CurrentHP, float MaxHP)
+{
+	if (!IsValid(PlayerHUD)) return;
+
+	PlayerHUD->UpdateBossHPBar(CurrentHP, MaxHP);
+}
+
+void ATalPlayerController::UpdateBossSoul(float CurrentSoul, float MaxSoul)
+{
+	if (!IsValid(PlayerHUD)) return;
+
+	PlayerHUD->UpdateBossSoulBar(CurrentSoul, MaxSoul);
 }

@@ -1,9 +1,10 @@
 #include "Player/UI/NTPlayerHUDWidget.h"
-
+#include "MCLOG.h"
 #include "Components/ProgressBar.h"
 #include "Stat/StatComponent.h"
 #include "Player/UI/NTMessageWidget.h"
 #include "Player/UI/NTTalIconWidget.h"
+#include "NPC/Components/NTHPBarWidget.h"
 
 
 void UNTPlayerHUDWidget::NativeConstruct()
@@ -61,6 +62,38 @@ void UNTPlayerHUDWidget::ShowWidgetMessage(const FText& Title, const FText& Body
 	}
 
 	WDG_Message->Show(Title, Body, Duration);
+}
+
+void UNTPlayerHUDWidget::InitBossHPBar()
+{
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	BossHPBarWidget = Cast<UNTHPBarWidget>(GetWidgetFromName(TEXT("PB_Boss_HP")));
+
+	if (IsValid(BossHPBarWidget))
+	{
+		BossHPBarWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+	}
+	else
+	{
+		MC_LOG(LogMC, Error, TEXT("No PB_Boss_HP widget found!!"));
+	}
+}
+
+void UNTPlayerHUDWidget::UpdateBossHPBar(float CurrentHP, float MaxHP)
+{
+	if (!IsValid(BossHPBarWidget)) return;
+
+	MC_LOG(LogMC, Log, TEXT("Begin"));
+
+	BossHPBarWidget->UpdateHpBar(CurrentHP, MaxHP);
+}
+
+void UNTPlayerHUDWidget::UpdateBossSoulBar(float CurrentSoul, float MaxSoul)
+{
+	if (!IsValid(BossHPBarWidget)) return;
+
+	BossHPBarWidget->UpdateSoulBar(CurrentSoul, MaxSoul);
 }
 
 void UNTPlayerHUDWidget::HandleHPChanged(float NewHP, float MaxHP)
