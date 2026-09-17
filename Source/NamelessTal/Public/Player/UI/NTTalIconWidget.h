@@ -10,6 +10,8 @@ class UImage;
 class UTexture2D;
 class UNTTalComponent;
 class ATalBase;
+class UTextBlock;
+class ATalPlayerCharacter;
 
 /**
  * 
@@ -33,9 +35,19 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<class UImage> Image_RightTal;
 
+	// WBP에 같은 이름의 Text를 추가하면 연결됩니다.
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> Text_RemainingUses;
+
 private :
 	UPROPERTY()
 	TObjectPtr<UNTTalComponent> TalComponent;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ATalPlayerCharacter> TalOwnerCharacter;
+
+	UFUNCTION()
+	void RefreshRemainingUses();
 
 	UFUNCTION()
 	void HandleTalChanged(ATalBase* NewTal);

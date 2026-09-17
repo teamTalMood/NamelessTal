@@ -1156,11 +1156,51 @@ void ATalPlayerCharacter::OnWeaponOverlap(
 }
 void ATalPlayerCharacter::EquipTal(ATalBase* NewTal)
 {
-	if (TalComponent)
+	if (!IsValid(TalComponent)) return;
+
+	ATalBase* PreviousTal = TalComponent->GetCurrentTal();
+	if (TalComponent->EquipTal(NewTal) && PreviousTal != NewTal)
 	{
-		TalComponent->EquipTal(NewTal);
+		ResetTalUses();
 	}
+}
+
+int32 ATalPlayerCharacter::GetRemainingSpecialArtUses() const
+{
+	ATalBase* Tal = GetCurrentTal();
+	if (!IsValid(Tal)) return 0;
+
+	const FNTPlayerSpecialArtData* ArtData =
+		UNTGameDataSingleton::Get().GetPlayerSpecialArt(Tal->GetSpecialArtID());
+	return ArtData ? FMath::Max(0, ArtData->UseLimit - SpecialArtUseCount) : 0;
+}
+
+void ATalPlayerCharacter::ResetTalUses()
+{
 	SpecialArtUseCount = 0;
+	PendingConsumedTal.Reset();
+	OnSpecialArtUsesChanged.Broadcast();
+}
+
+void ATalPlayerCharacter::RemoveConsumedTal()
+{
+	ATalBase* TalToRemove = PendingConsumedTal.Get();
+	PendingConsumedTal.Reset();
+
+	if (!IsValid(TalToRemove) || !IsValid(TalComponent)
+		|| TalComponent->GetCurrentTal() != TalToRemove)
+	{
+		return;
+	}
+
+	ATalBase* RemovedTal = TalComponent->UnequipTal();
+	if (IsValid(RemovedTal))
+	{
+		RemovedTal->Destroy();
+	}
+
+	SpecialArtUseCount = 0;
+	OnSpecialArtUsesChanged.Broadcast();
 }
 
 ATalBase* ATalPlayerCharacter::GetCurrentTal() const
@@ -1660,7 +1700,12 @@ bool ATalPlayerCharacter::TryUseSpecialAttack(bool bFreeUse)
 	if (!bFreeUse)
 	{
 		++SpecialArtUseCount;
+		if (SpecialArtUseCount >= ArtData->UseLimit)
+		{
+			PendingConsumedTal = MyTal;
+		}
 		StatComponent->DrainSoul(SoulCost);
+		OnSpecialArtUsesChanged.Broadcast();
 	}
 
 	return true;
@@ -1858,6 +1903,7 @@ void ATalPlayerCharacter::ResetSpecialArtState()
 	CurrentSpecialArtMontage = nullptr;
 	CurrentSpecialArtComboCount = INDEX_NONE;
 	CurrentSpecialArtData = FPlayerCurrentSpecialArtData{};
+	RemoveConsumedTal();
 }
 
 void ATalPlayerCharacter::RecoverSoul(float Amount)
@@ -2722,7 +2768,7 @@ void ATalPlayerCharacter::EquipHeldTalToFace()
 	HeldStolenTal = nullptr;
 	HeldTalVictim.Reset();
 
-	SpecialArtUseCount = 0;
+	ResetTalUses();
 
 	if (IsValid(OldPlayerTal))
 	{
