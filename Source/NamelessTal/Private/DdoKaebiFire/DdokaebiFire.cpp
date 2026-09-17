@@ -69,6 +69,7 @@ void ADdokaebiFire::TriggerRest(AActor* User)
 
 	if (ANamelessTalGameMode* GameMode = Cast<ANamelessTalGameMode>(GetWorld()->GetAuthGameMode()))
 	{
+		GameMode->SetCurrentSavePoint(FireSavePoint);
 		GameMode->RespawnAllMonsters();
 	}
 

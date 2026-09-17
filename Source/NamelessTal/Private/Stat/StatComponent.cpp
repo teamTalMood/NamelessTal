@@ -168,7 +168,7 @@ void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		return;
 	}
 
-	if (bIsGroggy && GetWorld()->GetTimeSeconds() >= GroggyEndTime)
+	if (bIsPlayer && bIsGroggy && GetWorld()->GetTimeSeconds() >= GroggyEndTime)
 	{
 		EndGroggy();
 	}
