@@ -110,6 +110,9 @@ public: //넋 관련 설정
 	// 그로기 중 피격 시 호출 -> 그로기 조기 해제
 	void NotifyHitDuringGroggy();
 
+	// NPC 그로기 종료: 자연 회복 차단은 유지하고 넋과 고갈 상태를 함께 복구합니다.
+	void EndNPCGroggy();
+
 	// 비전투 상태 시 넋 회복
 	void NotifyCombatAction();
 

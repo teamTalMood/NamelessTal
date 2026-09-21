@@ -2,6 +2,7 @@
 
 
 #include "NPC/NTNPCCharacterBoss.h"
+#include "NPC/Animations/NTNPCAnimInstance.h"
 #include "MCLOG.h"
 #include "Game/NTGameDataSingleton.h"
 #include "Stat/StatComponent.h"
@@ -11,6 +12,7 @@
 #include "Components/NTTalComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 
 //AI
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -364,6 +366,19 @@ void ANTNPCCharacterBoss::StartNextPhase()
 	if (CurrentPhase == EBossPhase::End)
 	{
 		return;
+	}
+
+	// 이전 페이즈에서 남은 그로기 타이머와 탈취 회복 잠금을 정리합니다.
+	GetWorldTimerManager().ClearTimer(ExhaustedTimerHandle);
+	bTalchiHeld = false;
+	bTalchiPausedExhaustedTimer = false;
+	bTalchiDeferredExhaustedEnd = false;
+	StatComponent->SetTalchiRecoveryPaused(false);
+
+	bIsExhausting = false;
+	if (UNTNPCAnimInstance* Anim = Cast<UNTNPCAnimInstance>(GetMesh()->GetAnimInstance()))
+	{
+		Anim->SetAnimIsExhausted(false);
 	}
 
 	StatComponent->MaxHP = PhaseHP[CurrentPhase];

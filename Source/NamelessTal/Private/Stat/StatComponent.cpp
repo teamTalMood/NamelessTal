@@ -152,6 +152,22 @@ void UStatComponent::NotifyHitDuringGroggy()
 	}
 }
 
+void UStatComponent::EndNPCGroggy()
+{
+	if (bTalchiRecoveryPaused)
+	{
+		return;
+	}
+
+	bIsGroggy = false;
+	bIsSoulExhausted = false;
+	GroggyEndTime = 0.0f;
+	TalchiRemainingGroggyTime = 0.0f;
+	CurrentSoul = MaxSoul * 0.3f;
+
+	OnSoulChanged.Broadcast(CurrentSoul, MaxSoul);
+}
+
 void UStatComponent::NotifyCombatAction()
 {
 	LastSoulDrainTime=GetWorld()->GetTimeSeconds();

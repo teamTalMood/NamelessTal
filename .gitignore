@@ -78,3 +78,10 @@ DerivedDataCache/*
 Content/Assets/*
 CLAUDE.md
 Config/UserEngine.ini
+
+# Packaged game builds (generated locally; publish as release artifacts instead)
+/GGGGGGGGG/
+/GGINGGINMAK/
+/GGinmak/
+/Packaged/
+/Packaged.zip

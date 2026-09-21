@@ -783,8 +783,8 @@ void ANTNPCCharacterBase::EndExhausted()
 		Anim->SetAnimIsExhausted(false);
 	}
 
-	StatComponent->CurrentSoul = StatComponent->MaxSoul * 0.3f;
 	bIsExhausting = false;
+	StatComponent->EndNPCGroggy();
 
 	FTimerHandle Handle;
 	GetWorldTimerManager().SetTimer(

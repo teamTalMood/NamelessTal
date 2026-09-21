@@ -20,6 +20,7 @@
 #include "InputActionValue.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Curves/CurveFloat.h"
 
@@ -195,6 +196,7 @@ void ATalPlayerCharacter::Tick(float DeltaTime)
 
 	//플레이어 표시 여부
 	UpdatePlayerCameraVisibility();
+	UpdateTalCameraVisibility();
 
 	//카메라 Pitch제한
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -2444,6 +2446,41 @@ void ATalPlayerCharacter::UpdatePlayerCameraVisibility()
 
 
 
+void ATalPlayerCharacter::UpdateTalCameraVisibility()
+{
+	if (!IsLocallyControlled()) return;
+
+	// 탈취 1인칭에서는 탈을 카메라 앞에 배치하므로 거리 숨김을 해제합니다.
+	const bool bHideTal = bHiddenByCameraDistance && !bTalchiFirstPersonActive;
+	if (IsValid(LeftTalMesh))
+	{
+		LeftTalMesh->SetOwnerNoSee(bHideTal);
+	}
+
+	const auto SetTalOwnerNoSee = [](ATalBase* Tal, bool bOwnerNoSee)
+	{
+		if (!IsValid(Tal)) return;
+
+		TInlineComponentArray<UPrimitiveComponent*> Primitives;
+		Tal->GetComponents(Primitives);
+		for (UPrimitiveComponent* Primitive : Primitives)
+		{
+			Primitive->SetOwnerNoSee(bOwnerNoSee);
+		}
+	};
+
+	ATalBase* CurrentTal = GetCurrentTal();
+	if (CameraVisibilityTal.Get() != CurrentTal)
+	{
+		// 교체되거나 분리된 탈에 이전 착용자의 숨김 상태가 남지 않게 합니다.
+		SetTalOwnerNoSee(CameraVisibilityTal.Get(), false);
+		CameraVisibilityTal = CurrentTal;
+	}
+
+	// 거리 상태가 그대로여도 새로 장착한 탈에는 즉시 반영해야 합니다.
+	SetTalOwnerNoSee(CurrentTal, bHideTal);
+}
+
 void ATalPlayerCharacter::HandleDeath()
 {
 	FinishTalchi();
@@ -3127,6 +3164,7 @@ void ATalPlayerCharacter::EnterTalchiFirstPerson()
 	bTalchiSavedHeadHidden = !TalchiHiddenHeadBone.IsNone()
 		&& GetMesh()->IsBoneHiddenByName(TalchiHiddenHeadBone);
 	bTalchiFirstPersonActive = true;
+	UpdateTalCameraVisibility();
 
 	GetMesh()->SetOwnerNoSee(false);
 	if (!TalchiHiddenHeadBone.IsNone() && !bTalchiSavedHeadHidden)
@@ -3427,6 +3465,7 @@ void ATalPlayerCharacter::RestoreTalchiFirstPerson()
 	RestoreTalchiLeftMask();
 	if (!bTalchiFirstPersonActive) return;
 	bTalchiFirstPersonActive = false;
+	UpdateTalCameraVisibility();
 
 	if (IsValid(GetMesh()))
 	{

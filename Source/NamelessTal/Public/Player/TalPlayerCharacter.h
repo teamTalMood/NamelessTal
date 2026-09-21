@@ -219,6 +219,7 @@ protected:
 	float PlayerShowDistance = 130.0f;
 
 	bool bHiddenByCameraDistance = false;
+	TWeakObjectPtr<ATalBase> CameraVisibilityTal;
 
 public: // Property Camera (카메라 속성)
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
@@ -237,6 +238,7 @@ protected: // Player Move and use CameraMovement use Mouse
 	void StopSprint(const FInputActionValue& Value);
 
 	void UpdatePlayerCameraVisibility();
+	void UpdateTalCameraVisibility();
 
 	////////////////////////////////////////
 	//
